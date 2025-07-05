@@ -80,9 +80,8 @@
             border-radius: 8px; font-size: 1em; cursor: pointer; transition: background-color 0.2s;
         }
         button:hover { background-color: #0056b3; }
-        #next-pair-button { margin-top: 20px; }
-
-        /* --- NEW: Mobile Responsive Styles --- */
+        
+        /* --- Mobile Responsive Styles --- */
         @media (max-width: 768px) {
             .sorter-container { flex-direction: column; }
             .drop-zone { width: 100%; height: 150px; margin-bottom: 15px; }
@@ -91,9 +90,9 @@
             nav a.brand { font-size: 1.2em; }
             .main-container { padding: 20px 15px; }
         }
-
     </style>
 </head>
+    
 <body>
 
     <nav>
@@ -107,7 +106,7 @@
             <!-- VIEW 1: Voting Area -->
             <div id="voting-area">
                 <h2>Tech Companies</h2>
-                <p>Which is more prickly or gooey? Drag one into a bucket.</p>
+                <p>Which is more prickly or gooey? Drag or tap an item, then a bucket.</p>
                 <div class="sorter-container">
                     <div id="gooey-zone" class="drop-zone"><h3>Gooey</h3></div>
                     <div id="draggable-items-start" class="draggable-items-start"></div>
@@ -120,17 +119,16 @@
                 <h1>Results</h1>
                 <div id="full-results-category-list" class="category-list">
                     <p>Select a category to see the results:</p>
-                    <!-- Category buttons will be loaded here -->
+                    <button data-category-id="tech_companies" class="category-button">Tech Companies</button>
                 </div>
                 <hr>
-                <div id="full-results-item-list">
-                    <!-- The list of all items in a category will be rendered here -->
-                </div>
+                <div id="full-results-item-list"></div>
             </div>
+            
             
             <!-- VIEW 3: About Area -->
             <div id="about-area" class="hidden">
-                <h1>What the heck is Prickles and Goo?!</h1>
+                <h1>About Prickles and Goo</h1>
                 <div class="about-section">
                     <p>I'm John, a UX / design researcher continually exploring ways to build. I'm sinspired by implicit ways of knowing and Alan Watts spoke of "Prickles" and "Goo," a lovely way to relate to just about anything. This site is an experiment in understanding what is more prickly and gooey based on collective voting. </p>
                     <div class="video-container">
@@ -166,42 +164,64 @@
         const db = firebase.firestore(app);
 
         // === 2. GLOBAL STATE & DOM ELEMENTS ===
-        const currentCategoryId = "tech_companies";
+        let currentCategoryId = "tech_companies";
         let itemA = null, itemB = null;
-        let selectedItemCard = null; // NEW: For tap interaction
+        let selectedItemCard = null;
 
-        // Views
         const allViews = document.querySelectorAll('#voting-area, #full-results-area, #about-area');
         const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('full-results-area'), aboutArea = document.getElementById('about-area');
         
-        // Voting elements
         const draggableStartContainer = document.getElementById('draggable-items-start');
         const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
         const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
         
-        // Results elements
-        const fullResultsCategoryList = document.getElementById('full-results-category-list');
         const fullResultsItemList = document.getElementById('full-results-item-list');
 
-        // === 2. GLOBAL STATE & DOM ELEMENTS ===
-        const currentCategoryId = "tech_companies";
-        let itemA = null, itemB = null;
-        let selectedItemCard = null; // NEW: For tap interaction
-
-        // Views
-        const allViews = document.querySelectorAll('#voting-area, #full-results-area, #about-area');
-        const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('full-results-area'), aboutArea = document.getElementById('about-area');
+        // === 3. CORE FUNCTIONS ===
+        function showView(viewToShow) {
+            const tempResults = document.getElementById('temp-results');
+            if (tempResults) tempResults.remove();
+            
+            allViews.forEach(view => view.classList.add('hidden'));
+            viewToShow.classList.remove('hidden');
+        }
         
-        // Voting elements
-        const draggableStartContainer = document.getElementById('draggable-items-start');
-        const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
-        const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
-        
-        // Results elements
-        const fullResultsCategoryList = document.getElementById('full-results-category-list');
-        const fullResultsItemList = document.getElementById('full-results-item-list');
+        async function loadNewPair() {
+            showView(votingArea);
+            selectedItemCard = null;
+            itemA_card.classList.remove('selected');
+            itemB_card.classList.remove('selected');
+            draggableStartContainer.appendChild(itemA_card);
+            draggableStartContainer.appendChild(itemB_card);
+            itemA_card.textContent = "Loading...";
+            itemB_card.textContent = "Loading...";
+            
+            const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
+            const snapshot = await itemsRef.get();
+            let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if(allItems.length < 2) { console.error("Not enough items."); return; }
+            allItems.sort(() => 0.5 - Math.random());
+            itemA = allItems[0];
+            itemB = allItems[1];
+            itemA_card.textContent = itemA.name;
+            itemB_card.textContent = itemB.name;
+        }
 
-        // --- NEW: Helper function to create a result element ---
+        async function handleVote(votedPricklyItem, votedGooeyItem) {
+            const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
+            const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
+            await Promise.all([
+                pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
+                gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
+            ]);
+            votedPricklyItem.pricklyVotes++;
+            votedGooeyItem.gooeyVotes++;
+            
+            const tempResultsContainer = createTemporaryResults(votedPricklyItem, votedGooeyItem);
+            votingArea.classList.add('hidden');
+            votingArea.parentNode.insertBefore(tempResultsContainer, votingArea.nextSibling);
+        }
+        
         function createResultElement(item) {
             const resultItemDiv = document.createElement('div');
             resultItemDiv.className = 'result-item';
@@ -235,8 +255,15 @@
             const tempResultsDiv = document.createElement('div');
             tempResultsDiv.id = 'temp-results';
             tempResultsDiv.innerHTML = '<h2>Results</h2>';
-            tempResultsDiv.appendChild(createResultElement(item1));
-            tempResultsDiv.appendChild(createResultElement(item2));
+            
+            if (item1.id === itemA.id) {
+                tempResultsDiv.appendChild(createResultElement(item1));
+                tempResultsDiv.appendChild(createResultElement(item2));
+            } else {
+                tempResultsDiv.appendChild(createResultElement(item2));
+                tempResultsDiv.appendChild(createResultElement(item1));
+            }
+            
             const nextButton = document.createElement('button');
             nextButton.textContent = 'Vote on Next Pair';
             nextButton.onclick = () => {
@@ -247,33 +274,23 @@
             return tempResultsDiv;
         }
 
-                async function loadFullResults(categoryId) {
+        async function loadFullResults(categoryId) {
             showView(resultsArea);
             fullResultsItemList.innerHTML = '<h3>Loading Results...</h3>';
             const itemsRef = db.collection('categories').doc(categoryId).collection('items');
             const snapshot = await itemsRef.get();
             const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // --- CHANGE #1: Sort by most gooey (descending gooey percentage) ---
             allItems.sort((a, b) => {
-                const totalVotesA = a.pricklyVotes + a.gooeyVotes;
-                const percentGooeyA = totalVotesA > 0 ? a.gooeyVotes / totalVotesA : 0;
-
-                const totalVotesB = b.pricklyVotes + b.gooeyVotes;
-                const percentGooeyB = totalVotesB > 0 ? b.gooeyVotes / totalVotesB : 0;
-                
-                // Sort descending: higher gooey percentage comes first
+                const totalVotesA = a.pricklyVotes + a.gooeyVotes, percentGooeyA = totalVotesA > 0 ? a.gooeyVotes / totalVotesA : 0;
+                const totalVotesB = b.pricklyVotes + b.gooeyVotes, percentGooeyB = totalVotesB > 0 ? b.gooeyVotes / totalVotesB : 0;
                 return percentGooeyB - percentGooeyA;
             });
             
-            // --- CHANGE #2: Add the descriptive header before the list ---
             fullResultsItemList.innerHTML = '<h2>Sorted from most Gooey to most Prickly</h2><hr>'; 
-            
-            allItems.forEach(item => {
-                fullResultsItemList.appendChild(createResultElement(item));
-            });
-            
-            // NEW: Centralized function to process a vote, whether from tap or drag
+            allItems.forEach(item => fullResultsItemList.appendChild(createResultElement(item)));
+        }
+
         function processVoteAndTransition(chosenCard, destinationZoneId) {
             const otherCard = (chosenCard.id === 'itemA-card') ? itemB_card : itemA_card;
             const isPricklyDrop = destinationZoneId === 'prickly-zone';
@@ -290,21 +307,26 @@
                 handleVote(votedPrickly, votedGooey);
             }, 500);
         }
-        
+
         // === 4. EVENT LISTENERS ===
         // Navigation
-        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showView(votingArea); if(!itemA) loadNewPair(); });
+        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showView(votingArea); if(!itemA || !itemB) loadNewPair(); });
         document.getElementById('nav-results').addEventListener('click', (e) => { e.preventDefault(); loadFullResults(currentCategoryId); });
         document.getElementById('nav-about').addEventListener('click', (e) => { e.preventDefault(); showView(aboutArea); });
+        document.querySelector('.category-button').addEventListener('click', (e) => loadFullResults(e.target.dataset.categoryId));
 
-        // --- NEW/UPDATED: Dual Interaction Listeners ---
         // Tap to select an item
         [itemA_card, itemB_card].forEach(card => {
             card.addEventListener('click', (e) => {
-                itemA_card.classList.remove('selected');
-                itemB_card.classList.remove('selected');
-                e.currentTarget.classList.add('selected');
-                selectedItemCard = e.currentTarget;
+                if (selectedItemCard === e.currentTarget) {
+                    selectedItemCard.classList.remove('selected');
+                    selectedItemCard = null;
+                } else {
+                    itemA_card.classList.remove('selected');
+                    itemB_card.classList.remove('selected');
+                    e.currentTarget.classList.add('selected');
+                    selectedItemCard = e.currentTarget;
+                }
             });
         });
 
@@ -320,11 +342,9 @@
         // Drag and Drop
         [itemA_card, itemB_card].forEach(draggable => {
             draggable.addEventListener('dragstart', e => {
-                // Clear any tap selection when a drag starts
                 selectedItemCard = null;
                 itemA_card.classList.remove('selected');
                 itemB_card.classList.remove('selected');
-                
                 e.target.classList.add('dragging');
                 e.dataTransfer.setData('text/plain', e.target.id);
             });
