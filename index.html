@@ -3,134 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prickles and Goo - Tech Companies</title>
+    <title>Prickles and Goo</title>
     <style>
         /* --- General Page Styles --- */
+        :root { --prickly-red: #dc3545; --gooey-green: #28a745; --primary-blue: #007bff; --light-gray: #f8f9fa; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            margin: 0;
-            min-height: 100vh;
+            background-color: var(--light-gray); color: #333; margin: 0; padding-top: 80px; /* Space for fixed nav */
         }
-
+        .page-container { display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
         .main-container {
-            background-color: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-            padding: 30px 40px;
-            max-width: 900px;
-            width: 100%;
-            text-align: center;
-            border: 1px solid #e9ecef;
+            background-color: #ffffff; border-radius: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            padding: 30px 40px; max-width: 900px; width: 100%; text-align: center; border: 1px solid #e9ecef;
         }
 
-        /* --- Typography and Content --- */
-        h1 { font-size: 3em; color: #dc3545; margin-bottom: 10px; }
+        /* --- Navigation --- */
+        nav {
+            position: fixed; top: 0; left: 0; width: 100%; background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: center;
+            align-items: center; padding: 10px 20px; z-index: 1000;
+        }
+        nav a {
+            color: #495057; text-decoration: none; font-size: 1.1em; font-weight: 600;
+            padding: 10px 20px; margin: 0 10px; border-radius: 8px; transition: background-color 0.2s;
+        }
+        nav a:hover { background-color: #e9ecef; }
+        nav a.brand { font-size: 1.5em; color: var(--prickly-red); }
+
+        /* --- Typography & Content --- */
+        h1 { font-size: 3em; color: var(--prickly-red); margin-bottom: 10px; }
         h2 { font-size: 1.8em; margin-bottom: 5px; color: #495057; }
         h3 { font-size: 1.5em; margin: 0; }
-        .drop-zone h3 { color: #6c757d; }
         .result-item h3 { font-size: 1.8em; color: #343a40; margin-bottom: 10px; }
         p { color: #6c757d; line-height: 1.5; margin-bottom: 30px; }
 
         .hidden { display: none; }
         
-        /* --- DRAG & DROP VOTING AREA --- */
+        /* --- Voting Area --- */
         .sorter-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
         .drop-zone {
-            width: 35%; height: 350px; border: 3px dashed #dee2e6; border-radius: 12px;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: background-color 0.3s, border-color 0.3s; padding: 20px; box-sizing: border-box;
+            width: 35%; height: 350px; border: 3px dashed #dee2e6; border-radius: 12px; display: flex;
+            flex-direction: column; justify-content: center; align-items: center; transition: background-color 0.3s, border-color 0.3s;
+            padding: 20px; box-sizing: border-box;
         }
+        .drop-zone h3 { color: #6c757d; }
         .drop-zone.over { background-color: #e9ecef; border-color: #adb5bd; }
         .draggable-items-start { display: flex; flex-direction: column; align-items: center; gap: 40px; }
-        
         .item-card {
-            background-color: white; border: 1px solid #ced4da; border-radius: 8px;
-            padding: 20px; width: 200px; cursor: grab; transition: opacity 0.3s, box-shadow 0.2s;
+            background-color: white; border: 1px solid #ced4da; border-radius: 8px; padding: 20px;
+            width: 200px; cursor: grab; transition: opacity 0.3s, box-shadow 0.2s;
             font-size: 1.5em; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .item-card.dragging { opacity: 0.5; box-shadow: 0 8px 16px rgba(0,0,0,0.1); cursor: grabbing; }
 
-        /* --- RESULTS AREA STYLES --- */
-        .results-area { margin-top: 30px; }
-        .result-item { margin-bottom: 25px; text-align: left; }
-        
-        .results-bar-container {
-            display: flex;
-            background-color: #e9ecef;
-            border-radius: 8px;
-            overflow: hidden;
-            height: 35px;
-            width: 100%;
-            margin: 10px 0;
-            border: 1px solid #dee2e6;
-        }
-        
-        .prickly-fill {
-            background-color: #dc3545; /* Red */
-            transition: width 0.5s ease-in-out;
-        }
+        /* --- About & Full Results Sections --- */
+        .about-section, .full-results-section { text-align: left; }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; margin-bottom: 20px;}
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .category-list button { margin: 5px; }
 
-        .gooey-fill {
-            background-color: #28a745; /* Green */
-            transition: width 0.5s ease-in-out;
+        /* --- Results Styles (Shared) --- */
+        .result-item { margin-bottom: 25px; text-align: left; }
+        .results-bar-container {
+            display: flex; background-color: #e9ecef; border-radius: 8px;
+            overflow: hidden; height: 35px; width: 100%; margin: 10px 0; border: 1px solid #dee2e6;
         }
-        
+        .prickly-fill { background-color: var(--prickly-red); transition: width 0.5s ease-in-out; }
+        .gooey-fill { background-color: var(--gooey-green); transition: width 0.5s ease-in-out; }
         .vote-details { color: #495057; margin-top: 5px; }
-        .vote-details span { margin-right: 15px; } /* Spacing for details */
-        
+        .vote-details span { margin-right: 15px; }
         button {
-            background-color: #007bff; color: white; border: none; padding: 12px 24px;
-            border-radius: 8px; font-size: 1em; cursor: pointer; margin-top: 20px; transition: background-color 0.2s;
+            background-color: var(--primary-blue); color: white; border: none; padding: 12px 24px;
+            border-radius: 8px; font-size: 1em; cursor: pointer; transition: background-color 0.2s;
         }
         button:hover { background-color: #0056b3; }
+        #next-pair-button { margin-top: 20px; }
+
     </style>
 </head>
 <body>
 
-    <div class="main-container">
-        <h1>Prickles and Goo</h1>
+    <nav>
+        <a href="#" id="nav-home" class="brand">Prickles and Goo</a>
+        <a href="#" id="nav-results">Results</a>
+        <a href="#" id="nav-about">About</a>
+    </nav>
 
-        <div id="voting-area">
-            <h2>Tech Companies</h2>
-            <p>Which is more prickly or gooey? Drag one into a bucket.</p>
-            <div class="sorter-container">
-                <div id="gooey-zone" class="drop-zone"><h3>Gooey</h3></div>
-                <div id="draggable-items-start" class="draggable-items-start"></div>
-                <div id="prickly-zone" class="drop-zone"><h3>Prickly</h3></div>
-            </div>
-        </div>
-
-        <div id="card-templates" class="hidden">
-            <div id="itemA-card" class="item-card" draggable="true"></div>
-            <div id="itemB-card" class="item-card" draggable="true"></div>
-        </div>
-
-        <div id="results-area" class="hidden">
-            <h2>Results</h2>
-            <div class="result-item">
-                <h3 id="itemA-name"></h3>
-                <div class="results-bar-container">
-                    <span id="itemA-prickly-bar" class="prickly-fill"></span>
-                    <span id="itemA-gooey-bar" class="gooey-fill"></span>
+    <div class="page-container">
+        <div class="main-container">
+            <!-- VIEW 1: Voting Area -->
+            <div id="voting-area">
+                <h2>Tech Companies</h2>
+                <p>Which is more prickly or gooey? Drag one into a bucket.</p>
+                <div class="sorter-container">
+                    <div id="gooey-zone" class="drop-zone"><h3>Gooey</h3></div>
+                    <div id="draggable-items-start" class="draggable-items-start"></div>
+                    <div id="prickly-zone" class="drop-zone"><h3>Prickly</h3></div>
                 </div>
-                <p id="itemA-details" class="vote-details"></p>
             </div>
-            <div class="result-item">
-                <h3 id="itemB-name"></h3>
-                <div class="results-bar-container">
-                    <span id="itemB-prickly-bar" class="prickly-fill"></span>
-                    <span id="itemB-gooey-bar" class="gooey-fill"></span>
+
+            <!-- VIEW 2: Full Results Area -->
+            <div id="full-results-area" class="hidden">
+                <h1>Results</h1>
+                <div id="full-results-category-list" class="category-list">
+                    <p>Select a category to see the results:</p>
+                    <!-- Category buttons will be loaded here -->
                 </div>
-                <p id="itemB-details" class="vote-details"></p>
+                <hr>
+                <div id="full-results-item-list">
+                    <!-- The list of all items in a category will be rendered here -->
+                </div>
             </div>
-            <button id="next-pair-button">Vote on Next Pair</button>
+            
+            <!-- VIEW 3: About Area -->
+            <div id="about-area" class="hidden">
+                <h1>About Prickles and Goo</h1>
+                <div class="about-section">
+                    <p>This project is inspired by the philosophical musings of Alan Watts, who elegantly described two fundamental personality types: "Prickles" and "Goo."</p>
+                    <div class="video-container">
+                        <iframe src="https://www.youtube.com/embed/nu-w2345M7s" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                    <p><strong>Prickly people</strong> value structure, precision, and sharp-edged logic. They are the rationalists, the scientists, the ones who want things clearly defined. <strong>Gooey people</strong>, on the other hand, are the mystics, the artists, and the romantics. They embrace the vague, the flowing, and the interconnected nature of reality. This simple tool is a playful exploration of that dichotomy, applying it to the things we encounter in our modern world. Is a company, a concept, or a color more prickly or more gooey? Cast your vote and see how it compares to others.</p>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <!-- Hidden templates for dynamic creation -->
+    <div id="card-templates" class="hidden">
+        <div id="itemA-card" class="item-card" draggable="true"></div>
+        <div id="itemB-card" class="item-card" draggable="true"></div>
     </div>
 
    <!-- CORRECT "Compatibility" version -->
@@ -151,24 +153,26 @@
         const db = firebase.firestore(app);
 
         // === 2. GLOBAL STATE & DOM ELEMENTS ===
-        const currentCategoryId = "tech_companies";
+        let currentCategoryId = "tech_companies";
         let itemA = null, itemB = null;
 
-        const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('results-area');
+        const allViews = document.querySelectorAll('#voting-area, #full-results-area, #about-area');
+        const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('full-results-area'), aboutArea = document.getElementById('about-area');
         const draggableStartContainer = document.getElementById('draggable-items-start');
         const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
         const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
-        const nextPairButton = document.getElementById('next-pair-button');
         
-        const itemA_name_res = document.getElementById('itemA-name'), itemB_name_res = document.getElementById('itemB-name');
-        const itemA_prickly_bar = document.getElementById('itemA-prickly-bar'), itemB_prickly_bar = document.getElementById('itemB-prickly-bar');
-        const itemA_gooey_bar = document.getElementById('itemA-gooey-bar'), itemB_gooey_bar = document.getElementById('itemB-gooey-bar');
-        const itemA_details_res = document.getElementById('itemA-details'), itemB_details_res = document.getElementById('itemB-details');
+        const fullResultsCategoryList = document.getElementById('full-results-category-list');
+        const fullResultsItemList = document.getElementById('full-results-item-list');
 
         // === 3. CORE FUNCTIONS ===
+        function showView(viewToShow) {
+            allViews.forEach(view => view.classList.add('hidden'));
+            viewToShow.classList.remove('hidden');
+        }
+
         async function loadNewPair() {
-            resultsArea.classList.add('hidden');
-            votingArea.classList.remove('hidden');
+            showView(votingArea);
             draggableStartContainer.appendChild(itemA_card);
             draggableStartContainer.appendChild(itemB_card);
             itemA_card.textContent = "Loading...";
@@ -177,12 +181,10 @@
             const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
             const snapshot = await itemsRef.get();
             let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            if(allItems.length < 2) { console.error("Not enough items in the category to form a pair."); return; }
+            if(allItems.length < 2) { console.error("Not enough items to form a pair."); return; }
             allItems.sort(() => 0.5 - Math.random());
             itemA = allItems[0];
             itemB = allItems[1];
-
             itemA_card.textContent = itemA.name;
             itemB_card.textContent = itemB.name;
         }
@@ -190,48 +192,92 @@
         async function handleVote(votedPricklyItem, votedGooeyItem) {
             const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
             const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
-
             await Promise.all([
                 pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
                 gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
             ]);
-            
             votedPricklyItem.pricklyVotes++;
             votedGooeyItem.gooeyVotes++;
-
+            
+            // This is a temporary results screen, we create it on the fly
+            const tempResultsContainer = createTemporaryResults(votedPricklyItem, votedGooeyItem);
             votingArea.classList.add('hidden');
-            resultsArea.classList.remove('hidden');
-            displayResults(votedPricklyItem, votedGooeyItem);
+            votingArea.parentNode.insertBefore(tempResultsContainer, votingArea.nextSibling);
         }
 
-        function displayResults(item1, item2) {
-            const renderItemResult = (item, nameEl, pBarEl, gBarEl, detailsEl) => {
-                const totalVotes = item.pricklyVotes + item.gooeyVotes;
-                const pricklyPercent = totalVotes > 0 ? (item.pricklyVotes / totalVotes) * 100 : 0;
-                const gooeyPercent = 100 - pricklyPercent;
-                
-                nameEl.textContent = item.name;
-                pBarEl.style.width = pricklyPercent + '%';
-                gBarEl.style.width = gooeyPercent + '%';
-                
-                detailsEl.innerHTML = 
-                    `<span>Total Votes: ${totalVotes}</span>` +
-                    `<span>Prickly: ${item.pricklyVotes}</span>` +
-                    `<span>Gooey: ${item.gooeyVotes}</span>` +
-                    `<span>(${Math.round(gooeyPercent)}% Gooey)</span>`;
-            };
+        // --- NEW: Helper function to create a result element ---
+        function createResultElement(item) {
+            const resultItemDiv = document.createElement('div');
+            resultItemDiv.className = 'result-item';
+
+            const nameEl = document.createElement('h3');
+            nameEl.textContent = item.name;
+
+            const barContainer = document.createElement('div');
+            barContainer.className = 'results-bar-container';
+            const pBarEl = document.createElement('span');
+            pBarEl.className = 'prickly-fill';
+            const gBarEl = document.createElement('span');
+            gBarEl.className = 'gooey-fill';
+            barContainer.append(pBarEl, gBarEl);
             
-            // This is the corrected block
-            if (item1.id === itemA.id) {
-                renderItemResult(item1, itemA_name_res, itemA_prickly_bar, itemA_gooey_bar, itemA_details_res);
-                renderItemResult(item2, itemB_name_res, itemB_prickly_bar, itemB_gooey_bar, itemB_details_res);
-            } else {
-                renderItemResult(item2, itemA_name_res, itemA_prickly_bar, itemA_gooey_bar, itemA_details_res);
-                renderItemResult(item1, itemB_name_res, itemB_prickly_bar, itemB_gooey_bar, itemB_details_res);
-            }
+            const detailsEl = document.createElement('p');
+            detailsEl.className = 'vote-details';
+
+            const totalVotes = item.pricklyVotes + item.gooeyVotes;
+            const pricklyPercent = totalVotes > 0 ? (item.pricklyVotes / totalVotes) * 100 : 0;
+            const gooeyPercent = 100 - pricklyPercent;
+            pBarEl.style.width = pricklyPercent + '%';
+            gBarEl.style.width = gooeyPercent + '%';
+            detailsEl.innerHTML = `<span>Total Votes: ${totalVotes}</span><span>Prickly: ${item.pricklyVotes}</span><span>Gooey: ${item.gooeyVotes}</span><span>(${Math.round(gooeyPercent)}% Gooey)</span>`;
+            
+            resultItemDiv.append(nameEl, barContainer, detailsEl);
+            return resultItemDiv;
+        }
+
+        function createTemporaryResults(item1, item2) {
+            const tempResultsDiv = document.createElement('div');
+            tempResultsDiv.id = 'temp-results';
+            tempResultsDiv.innerHTML = '<h2>Results</h2>';
+            tempResultsDiv.appendChild(createResultElement(item1));
+            tempResultsDiv.appendChild(createResultElement(item2));
+            const nextButton = document.createElement('button');
+            nextButton.textContent = 'Vote on Next Pair';
+            nextButton.onclick = () => {
+                document.getElementById('temp-results').remove();
+                loadNewPair();
+            };
+            tempResultsDiv.appendChild(nextButton);
+            return tempResultsDiv;
+        }
+
+        async function loadFullResults(categoryId) {
+            showView(resultsArea);
+            fullResultsItemList.innerHTML = '<h3>Loading Results...</h3>';
+            const itemsRef = db.collection('categories').doc(categoryId).collection('items');
+            const snapshot = await itemsRef.get();
+            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort by most prickly
+            allItems.sort((a, b) => {
+                const percentA = (a.pricklyVotes + a.gooeyVotes) > 0 ? a.pricklyVotes / (a.pricklyVotes + a.gooeyVotes) : 0;
+                const percentB = (b.pricklyVotes + b.gooeyVotes) > 0 ? b.pricklyVotes / (b.pricklyVotes + b.gooeyVotes) : 0;
+                return percentB - percentA;
+            });
+            
+            fullResultsItemList.innerHTML = ''; // Clear loading message
+            allItems.forEach(item => {
+                fullResultsItemList.appendChild(createResultElement(item));
+            });
         }
         
-        // === 4. DRAG & DROP EVENT LISTENERS ===
+        // === 4. EVENT LISTENERS ===
+        // Navigation
+        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); loadNewPair(); });
+        document.getElementById('nav-results').addEventListener('click', (e) => { e.preventDefault(); loadFullResults(currentCategoryId); });
+        document.getElementById('nav-about').addEventListener('click', (e) => { e.preventDefault(); showView(aboutArea); });
+
+        // Drag and Drop
         [itemA_card, itemB_card].forEach(draggable => {
             draggable.addEventListener('dragstart', e => { e.target.classList.add('dragging'); e.dataTransfer.setData('text/plain', e.target.id); });
             draggable.addEventListener('dragend', e => e.target.classList.remove('dragging'));
@@ -243,17 +289,12 @@
             zone.addEventListener('drop', e => {
                 e.preventDefault();
                 zone.classList.remove('over');
-                
                 const droppedId = e.dataTransfer.getData('text');
-                const droppedCard = document.getElementById(droppedId);
-                const otherCard = (droppedId === 'itemA-card') ? itemB_card : itemA_card;
+                const droppedCard = document.getElementById(droppedId), otherCard = (droppedId === 'itemA-card') ? itemB_card : itemA_card;
                 const isPricklyDrop = e.currentTarget.id === 'prickly-zone';
-                
-                const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone;
-                const oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
+                const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone, oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
                 destinationZone.appendChild(droppedCard);
                 oppositeZone.appendChild(otherCard);
-
                 setTimeout(() => {
                     const votedPrickly = (droppedId === 'itemA-card') === isPricklyDrop ? itemA : itemB;
                     const votedGooey = (votedPrickly.id === itemA.id) ? itemB : itemA;
@@ -262,10 +303,8 @@
             });
         });
         
-        nextPairButton.addEventListener('click', loadNewPair);
-        
         // === 5. INITIALIZATION ===
-        loadNewPair();
+        loadNewPair(); // Start the app on the voting screen
     </script>
 </body>
 </html>
