@@ -30,93 +30,50 @@
         }
 
         /* --- Typography and Content --- */
-        h1 {
-            font-size: 3em;
-            color: #dc3545;
-            margin-bottom: 10px;
-        }
+        h1 { font-size: 3em; color: #dc3545; margin-bottom: 10px; }
+        h2 { font-size: 1.8em; margin-bottom: 5px; color: #495057; }
+        h3 { font-size: 1.5em; margin: 0; }
+        .drop-zone h3 { color: #6c757d; }
+        .result-item h3 { color: #343a40; }
+        p { color: #6c757d; line-height: 1.5; margin-bottom: 30px; }
 
-        h2 {
-            font-size: 1.8em;
-            margin-bottom: 5px;
-            color: #495057;
-        }
-
-        h3 {
-            font-size: 1.5em;
-            color: #6c757d;
-        }
-        
-        p {
-            color: #6c757d;
-            line-height: 1.5;
-            margin-bottom: 30px;
-        }
-
-        .hidden {
-            display: none;
-        }
+        .hidden { display: none; }
         
         /* --- DRAG & DROP VOTING AREA --- */
-        .sorter-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-        }
-
+        .sorter-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
         .drop-zone {
             width: 35%;
             height: 350px;
             border: 3px dashed #dee2e6;
             border-radius: 12px;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             transition: background-color 0.3s, border-color 0.3s;
+            padding: 20px;
+            box-sizing: border-box;
         }
-        
-        /* Visual feedback when dragging over a drop zone */
-        .drop-zone.over {
-            background-color: #e9ecef;
-            border-color: #adb5bd;
-        }
-
-        .draggable-items-start {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 40px;
-        }
+        .drop-zone.over { background-color: #e9ecef; border-color: #adb5bd; }
+        .draggable-items-start { display: flex; flex-direction: column; align-items: center; gap: 40px; }
         
         .item-card {
-            background-color: white;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            padding: 20px;
-            width: 200px;
-            cursor: grab;
-            transition: opacity 0.3s, box-shadow 0.2s;
-            font-size: 1.5em;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background-color: white; border: 1px solid #ced4da; border-radius: 8px;
+            padding: 20px; width: 200px; cursor: grab; transition: opacity 0.3s, box-shadow 0.2s;
+            font-size: 1.5em; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        
-        /* Visual feedback for the item being dragged */
-        .item-card.dragging {
-            opacity: 0.5;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            cursor: grabbing;
-        }
+        .item-card.dragging { opacity: 0.5; box-shadow: 0 8px 16px rgba(0,0,0,0.1); cursor: grabbing; }
 
         /* --- RESULTS AREA --- */
         .results-area { margin-top: 30px; }
-        .result-item { margin-bottom: 20px; }
-        .results-bar-container { background-color: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px; width: 100%; margin: 5px 0; }
+        .result-item { margin-bottom: 20px; text-align: left; }
+        .results-bar-container { background-color: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px; width: 100%; margin: 10px 0; }
         .prickly-fill { background-color: #dc3545; height: 100%; transition: width 0.5s ease-in-out; }
+        .vote-details { color: #6c757d; }
         
         button {
-            background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1em; cursor: pointer; margin-top: 20px; transition: background-color 0.2s;
+            background-color: #007bff; color: white; border: none; padding: 12px 24px;
+            border-radius: 8px; font-size: 1em; cursor: pointer; margin-top: 20px; transition: background-color 0.2s;
         }
         button:hover { background-color: #0056b3; }
     </style>
@@ -126,7 +83,6 @@
     <div class="main-container">
         <h1>Prickles and Goo</h1>
 
-        <!-- The main area for voting, now with drag and drop -->
         <div id="voting-area">
             <h2>Tech Companies</h2>
             <p>Which is more prickly or gooey? Drag one into a bucket.</p>
@@ -139,24 +95,22 @@
             </div>
         </div>
 
-        <!-- Hidden cards to be used as templates -->
         <div id="card-templates" class="hidden">
             <div id="itemA-card" class="item-card" draggable="true"></div>
             <div id="itemB-card" class="item-card" draggable="true"></div>
         </div>
 
-        <!-- The area to show results after a vote. Hidden by default. -->
         <div id="results-area" class="hidden">
             <h2>Results</h2>
             <div class="result-item">
                 <h3 id="itemA-name"></h3>
                 <div class="results-bar-container"><div id="itemA-prickly-bar" class="prickly-fill"></div></div>
-                <p id="itemA-percentage"></p>
+                <p id="itemA-details" class="vote-details"></p>
             </div>
             <div class="result-item">
                 <h3 id="itemB-name"></h3>
                 <div class="results-bar-container"><div id="itemB-prickly-bar" class="prickly-fill"></div></div>
-                <p id="itemB-percentage"></p>
+                <p id="itemB-details" class="vote-details"></p>
             </div>
             <button id="next-pair-button">Vote on Next Pair</button>
         </div>
@@ -179,37 +133,38 @@
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore(app);
 
-  // === 2. GLOBAL STATE & DOM ELEMENTS ===
+        // === 2. GLOBAL STATE & DOM ELEMENTS ===
         const currentCategoryId = "tech_companies";
         let itemA = null, itemB = null;
 
-        const votingArea = document.getElementById('voting-area');
-        const resultsArea = document.getElementById('results-area');
+        const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('results-area');
         const draggableStartContainer = document.getElementById('draggable-items-start');
-        const itemA_card = document.getElementById('itemA-card');
-        const itemB_card = document.getElementById('itemB-card');
-        const dropZones = document.querySelectorAll('.drop-zone');
+        const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
+        const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
         const nextPairButton = document.getElementById('next-pair-button');
         
-        // Result elements
         const itemA_name_res = document.getElementById('itemA-name'), itemB_name_res = document.getElementById('itemB-name');
         const itemA_bar_res = document.getElementById('itemA-prickly-bar'), itemB_bar_res = document.getElementById('itemB-prickly-bar');
-        const itemA_perc_res = document.getElementById('itemA-percentage'), itemB_perc_res = document.getElementById('itemB-percentage');
+        const itemA_details_res = document.getElementById('itemA-details'), itemB_details_res = document.getElementById('itemB-details');
 
         // === 3. CORE FUNCTIONS ===
         async function loadNewPair() {
-            // Reset UI
             resultsArea.classList.add('hidden');
             votingArea.classList.remove('hidden');
-            draggableStartContainer.appendChild(itemA_card); // Move cards back to center
+            draggableStartContainer.appendChild(itemA_card);
             draggableStartContainer.appendChild(itemB_card);
             itemA_card.textContent = "Loading...";
             itemB_card.textContent = "Loading...";
             
             const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
             const snapshot = await itemsRef.get();
-            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+            // Ensure we don't show the same item twice if possible
+            if(allItems.length < 2) {
+                console.error("Not enough items in the category to form a pair.");
+                return;
+            }
             allItems.sort(() => 0.5 - Math.random());
             itemA = allItems[0];
             itemB = allItems[1];
@@ -222,8 +177,10 @@
             const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
             const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
 
-            await pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) });
-            await gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) });
+            await Promise.all([
+                pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
+                gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
+            ]);
             
             votedPricklyItem.pricklyVotes++;
             votedGooeyItem.gooeyVotes++;
@@ -234,50 +191,62 @@
         }
 
         function displayResults(item1, item2) {
-            const totalVotes1 = item1.pricklyVotes + item1.gooeyVotes, pricklyPercent1 = totalVotes1 > 0 ? (item1.pricklyVotes / totalVotes1) * 100 : 0;
-            itemA_name_res.textContent = item1.name;
-            itemA_bar_res.style.width = pricklyPercent1 + '%';
-            itemA_perc_res.textContent = `${Math.round(pricklyPercent1)}% Prickly (${item1.pricklyVotes} votes)`;
-
-            const totalVotes2 = item2.pricklyVotes + item2.gooeyVotes, pricklyPercent2 = totalVotes2 > 0 ? (item2.pricklyVotes / totalVotes2) * 100 : 0;
-            itemB_name_res.textContent = item2.name;
-            itemB_bar_res.style.width = pricklyPercent2 + '%';
-            itemB_perc_res.textContent = `${Math.round(pricklyPercent2)}% Prickly (${item2.pricklyVotes} votes)`;
+            // Helper function to create the results for one item
+            const renderItemResult = (item, nameEl, barEl, detailsEl) => {
+                const totalVotes = item.pricklyVotes + item.gooeyVotes;
+                const pricklyPercent = totalVotes > 0 ? (item.pricklyVotes / totalVotes) * 100 : 0;
+                
+                nameEl.textContent = item.name;
+                barEl.style.width = pricklyPercent + '%';
+                detailsEl.textContent = `Prickly Votes: ${item.pricklyVotes} | Gooey Votes: ${item.gooeyVotes}`;
+            };
+            
+            // Render results for both items, ensuring they appear in the correct A/B slots
+            if (item1.id === itemA.id) {
+                renderItemResult(item1, itemA_name_res, itemA_bar_res, itemA_details_res);
+                renderItemResult(item2, itemB_name_res, itemB_bar_res, itemB_details_res);
+            } else {
+                renderItemResult(item2, itemA_name_res, itemA_bar_res, itemA_details_res);
+                renderItemResult(item1, itemB_name_res, itemB_bar_res, itemB_details_res);
+            }
         }
         
         // === 4. DRAG & DROP EVENT LISTENERS ===
         [itemA_card, itemB_card].forEach(draggable => {
-            draggable.addEventListener('dragstart', (e) => {
+            draggable.addEventListener('dragstart', e => {
                 e.target.classList.add('dragging');
                 e.dataTransfer.setData('text/plain', e.target.id);
             });
-            draggable.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
+            draggable.addEventListener('dragend', e => e.target.classList.remove('dragging'));
         });
 
         dropZones.forEach(zone => {
-            zone.addEventListener('dragover', (e) => {
-                e.preventDefault(); // This is necessary to allow dropping
-                e.target.classList.add('over');
-            });
-            zone.addEventListener('dragleave', (e) => e.target.classList.remove('over'));
-            zone.addEventListener('drop', (e) => {
+            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+            zone.addEventListener('drop', e => {
                 e.preventDefault();
-                e.target.classList.remove('over');
+                zone.classList.remove('over');
                 
                 const droppedId = e.dataTransfer.getData('text');
-                const droppedElement = document.getElementById(droppedId);
-                const targetZoneId = e.target.id;
+                const droppedCard = document.getElementById(droppedId);
+                const otherCard = (droppedId === 'itemA-card') ? itemB_card : itemA_card;
+                
+                const isPricklyDrop = e.currentTarget.id === 'prickly-zone';
+                
+                // --- NEW: Visual confirmation step ---
+                const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone;
+                const oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
+                
+                destinationZone.appendChild(droppedCard);
+                oppositeZone.appendChild(otherCard);
 
-                // Determine who was voted prickly and who was gooey
-                const isPrickly = targetZoneId === 'prickly-zone';
-                const votedPrickly = (droppedId === 'itemA-card') ? itemA : itemB;
-                const votedGooey = (droppedId === 'itemA-card') ? itemB : itemA;
-
-                if (isPrickly) {
+                // --- Wait a moment, then process vote & show results ---
+                setTimeout(() => {
+                    const votedPrickly = (droppedId === 'itemA-card') === isPricklyDrop ? itemA : itemB;
+                    const votedGooey = (votedPrickly.id === itemA.id) ? itemB : itemA;
+                    
                     handleVote(votedPrickly, votedGooey);
-                } else { // It was dropped in the gooey zone
-                    handleVote(votedGooey, votedPrickly);
-                }
+                }, 500); // 500ms delay to let user see the snap
             });
         });
         
