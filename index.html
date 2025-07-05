@@ -3,60 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prickles and Goo - Categorical</title>
+    <title>Prickles and Goo - Tech Companies</title>
     <style>
-        /* All your CSS will go here. Start with the styles from the previous example and adapt them. */
-        body { font-family: sans-serif; text-align: center; }
-        .category-selector, .voting-area, .results-area { margin-bottom: 20px; }
-        .item-card { border: 2px solid #ccc; padding: 20px; margin: 10px; cursor: pointer; }
-        .item-card.prickly:hover { border-color: red; }
-        .item-card.gooey:hover { border-color: green; }
-        .results-bar { background-color: #eee; border-radius: 5px; overflow: hidden; height: 30px; }
-        .prickly-fill { background-color: red; height: 100%; float: left; }
-        .hidden { display: none; }
+        /* --- General Page Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .main-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px 40px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* --- Typography and Content --- */
+        h1 {
+            font-size: 3em;
+            color: #D32F2F;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+            color: #444;
+        }
+        
+        p {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* --- Voting & Results Area Styles --- */
+        .item-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .item-card {
+            border: 3px solid #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            min-width: 200px;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .item-card:hover {
+            transform: translateY(-5px);
+            border-color: #007bff;
+        }
+
+        .results-area {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
+        .result-item {
+            margin-bottom: 20px;
+        }
+
+        .results-bar-container {
+            background-color: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 30px;
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .prickly-fill {
+            background-color: #dc3545; /* Prickly Red */
+            height: 100%;
+            transition: width 0.5s ease-in-out;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            box-sizing: border-box;
+        }
+        
+        .gooey-fill {
+             background-color: #28a745; /* Gooey Green */
+             height: 100%;
+             transition: width 0.5s ease-in-out;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Prickles and Goo</h1>
+    <div class="main-container">
+        <h1>Prickles and Goo</h1>
 
-    <!-- Area for the user to choose a category -->
-    <div id="category-selector-area">
-        <h2>Choose a Category:</h2>
-        <div id="category-buttons">
-            <!-- Category buttons will be dynamically inserted here by JavaScript -->
+        <!-- The main area for voting. Starts visible. -->
+        <div id="voting-area">
+            <h2 id="current-category-title">Tech Companies</h2>
+            <p>Which is more prickly or gooey? Click one to vote.</p>
+            <div id="item-container" class="item-container">
+                <div id="itemA-card" class="item-card">Loading...</div>
+                <div id="itemB-card" class="item-card">Loading...</div>
+            </div>
         </div>
-    </div>
 
-    <!-- The main area for voting. Hidden by default. -->
-    <div id="voting-area" class="hidden">
-        <h2 id="current-category-title"></h2>
-        <p>Which is more prickly or gooey?</p>
-        <div style="display: flex; justify-content: center;">
-            <div id="itemA-card" class="item-card">Item A</div>
-            <div id="itemB-card" class="item-card">Item B</div>
+        <!-- The area to show results after a vote. Hidden by default. -->
+        <div id="results-area" class="hidden">
+            <h2>Results</h2>
+            <!-- Item A Results -->
+            <div class="result-item">
+                <h3 id="itemA-name"></h3>
+                <div class="results-bar-container"><div id="itemA-prickly-bar" class="prickly-fill"></div></div>
+                <p id="itemA-percentage"></p>
+            </div>
+            <!-- Item B Results -->
+            <div class="result-item">
+                <h3 id="itemB-name"></h3>
+                <div class="results-bar-container"><div id="itemB-prickly-bar" class="prickly-fill"></div></div>
+                <p id="itemB-percentage"></p>
+            </div>
+            <button id="next-pair-button">Vote on Next Pair</button>
         </div>
-        <button id="refresh-itemA">Refresh Left</button>
-        <button id="refresh-itemB">Refresh Right</button>
-    </div>
-
-    <!-- The area to show results after a vote. Hidden by default. -->
-    <div id="results-area" class="hidden">
-        <h2 id="results-title">Results</h2>
-        <!-- Item A Results -->
-        <div id="itemA-results">
-            <h3 id="itemA-name"></h3>
-            <div class="results-bar"><div id="itemA-prickly-bar" class="prickly-fill"></div></div>
-            <p id="itemA-percentage"></p>
-        </div>
-        <!-- Item B Results -->
-        <div id="itemB-results">
-            <h3 id="itemB-name"></h3>
-            <div class="results-bar"><div id="itemB-prickly-bar" class="prickly-fill"></div></div>
-            <p id="itemB-percentage"></p>
-        </div>
-        <button id="next-pair-button">Next Pair in this Category</button>
-        <button id="change-category-button">Change Category</button>
     </div>
 
     <!-- Import the Firebase SDK -->
@@ -65,89 +169,110 @@
 
     <script>
         // === 1. FIREBASE SETUP ===
-        // Paste your firebaseConfig object here
         const firebaseConfig = {
             apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
             authDomain: "prickles-or-goo.firebaseapp.com",
-            projectId: "prickles-or-goo",
+            projectId: "prickles-or-goo", // e.g., "prickles-and-goo-app"
             storageBucket: "prickles-or-goo.firebasestorage.app",
             messagingSenderId: "863779147603",
             appId: "1:863779147603:web:55f24624e9850d30715ba6"
         };
-        // Initialize Firebase
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore(app);
 
         // === 2. GLOBAL STATE & DOM ELEMENTS ===
-        let currentCategoryId = null;
-        let itemA = null; // Will store the full item object {id, name, ...}
+        const currentCategoryId = "tech_companies"; // Hard-coded category
+        let itemA = null; // Will store {id, name, pricklyVotes, gooeyVotes}
         let itemB = null;
 
-        const categorySelector = document.getElementById('category-selector-area');
         const votingArea = document.getElementById('voting-area');
         const resultsArea = document.getElementById('results-area');
-        // ... get all other DOM elements you need ...
-
+        const itemA_card = document.getElementById('itemA-card');
+        const itemB_card = document.getElementById('itemB-card');
+        const nextPairButton = document.getElementById('next-pair-button');
+        
+        const itemA_name_res = document.getElementById('itemA-name');
+        const itemB_name_res = document.getElementById('itemB-name');
+        const itemA_bar_res = document.getElementById('itemA-prickly-bar');
+        const itemB_bar_res = document.getElementById('itemB-prickly-bar');
+        const itemA_perc_res = document.getElementById('itemA-percentage');
+        const itemB_perc_res = document.getElementById('itemB-percentage');
+        
         // === 3. CORE FUNCTIONS ===
 
-        // Function to fetch all categories and display them as buttons
-        async function loadCategories() {
-            // Use the Firestore SDK to get all documents from the 'categories' collection
-            // For each category, create a button and add it to the 'category-buttons' div
-            // Add a click event to each button that calls `startCategory(categoryId)`
+        // Function to fetch two new random items from our category
+        async function loadNewPair() {
+            resultsArea.classList.add('hidden');
+            votingArea.classList.remove('hidden');
+            itemA_card.textContent = "Loading...";
+            itemB_card.textContent = "Loading...";
+            
+            const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
+            const snapshot = await itemsRef.get();
+            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Simple shuffle and pick two different items
+            allItems.sort(() => 0.5 - Math.random());
+            
+            itemA = allItems[0];
+            itemB = allItems[1];
+
+            itemA_card.textContent = itemA.name;
+            itemB_card.textContent = itemB.name;
         }
 
-        // Function to start a new round in a chosen category
-        async function startCategory(categoryId) {
-            currentCategoryId = categoryId;
-            // Hide category selector, show voting area
-            // Fetch two random items from this category's 'items' subcollection
-            // Update the display with the new items
-        }
-
-        // Function to fetch N random items from the current category
-        async function getRandomItems(count) {
-            // This is the trickiest part with Firestore. A simple way:
-            // 1. Get ALL items from `/categories/{currentCategoryId}/items`
-            // 2. Shuffle the array of items in JavaScript
-            // 3. Return the first `count` items
-            // (Note: This is inefficient for huge categories, but perfect for starting out)
-            return []; // Placeholder
-        }
-        
         // Function to handle a user's vote
         async function handleVote(votedPricklyItem, votedGooeyItem) {
-            // Update the `pricklyVotes` count for the prickly item in Firestore
-            // Update the `gooeyVotes` count for the gooey item in Firestore
+            // Get references to the documents in Firestore
+            const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
+            const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
+
+            // Use Firestore's special `increment` function to safely update the counts
+            await pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) });
+            await gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) });
             
-            // Fetch the updated data for both items
-            // Hide the voting area, show the results area
-            // Update the display with the results (names, percentages, bars)
+            // Update our local item objects with the new vote
+            votedPricklyItem.pricklyVotes++;
+            votedGooeyItem.gooeyVotes++;
+
+            // Hide the voting area and show the results
+            votingArea.classList.add('hidden');
+            resultsArea.classList.remove('hidden');
+            displayResults(votedPricklyItem, votedGooeyItem);
         }
 
         // Function to display the results
-        function displayResults(pricklyItemData, gooeyItemData) {
-            // Calculate percentages: pricklyVotes / (pricklyVotes + gooeyVotes)
-            // Update the text and the width of the progress bars
+        function displayResults(item1, item2) {
+            // Update Item A's results
+            const totalVotesA = item1.pricklyVotes + item1.gooeyVotes;
+            const pricklyPercentA = totalVotesA > 0 ? (item1.pricklyVotes / totalVotesA) * 100 : 0;
+            itemA_name_res.textContent = item1.name;
+            itemA_bar_res.style.width = pricklyPercentA + '%';
+            itemA_perc_res.textContent = `${Math.round(pricklyPercentA)}% Prickly (${item1.pricklyVotes} votes)`;
+
+            // Update Item B's results
+            const totalVotesB = item2.pricklyVotes + item2.gooeyVotes;
+            const pricklyPercentB = totalVotesB > 0 ? (item2.pricklyVotes / totalVotesB) * 100 : 0;
+            itemB_name_res.textContent = item2.name;
+            itemB_bar_res.style.width = pricklyPercentB + '%';
+            itemB_perc_res.textContent = `${Math.round(pricklyPercentB)}% Prickly (${item2.pricklyVotes} votes)`;
         }
         
         // === 4. EVENT LISTENERS ===
         
-        // Attach click listeners to itemA-card and itemB-card
-        // On click, determine which was voted prickly/gooey and call handleVote()
+        itemA_card.addEventListener('click', () => {
+            if (itemA && itemB) handleVote(itemA, itemB); // Item A is voted prickly
+        });
         
-        // Attach click listener for "Next Pair" button
-        // It should call `startCategory(currentCategoryId)` to get a new pair
+        itemB_card.addEventListener('click', () => {
+            if (itemA && itemB) handleVote(itemB, itemA); // Item B is voted prickly
+        });
         
-        // Attach click listener for "Change Category" button
-        // It should hide results/voting and show the category selector again
-        
-        // Attach click listeners for "Refresh" buttons
-        // They should fetch 1 new random item and replace the current one
+        nextPairButton.addEventListener('click', loadNewPair);
         
         // === 5. INITIALIZATION ===
-        // When the page first loads, start by loading the categories
-        loadCategories();
+        // When the page first loads, immediately get the first pair of items
+        loadNewPair();
     </script>
 </body>
 </html>
