@@ -117,13 +117,13 @@
             
             <!-- VIEW 3: About Area -->
             <div id="about-area" class="hidden">
-                <h1>About Prickles and Goo</h1>
+                <h1>What the heck is Prickles and Goo?!</h1>
                 <div class="about-section">
-                    <p>This project is inspired by the philosophical musings of Alan Watts, who elegantly described two fundamental personality types: "Prickles" and "Goo."</p>
+                    <p>I'm John, a UX / design researcher continually exploring ways to build. I'm sinspired by implicit ways of knowing and Alan Watts spoke of "Prickles" and "Goo," a lovely way to relate to just about anything. This site is an experiment in understanding what is more prickly and gooey based on collective voting. </p>
                     <div class="video-container">
-                        <iframe src="https://www.youtube.com/embed/nu-w2345M7s" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        <iframe src="https://youtu.be/D4vHnM8WPvU?si=FoWp7HjwYKGh66nY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                     </div>
-                    <p><strong>Prickly people</strong> value structure, precision, and sharp-edged logic. They are the rationalists, the scientists, the ones who want things clearly defined. <strong>Gooey people</strong>, on the other hand, are the mystics, the artists, and the romantics. They embrace the vague, the flowing, and the interconnected nature of reality. This simple tool is a playful exploration of that dichotomy, applying it to the things we encounter in our modern world. Is a company, a concept, or a color more prickly or more gooey? Cast your vote and see how it compares to others.</p>
+                    <p> I'm curious what you think! As a working prototype, this may break in a number of ways. If you have any questions or feedback, please share!</p>
                 </div>
             </div>
         </div>
@@ -251,21 +251,28 @@
             return tempResultsDiv;
         }
 
-        async function loadFullResults(categoryId) {
+                async function loadFullResults(categoryId) {
             showView(resultsArea);
             fullResultsItemList.innerHTML = '<h3>Loading Results...</h3>';
             const itemsRef = db.collection('categories').doc(categoryId).collection('items');
             const snapshot = await itemsRef.get();
             const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Sort by most prickly
+            // --- CHANGE #1: Sort by most gooey (descending gooey percentage) ---
             allItems.sort((a, b) => {
-                const percentA = (a.pricklyVotes + a.gooeyVotes) > 0 ? a.pricklyVotes / (a.pricklyVotes + a.gooeyVotes) : 0;
-                const percentB = (b.pricklyVotes + b.gooeyVotes) > 0 ? b.pricklyVotes / (b.pricklyVotes + b.gooeyVotes) : 0;
-                return percentB - percentA;
+                const totalVotesA = a.pricklyVotes + a.gooeyVotes;
+                const percentGooeyA = totalVotesA > 0 ? a.gooeyVotes / totalVotesA : 0;
+
+                const totalVotesB = b.pricklyVotes + b.gooeyVotes;
+                const percentGooeyB = totalVotesB > 0 ? b.gooeyVotes / totalVotesB : 0;
+                
+                // Sort descending: higher gooey percentage comes first
+                return percentGooeyB - percentGooeyA;
             });
             
-            fullResultsItemList.innerHTML = ''; // Clear loading message
+            // --- CHANGE #2: Add the descriptive header before the list ---
+            fullResultsItemList.innerHTML = '<h2>Sorted from most Gooey to most Prickly</h2><hr>'; 
+            
             allItems.forEach(item => {
                 fullResultsItemList.appendChild(createResultElement(item));
             });
