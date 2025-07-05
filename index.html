@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prickles and Goo - Categorical</title>
+    <style>
+        /* All your CSS will go here. Start with the styles from the previous example and adapt them. */
+        body { font-family: sans-serif; text-align: center; }
+        .category-selector, .voting-area, .results-area { margin-bottom: 20px; }
+        .item-card { border: 2px solid #ccc; padding: 20px; margin: 10px; cursor: pointer; }
+        .item-card.prickly:hover { border-color: red; }
+        .item-card.gooey:hover { border-color: green; }
+        .results-bar { background-color: #eee; border-radius: 5px; overflow: hidden; height: 30px; }
+        .prickly-fill { background-color: red; height: 100%; float: left; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>Prickles and Goo</h1>
+
+    <!-- Area for the user to choose a category -->
+    <div id="category-selector-area">
+        <h2>Choose a Category:</h2>
+        <div id="category-buttons">
+            <!-- Category buttons will be dynamically inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- The main area for voting. Hidden by default. -->
+    <div id="voting-area" class="hidden">
+        <h2 id="current-category-title"></h2>
+        <p>Which is more prickly or gooey?</p>
+        <div style="display: flex; justify-content: center;">
+            <div id="itemA-card" class="item-card">Item A</div>
+            <div id="itemB-card" class="item-card">Item B</div>
+        </div>
+        <button id="refresh-itemA">Refresh Left</button>
+        <button id="refresh-itemB">Refresh Right</button>
+    </div>
+
+    <!-- The area to show results after a vote. Hidden by default. -->
+    <div id="results-area" class="hidden">
+        <h2 id="results-title">Results</h2>
+        <!-- Item A Results -->
+        <div id="itemA-results">
+            <h3 id="itemA-name"></h3>
+            <div class="results-bar"><div id="itemA-prickly-bar" class="prickly-fill"></div></div>
+            <p id="itemA-percentage"></p>
+        </div>
+        <!-- Item B Results -->
+        <div id="itemB-results">
+            <h3 id="itemB-name"></h3>
+            <div class="results-bar"><div id="itemB-prickly-bar" class="prickly-fill"></div></div>
+            <p id="itemB-percentage"></p>
+        </div>
+        <button id="next-pair-button">Next Pair in this Category</button>
+        <button id="change-category-button">Change Category</button>
+    </div>
+
+    <!-- Import the Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+
+    <script>
+        // === 1. FIREBASE SETUP ===
+        // Paste your firebaseConfig object here
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "prickles-and-goo-app",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
+
+        // === 2. GLOBAL STATE & DOM ELEMENTS ===
+        let currentCategoryId = null;
+        let itemA = null; // Will store the full item object {id, name, ...}
+        let itemB = null;
+
+        const categorySelector = document.getElementById('category-selector-area');
+        const votingArea = document.getElementById('voting-area');
+        const resultsArea = document.getElementById('results-area');
+        // ... get all other DOM elements you need ...
+
+        // === 3. CORE FUNCTIONS ===
+
+        // Function to fetch all categories and display them as buttons
+        async function loadCategories() {
+            // Use the Firestore SDK to get all documents from the 'categories' collection
+            // For each category, create a button and add it to the 'category-buttons' div
+            // Add a click event to each button that calls `startCategory(categoryId)`
+        }
+
+        // Function to start a new round in a chosen category
+        async function startCategory(categoryId) {
+            currentCategoryId = categoryId;
+            // Hide category selector, show voting area
+            // Fetch two random items from this category's 'items' subcollection
+            // Update the display with the new items
+        }
+
+        // Function to fetch N random items from the current category
+        async function getRandomItems(count) {
+            // This is the trickiest part with Firestore. A simple way:
+            // 1. Get ALL items from `/categories/{currentCategoryId}/items`
+            // 2. Shuffle the array of items in JavaScript
+            // 3. Return the first `count` items
+            // (Note: This is inefficient for huge categories, but perfect for starting out)
+            return []; // Placeholder
+        }
+        
+        // Function to handle a user's vote
+        async function handleVote(votedPricklyItem, votedGooeyItem) {
+            // Update the `pricklyVotes` count for the prickly item in Firestore
+            // Update the `gooeyVotes` count for the gooey item in Firestore
+            
+            // Fetch the updated data for both items
+            // Hide the voting area, show the results area
+            // Update the display with the results (names, percentages, bars)
+        }
+
+        // Function to display the results
+        function displayResults(pricklyItemData, gooeyItemData) {
+            // Calculate percentages: pricklyVotes / (pricklyVotes + gooeyVotes)
+            // Update the text and the width of the progress bars
+        }
+        
+        // === 4. EVENT LISTENERS ===
+        
+        // Attach click listeners to itemA-card and itemB-card
+        // On click, determine which was voted prickly/gooey and call handleVote()
+        
+        // Attach click listener for "Next Pair" button
+        // It should call `startCategory(currentCategoryId)` to get a new pair
+        
+        // Attach click listener for "Change Category" button
+        // It should hide results/voting and show the category selector again
+        
+        // Attach click listeners for "Refresh" buttons
+        // They should fetch 1 new random item and replace the current one
+        
+        // === 5. INITIALIZATION ===
+        // When the page first loads, start by loading the categories
+        loadCategories();
+    </script>
+</body>
+</html>
