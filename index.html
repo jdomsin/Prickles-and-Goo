@@ -9,7 +9,7 @@
         :root { --prickly-red: #dc3545; --gooey-green: #28a745; --primary-blue: #007bff; --light-gray: #f8f9fa; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--light-gray); color: #333; margin: 0; padding-top: 80px; /* Space for fixed nav */
+            background-color: var(--light-gray); color: #333; margin: 0; padding-top: 80px;
         }
         .page-container { display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
         .main-container {
@@ -44,17 +44,19 @@
         .drop-zone {
             width: 35%; height: 350px; border: 3px dashed #dee2e6; border-radius: 12px; display: flex;
             flex-direction: column; justify-content: center; align-items: center; transition: background-color 0.3s, border-color 0.3s;
-            padding: 20px; box-sizing: border-box;
+            padding: 20px; box-sizing: border-box; cursor: pointer;
         }
         .drop-zone h3 { color: #6c757d; }
         .drop-zone.over { background-color: #e9ecef; border-color: #adb5bd; }
         .draggable-items-start { display: flex; flex-direction: column; align-items: center; gap: 40px; }
+        
         .item-card {
             background-color: white; border: 1px solid #ced4da; border-radius: 8px; padding: 20px;
-            width: 200px; cursor: grab; transition: opacity 0.3s, box-shadow 0.2s;
+            width: 200px; cursor: grab; transition: opacity 0.3s, box-shadow 0.2s, outline 0.2s;
             font-size: 1.5em; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .item-card.dragging { opacity: 0.5; box-shadow: 0 8px 16px rgba(0,0,0,0.1); cursor: grabbing; }
+        .item-card.selected { outline: 3px solid var(--primary-blue); }
 
         /* --- About & Full Results Sections --- */
         .about-section, .full-results-section { text-align: left; }
@@ -68,8 +70,9 @@
             display: flex; background-color: #e9ecef; border-radius: 8px;
             overflow: hidden; height: 35px; width: 100%; margin: 10px 0; border: 1px solid #dee2e6;
         }
-        .prickly-fill { background-color: var(--prickly-red); transition: width 0.5s ease-in-out; }
-        .gooey-fill { background-color: var(--gooey-green); transition: width 0.5s ease-in-out; }
+        .prickly-fill { background-color: var(--prickly-red); }
+        .gooey-fill { background-color: var(--gooey-green); }
+        .prickly-fill, .gooey-fill { transition: width 0.5s ease-in-out; }
         .vote-details { color: #495057; margin-top: 5px; }
         .vote-details span { margin-right: 15px; }
         button {
@@ -78,6 +81,16 @@
         }
         button:hover { background-color: #0056b3; }
         #next-pair-button { margin-top: 20px; }
+
+        /* --- NEW: Mobile Responsive Styles --- */
+        @media (max-width: 768px) {
+            .sorter-container { flex-direction: column; }
+            .drop-zone { width: 100%; height: 150px; margin-bottom: 15px; }
+            .draggable-items-start { margin: 20px 0; }
+            nav a { padding: 8px 10px; font-size: 1em; }
+            nav a.brand { font-size: 1.2em; }
+            .main-container { padding: 20px 15px; }
+        }
 
     </style>
 </head>
@@ -153,57 +166,40 @@
         const db = firebase.firestore(app);
 
         // === 2. GLOBAL STATE & DOM ELEMENTS ===
-        let currentCategoryId = "tech_companies";
+        const currentCategoryId = "tech_companies";
         let itemA = null, itemB = null;
+        let selectedItemCard = null; // NEW: For tap interaction
 
+        // Views
         const allViews = document.querySelectorAll('#voting-area, #full-results-area, #about-area');
         const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('full-results-area'), aboutArea = document.getElementById('about-area');
+        
+        // Voting elements
         const draggableStartContainer = document.getElementById('draggable-items-start');
         const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
         const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
         
+        // Results elements
         const fullResultsCategoryList = document.getElementById('full-results-category-list');
         const fullResultsItemList = document.getElementById('full-results-item-list');
 
-        // === 3. CORE FUNCTIONS ===
-        function showView(viewToShow) {
-            allViews.forEach(view => view.classList.add('hidden'));
-            viewToShow.classList.remove('hidden');
-        }
+        // === 2. GLOBAL STATE & DOM ELEMENTS ===
+        const currentCategoryId = "tech_companies";
+        let itemA = null, itemB = null;
+        let selectedItemCard = null; // NEW: For tap interaction
 
-        async function loadNewPair() {
-            showView(votingArea);
-            draggableStartContainer.appendChild(itemA_card);
-            draggableStartContainer.appendChild(itemB_card);
-            itemA_card.textContent = "Loading...";
-            itemB_card.textContent = "Loading...";
-            
-            const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
-            const snapshot = await itemsRef.get();
-            let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            if(allItems.length < 2) { console.error("Not enough items to form a pair."); return; }
-            allItems.sort(() => 0.5 - Math.random());
-            itemA = allItems[0];
-            itemB = allItems[1];
-            itemA_card.textContent = itemA.name;
-            itemB_card.textContent = itemB.name;
-        }
-
-        async function handleVote(votedPricklyItem, votedGooeyItem) {
-            const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
-            const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
-            await Promise.all([
-                pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
-                gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
-            ]);
-            votedPricklyItem.pricklyVotes++;
-            votedGooeyItem.gooeyVotes++;
-            
-            // This is a temporary results screen, we create it on the fly
-            const tempResultsContainer = createTemporaryResults(votedPricklyItem, votedGooeyItem);
-            votingArea.classList.add('hidden');
-            votingArea.parentNode.insertBefore(tempResultsContainer, votingArea.nextSibling);
-        }
+        // Views
+        const allViews = document.querySelectorAll('#voting-area, #full-results-area, #about-area');
+        const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('full-results-area'), aboutArea = document.getElementById('about-area');
+        
+        // Voting elements
+        const draggableStartContainer = document.getElementById('draggable-items-start');
+        const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
+        const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
+        
+        // Results elements
+        const fullResultsCategoryList = document.getElementById('full-results-category-list');
+        const fullResultsItemList = document.getElementById('full-results-item-list');
 
         // --- NEW: Helper function to create a result element ---
         function createResultElement(item) {
@@ -276,17 +272,62 @@
             allItems.forEach(item => {
                 fullResultsItemList.appendChild(createResultElement(item));
             });
+            
+            // NEW: Centralized function to process a vote, whether from tap or drag
+        function processVoteAndTransition(chosenCard, destinationZoneId) {
+            const otherCard = (chosenCard.id === 'itemA-card') ? itemB_card : itemA_card;
+            const isPricklyDrop = destinationZoneId === 'prickly-zone';
+            
+            const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone;
+            const oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
+            
+            destinationZone.appendChild(chosenCard);
+            oppositeZone.appendChild(otherCard);
+
+            setTimeout(() => {
+                const votedPrickly = (chosenCard.id === 'itemA-card') === isPricklyDrop ? itemA : itemB;
+                const votedGooey = (votedPrickly.id === itemA.id) ? itemB : itemA;
+                handleVote(votedPrickly, votedGooey);
+            }, 500);
         }
         
         // === 4. EVENT LISTENERS ===
         // Navigation
-        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); loadNewPair(); });
+        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showView(votingArea); if(!itemA) loadNewPair(); });
         document.getElementById('nav-results').addEventListener('click', (e) => { e.preventDefault(); loadFullResults(currentCategoryId); });
         document.getElementById('nav-about').addEventListener('click', (e) => { e.preventDefault(); showView(aboutArea); });
 
+        // --- NEW/UPDATED: Dual Interaction Listeners ---
+        // Tap to select an item
+        [itemA_card, itemB_card].forEach(card => {
+            card.addEventListener('click', (e) => {
+                itemA_card.classList.remove('selected');
+                itemB_card.classList.remove('selected');
+                e.currentTarget.classList.add('selected');
+                selectedItemCard = e.currentTarget;
+            });
+        });
+
+        // Tap a zone to place a selected item
+        dropZones.forEach(zone => {
+            zone.addEventListener('click', (e) => {
+                if (selectedItemCard) {
+                    processVoteAndTransition(selectedItemCard, e.currentTarget.id);
+                }
+            });
+        });
+
         // Drag and Drop
         [itemA_card, itemB_card].forEach(draggable => {
-            draggable.addEventListener('dragstart', e => { e.target.classList.add('dragging'); e.dataTransfer.setData('text/plain', e.target.id); });
+            draggable.addEventListener('dragstart', e => {
+                // Clear any tap selection when a drag starts
+                selectedItemCard = null;
+                itemA_card.classList.remove('selected');
+                itemB_card.classList.remove('selected');
+                
+                e.target.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', e.target.id);
+            });
             draggable.addEventListener('dragend', e => e.target.classList.remove('dragging'));
         });
 
@@ -297,21 +338,13 @@
                 e.preventDefault();
                 zone.classList.remove('over');
                 const droppedId = e.dataTransfer.getData('text');
-                const droppedCard = document.getElementById(droppedId), otherCard = (droppedId === 'itemA-card') ? itemB_card : itemA_card;
-                const isPricklyDrop = e.currentTarget.id === 'prickly-zone';
-                const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone, oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
-                destinationZone.appendChild(droppedCard);
-                oppositeZone.appendChild(otherCard);
-                setTimeout(() => {
-                    const votedPrickly = (droppedId === 'itemA-card') === isPricklyDrop ? itemA : itemB;
-                    const votedGooey = (votedPrickly.id === itemA.id) ? itemB : itemA;
-                    handleVote(votedPrickly, votedGooey);
-                }, 500);
+                const droppedCard = document.getElementById(droppedId);
+                processVoteAndTransition(droppedCard, e.currentTarget.id);
             });
         });
         
         // === 5. INITIALIZATION ===
-        loadNewPair(); // Start the app on the voting screen
+        loadNewPair();
     </script>
 </body>
 </html>
