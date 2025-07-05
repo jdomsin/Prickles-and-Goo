@@ -34,7 +34,7 @@
         h2 { font-size: 1.8em; margin-bottom: 5px; color: #495057; }
         h3 { font-size: 1.5em; margin: 0; }
         .drop-zone h3 { color: #6c757d; }
-        .result-item h3 { color: #343a40; }
+        .result-item h3 { font-size: 1.8em; color: #343a40; margin-bottom: 10px; }
         p { color: #6c757d; line-height: 1.5; margin-bottom: 30px; }
 
         .hidden { display: none; }
@@ -42,17 +42,9 @@
         /* --- DRAG & DROP VOTING AREA --- */
         .sorter-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
         .drop-zone {
-            width: 35%;
-            height: 350px;
-            border: 3px dashed #dee2e6;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: background-color 0.3s, border-color 0.3s;
-            padding: 20px;
-            box-sizing: border-box;
+            width: 35%; height: 350px; border: 3px dashed #dee2e6; border-radius: 12px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: background-color 0.3s, border-color 0.3s; padding: 20px; box-sizing: border-box;
         }
         .drop-zone.over { background-color: #e9ecef; border-color: #adb5bd; }
         .draggable-items-start { display: flex; flex-direction: column; align-items: center; gap: 40px; }
@@ -64,12 +56,33 @@
         }
         .item-card.dragging { opacity: 0.5; box-shadow: 0 8px 16px rgba(0,0,0,0.1); cursor: grabbing; }
 
-        /* --- RESULTS AREA --- */
+        /* --- NEW RESULTS AREA STYLES --- */
         .results-area { margin-top: 30px; }
-        .result-item { margin-bottom: 20px; text-align: left; }
-        .results-bar-container { background-color: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px; width: 100%; margin: 10px 0; }
-        .prickly-fill { background-color: #dc3545; height: 100%; transition: width 0.5s ease-in-out; }
-        .vote-details { color: #6c757d; }
+        .result-item { margin-bottom: 25px; text-align: left; }
+        
+        .results-bar-container {
+            display: flex;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 35px;
+            width: 100%;
+            margin: 10px 0;
+            border: 1px solid #dee2e6;
+        }
+        
+        .prickly-fill {
+            background-color: #dc3545; /* Red */
+            transition: width 0.5s ease-in-out;
+        }
+
+        .gooey-fill {
+            background-color: #28a745; /* Green */
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .vote-details { color: #495057; margin-top: 5px; }
+        .vote-details span { margin-right: 15px; } /* Spacing for details */
         
         button {
             background-color: #007bff; color: white; border: none; padding: 12px 24px;
@@ -88,9 +101,7 @@
             <p>Which is more prickly or gooey? Drag one into a bucket.</p>
             <div class="sorter-container">
                 <div id="gooey-zone" class="drop-zone"><h3>Gooey</h3></div>
-                <div id="draggable-items-start" class="draggable-items-start">
-                    <!-- Draggable cards will be placed here by JS -->
-                </div>
+                <div id="draggable-items-start" class="draggable-items-start"></div>
                 <div id="prickly-zone" class="drop-zone"><h3>Prickly</h3></div>
             </div>
         </div>
@@ -104,12 +115,18 @@
             <h2>Results</h2>
             <div class="result-item">
                 <h3 id="itemA-name"></h3>
-                <div class="results-bar-container"><div id="itemA-prickly-bar" class="prickly-fill"></div></div>
+                <div class="results-bar-container">
+                    <span id="itemA-prickly-bar" class="prickly-fill"></span>
+                    <span id="itemA-gooey-bar" class="gooey-fill"></span>
+                </div>
                 <p id="itemA-details" class="vote-details"></p>
             </div>
             <div class="result-item">
                 <h3 id="itemB-name"></h3>
-                <div class="results-bar-container"><div id="itemB-prickly-bar" class="prickly-fill"></div></div>
+                <div class="results-bar-container">
+                    <span id="itemB-prickly-bar" class="prickly-fill"></span>
+                    <span id="itemB-gooey-bar" class="gooey-fill"></span>
+                </div>
                 <p id="itemB-details" class="vote-details"></p>
             </div>
             <button id="next-pair-button">Vote on Next Pair</button>
@@ -143,8 +160,10 @@
         const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
         const nextPairButton = document.getElementById('next-pair-button');
         
+        // Result elements
         const itemA_name_res = document.getElementById('itemA-name'), itemB_name_res = document.getElementById('itemB-name');
-        const itemA_bar_res = document.getElementById('itemA-prickly-bar'), itemB_bar_res = document.getElementById('itemB-prickly-bar');
+        const itemA_prickly_bar = document.getElementById('itemA-prickly-bar'), itemB_prickly_bar = document.getElementById('itemB-prickly-bar');
+        const itemA_gooey_bar = document.getElementById('itemA-gooey-bar'), itemB_gooey_bar = document.getElementById('itemB-gooey-bar');
         const itemA_details_res = document.getElementById('itemA-details'), itemB_details_res = document.getElementById('itemB-details');
 
         // === 3. CORE FUNCTIONS ===
@@ -160,11 +179,7 @@
             const snapshot = await itemsRef.get();
             let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Ensure we don't show the same item twice if possible
-            if(allItems.length < 2) {
-                console.error("Not enough items in the category to form a pair.");
-                return;
-            }
+            if(allItems.length < 2) { console.error("Not enough items to form a pair."); return; }
             allItems.sort(() => 0.5 - Math.random());
             itemA = allItems[0];
             itemB = allItems[1];
@@ -190,33 +205,38 @@
             displayResults(votedPricklyItem, votedGooeyItem);
         }
 
+        // --- NEW: Updated displayResults function ---
         function displayResults(item1, item2) {
-            // Helper function to create the results for one item
-            const renderItemResult = (item, nameEl, barEl, detailsEl) => {
+            const renderItemResult = (item, nameEl, pBarEl, gBarEl, detailsEl) => {
                 const totalVotes = item.pricklyVotes + item.gooeyVotes;
                 const pricklyPercent = totalVotes > 0 ? (item.pricklyVotes / totalVotes) * 100 : 0;
+                const gooeyPercent = totalVotes > 0 ? (item.gooeyVotes / totalVotes) * 100 : 0;
                 
                 nameEl.textContent = item.name;
-                barEl.style.width = pricklyPercent + '%';
-                detailsEl.textContent = `Prickly Votes: ${item.pricklyVotes} | Gooey Votes: ${item.gooeyVotes}`;
+                pBarEl.style.width = pricklyPercent + '%';
+                gBarEl.style.width = gooeyPercent + '%';
+                
+                detailsEl.innerHTML = 
+                    `<span>Total Votes: ${totalVotes}</span>` +
+                    `<span>Prickly: ${item.pricklyVotes}</span>` +
+                    `<span>Gooey: ${item.gooeyVotes}</span>` +
+                    `<span>(${Math.round(pricklyPercent)}% Prickly)</span>`;
             };
             
-            // Render results for both items, ensuring they appear in the correct A/B slots
             if (item1.id === itemA.id) {
-                renderItemResult(item1, itemA_name_res, itemA_bar_res, itemA_details_res);
-                renderItemResult(item2, itemB_name_res, itemB_bar_res, itemB_details_res);
+                renderItemResult(item1, itemA_name_res, itemA_prickly_bar, itemA_gooey_bar, itemA_details_res);
+                renderItemResult(item2, itemB_name_res, itemB_prickly_bar, itemB_gooey_bar, itemB_details_res);
+_bar, itemB_details_res);
             } else {
-                renderItemResult(item2, itemA_name_res, itemA_bar_res, itemA_details_res);
-                renderItemResult(item1, itemB_name_res, itemB_bar_res, itemB_details_res);
+                renderItemResult(item2, itemA_name_res, itemA_prickly_bar, itemA_gooey_bar, itemA_details_res);
+                renderItemResult(item1, itemB_name_res, itemB_prickly_bar, itemB_gooey_bar, itemB_details_res);
+_bar, itemB_details_res);
             }
         }
         
         // === 4. DRAG & DROP EVENT LISTENERS ===
         [itemA_card, itemB_card].forEach(draggable => {
-            draggable.addEventListener('dragstart', e => {
-                e.target.classList.add('dragging');
-                e.dataTransfer.setData('text/plain', e.target.id);
-            });
+            draggable.addEventListener('dragstart', e => { e.target.classList.add('dragging'); e.dataTransfer.setData('text/plain', e.target.id); });
             draggable.addEventListener('dragend', e => e.target.classList.remove('dragging'));
         });
 
@@ -230,23 +250,18 @@
                 const droppedId = e.dataTransfer.getData('text');
                 const droppedCard = document.getElementById(droppedId);
                 const otherCard = (droppedId === 'itemA-card') ? itemB_card : itemA_card;
-                
                 const isPricklyDrop = e.currentTarget.id === 'prickly-zone';
                 
-                // --- NEW: Visual confirmation step ---
                 const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone;
                 const oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
-                
                 destinationZone.appendChild(droppedCard);
                 oppositeZone.appendChild(otherCard);
 
-                // --- Wait a moment, then process vote & show results ---
                 setTimeout(() => {
                     const votedPrickly = (droppedId === 'itemA-card') === isPricklyDrop ? itemA : itemB;
                     const votedGooey = (votedPrickly.id === itemA.id) ? itemB : itemA;
-                    
                     handleVote(votedPrickly, votedGooey);
-                }, 500); // 500ms delay to let user see the snap
+                }, 500);
             });
         });
         
