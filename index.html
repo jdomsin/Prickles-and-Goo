@@ -152,6 +152,7 @@
             <p class="kicker" id="vote-kicker">Tech Companies</p>
             <h1 class="prompt">Prickly or gooey?</h1>
             <p class="sub">Swipe right for gooey, left for prickly, up to skip. Or use the buttons.</p>
+            <div class="category-bar" id="vote-category-bar"></div>
             <div class="arena" id="arena"></div>
         </section>
 
@@ -198,10 +199,15 @@
     const POOL_FRACTION = 0.20;          // draw next card from the least-shown 20%
     const RESULTS_EVERY = 5;             // surface the interim top-5 every N swipes
     const TOP_N = 5;                     // how many to show in the interim panel
-    const RANK_MIN_VOTES = 5;            // an item needs this many gooey+prickly votes to be ranked
+    const RANK_MIN_VOTES = 1;            // TESTING: lowered from 5 so the top-5 panel appears quickly. Restore to 5 for production.
     let votesThisSession = 0;
     let currentCategoryId = "tech_companies";
-    const CATEGORIES = [{ id: "tech_companies", label: "Tech Companies" }];
+    const CATEGORIES = [
+        { id: "tech_companies", label: "Tech Companies" },
+        { id: "billionaires",   label: "Billionaires" },
+        { id: "presidents",     label: "US Presidents" },
+        { id: "alphabet",       label: "The Alphabet" }
+    ];
     let items = [];                       // in-memory view of the category
     let lastShownId = null;
     let currentItem = null;
@@ -216,6 +222,7 @@
     const arena = document.getElementById('arena');
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
+    const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteKicker = document.getElementById('vote-kicker');
 
     /* ===== 4. THEME ===== */
@@ -273,10 +280,22 @@
             skipped: d.skipped || 0
         };
     }
+    function renderVoteCategoryBar() {
+        voteCategoryBar.innerHTML = '';
+        CATEGORIES.forEach(c => {
+            const b = document.createElement('button');
+            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
+            b.textContent = c.label;
+            b.onclick = () => { if (c.id !== currentCategoryId) loadCategory(c.id); };
+            voteCategoryBar.appendChild(b);
+        });
+    }
     async function loadCategory(categoryId) {
         currentCategoryId = categoryId;
+        votesThisSession = 0;
         const cat = CATEGORIES.find(c => c.id === categoryId);
         voteKicker.textContent = cat ? cat.label : categoryId;
+        renderVoteCategoryBar();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
             const snap = await db.collection('categories').doc(categoryId).collection('items').get();
