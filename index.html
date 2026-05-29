@@ -38,7 +38,15 @@
         p { color: #6c757d; line-height: 1.5; margin-bottom: 30px; }
 
         .hidden { display: none; }
-        
+
+        /* --- Error / Status Banner --- */
+        .error-banner {
+            background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7;
+            border-radius: 8px; padding: 14px 18px; margin: 20px auto 0; max-width: 600px;
+            text-align: center; line-height: 1.4;
+        }
+        .error-banner.hidden { display: none; }
+
         /* --- Voting Area --- */
         .sorter-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
         .drop-zone {
@@ -178,6 +186,37 @@
         const fullResultsItemList = document.getElementById('full-results-item-list');
 
         // === 3. CORE FUNCTIONS ===
+        // Turn a Firebase error into a plain-English message for the user.
+        function describeFirebaseError(err) {
+            if (!navigator.onLine) return "You appear to be offline. Please check your internet connection and try again.";
+            switch (err && err.code) {
+                case 'permission-denied':
+                    return "The database denied access. This usually means the Firestore security rules have expired or are too restrictive. Open Firebase Console → Firestore → Rules to check.";
+                case 'unavailable':
+                    return "Couldn't reach the database right now. It may be temporarily unavailable — please try again in a moment.";
+                case 'not-found':
+                    return "The requested data wasn't found in the database.";
+                default:
+                    return "Something went wrong talking to the database" + (err && err.code ? " (" + err.code + ")" : "") + ". See the browser console for details.";
+            }
+        }
+
+        // Show / hide an error banner inside a given view.
+        function showError(container, message) {
+            let banner = container.querySelector('.error-banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.className = 'error-banner';
+                container.appendChild(banner);
+            }
+            banner.textContent = message;
+            banner.classList.remove('hidden');
+        }
+        function clearError(container) {
+            const banner = container.querySelector('.error-banner');
+            if (banner) banner.classList.add('hidden');
+        }
+
         function showView(viewToShow) {
             const tempResults = document.getElementById('temp-results');
             if (tempResults) tempResults.remove();
@@ -195,28 +234,48 @@
             draggableStartContainer.appendChild(itemB_card);
             itemA_card.textContent = "Loading...";
             itemB_card.textContent = "Loading...";
-            
-            const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
-            const snapshot = await itemsRef.get();
-            let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            if(allItems.length < 2) { console.error("Not enough items."); return; }
-            allItems.sort(() => 0.5 - Math.random());
-            itemA = allItems[0];
-            itemB = allItems[1];
-            itemA_card.textContent = itemA.name;
-            itemB_card.textContent = itemB.name;
+            clearError(votingArea);
+
+            try {
+                const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
+                const snapshot = await itemsRef.get();
+                let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (allItems.length < 2) {
+                    itemA_card.textContent = "—";
+                    itemB_card.textContent = "—";
+                    showError(votingArea, "This category needs at least two items to vote on, but the database returned " + allItems.length + ". Add items in Firebase Console → Firestore.");
+                    return;
+                }
+                allItems.sort(() => 0.5 - Math.random());
+                itemA = allItems[0];
+                itemB = allItems[1];
+                itemA_card.textContent = itemA.name;
+                itemB_card.textContent = itemB.name;
+            } catch (err) {
+                console.error("Failed to load items:", err);
+                itemA_card.textContent = "—";
+                itemB_card.textContent = "—";
+                showError(votingArea, describeFirebaseError(err));
+            }
         }
 
         async function handleVote(votedPricklyItem, votedGooeyItem) {
             const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
             const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
-            await Promise.all([
-                pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
-                gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
-            ]);
+            try {
+                await Promise.all([
+                    pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
+                    gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
+                ]);
+            } catch (err) {
+                console.error("Failed to record vote:", err);
+                votingArea.classList.remove('hidden');
+                showError(votingArea, "Your vote couldn't be saved. " + describeFirebaseError(err));
+                return;
+            }
             votedPricklyItem.pricklyVotes++;
             votedGooeyItem.gooeyVotes++;
-            
+
             const tempResultsContainer = createTemporaryResults(votedPricklyItem, votedGooeyItem);
             votingArea.classList.add('hidden');
             votingArea.parentNode.insertBefore(tempResultsContainer, votingArea.nextSibling);
@@ -277,18 +336,24 @@
         async function loadFullResults(categoryId) {
             showView(resultsArea);
             fullResultsItemList.innerHTML = '<h3>Loading Results...</h3>';
-            const itemsRef = db.collection('categories').doc(categoryId).collection('items');
-            const snapshot = await itemsRef.get();
-            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            try {
+                const itemsRef = db.collection('categories').doc(categoryId).collection('items');
+                const snapshot = await itemsRef.get();
+                const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            allItems.sort((a, b) => {
-                const totalVotesA = a.pricklyVotes + a.gooeyVotes, percentGooeyA = totalVotesA > 0 ? a.gooeyVotes / totalVotesA : 0;
-                const totalVotesB = b.pricklyVotes + b.gooeyVotes, percentGooeyB = totalVotesB > 0 ? b.gooeyVotes / totalVotesB : 0;
-                return percentGooeyB - percentGooeyA;
-            });
-            
-            fullResultsItemList.innerHTML = '<h2>Sorted from most Gooey to most Prickly</h2><hr>'; 
-            allItems.forEach(item => fullResultsItemList.appendChild(createResultElement(item)));
+                allItems.sort((a, b) => {
+                    const totalVotesA = a.pricklyVotes + a.gooeyVotes, percentGooeyA = totalVotesA > 0 ? a.gooeyVotes / totalVotesA : 0;
+                    const totalVotesB = b.pricklyVotes + b.gooeyVotes, percentGooeyB = totalVotesB > 0 ? b.gooeyVotes / totalVotesB : 0;
+                    return percentGooeyB - percentGooeyA;
+                });
+
+                fullResultsItemList.innerHTML = '<h2>Sorted from most Gooey to most Prickly</h2><hr>';
+                allItems.forEach(item => fullResultsItemList.appendChild(createResultElement(item)));
+            } catch (err) {
+                console.error("Failed to load results:", err);
+                fullResultsItemList.innerHTML = '';
+                showError(resultsArea, describeFirebaseError(err));
+            }
         }
 
         function processVoteAndTransition(chosenCard, destinationZoneId) {
