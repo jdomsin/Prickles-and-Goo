@@ -378,6 +378,7 @@
         return {
             id: doc.id,
             name: d.name || doc.id,
+            named: !!d.name,        // false = stray doc created by a misrouted vote; hidden from play
             shown: d.shown || 0,
             gooey: d.gooey || 0,
             prickly: d.prickly || 0,
@@ -403,7 +404,7 @@
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
             const snap = await db.collection('categories').doc(categoryId).collection('items').get();
-            items = snap.docs.map(normalize);
+            items = snap.docs.map(normalize).filter(i => i.named);
             lastShownId = null;
             if (items.length < 1) { showError(views.vote, "This category has no items yet. Add some in Firebase Console → Firestore."); return; }
             nextCard();
@@ -498,7 +499,7 @@
     /* ----- pointer-driven swipe (one shared window handler set) ----- */
     let swipe = null;
     function beginCard(card, item) {
-        swipe = { card, item, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0 };
+        swipe = { card, item, categoryId: currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0 };
         card.addEventListener('mousedown', onDown);
         card.addEventListener('touchstart', onDown, { passive: true });
     }
@@ -542,7 +543,7 @@
     function flySwipe(verdict, dir) {
         if (!swipe || swipe.done) return;
         swipe.done = true; swipe.dragging = false;
-        const item = swipe.item, card = swipe.card;
+        const item = swipe.item, card = swipe.card, categoryId = swipe.categoryId;
         if (verdict === 'gooey') setSide('goo', 1);
         else if (verdict === 'prickly') setSide('prk', 1);
         else setSide('none', 0);
@@ -550,7 +551,7 @@
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
         const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
         card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
-        setTimeout(() => commitVote(item, verdict), 460);
+        setTimeout(() => commitVote(item, verdict, categoryId), 460);
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -591,7 +592,7 @@
     }
 
     /* ===== 9. RECORD VOTE ===== */
-    async function commitVote(item, verdict) {
+    async function commitVote(item, verdict, categoryId) {
         // optimistic local update keeps selection balanced within the session
         item.shown += 1;
         if (verdict === 'gooey') item.gooey += 1;
@@ -604,7 +605,7 @@
         else if (verdict === 'prickly') update.prickly = inc(1);
         else update.skipped = inc(1);
 
-        const ref = db.collection('categories').doc(currentCategoryId).collection('items').doc(item.id);
+        const ref = db.collection('categories').doc(categoryId).collection('items').doc(item.id);
         ref.update(update).catch(async (err) => {
             try { await ref.set(update, { merge: true }); }
             catch (e2) { console.error("Vote write failed:", e2); }
@@ -698,7 +699,7 @@
         resultsList.innerHTML = '<p class="results-sub">Loading…</p>';
         try {
             const snap = await db.collection('categories').doc(currentCategoryId).collection('items').get();
-            const all = snap.docs.map(normalize);
+            const all = snap.docs.map(normalize).filter(i => i.named);
             all.sort((a, b) => {
                 const ta = a.gooey + a.prickly, pa = ta ? a.gooey / ta : 0;
                 const tb = b.gooey + b.prickly, pb = tb ? b.gooey / tb : 0;
