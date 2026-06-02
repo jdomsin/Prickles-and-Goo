@@ -116,7 +116,7 @@
     .stack { text-align:center; }
     .swipe-card {
         position:relative; overflow:hidden;
-        width:min(360px,78vw); min-height:320px; background:var(--surface); border:1px solid var(--hairline);
+        width:min(360px,80vw); min-height:300px; background:var(--surface); border:1px solid var(--hairline);
         border-radius:22px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
         touch-action:none; cursor:grab; will-change:transform; user-select:none;
         box-shadow: var(--shadow-lift),
@@ -135,6 +135,21 @@
     .btn:active { transform:scale(.96); }
     .btn-prk { background:var(--prickly); } .btn-goo { background:var(--gooey); }
     .hint { margin-top:20px; font-size:.74rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); opacity:.65; }
+
+    /* ---- Mobile: small screens have no side gutters, so lift the effect
+       layer ABOVE the card and shrink the card. The incoming glow / shards
+       then spill over the card's leading edge as it moves, instead of being
+       hidden behind it. Desktop keeps effects behind the card. ---- */
+    @media (max-width:768px) {
+        .edge { z-index:20; width:62vw; }
+        .word { z-index:19; font-size:clamp(2rem,13vw,4rem); }
+        .swipe-card { width:min(300px,66vw); min-height:228px; }
+        .swipe-card .name { font-size:1.7rem; }
+        .buttons { margin-top:20px; }
+        /* pull the densest art inward so it reads in the tight space */
+        .edge { -webkit-mask-image:linear-gradient(var(--mask-dir), #000 8%, transparent 98%);
+                        mask-image:linear-gradient(var(--mask-dir), #000 8%, transparent 98%); }
+    }
 </style>
 </head>
 <body>
