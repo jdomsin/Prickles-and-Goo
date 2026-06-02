@@ -153,6 +153,17 @@
     .swipe-hint span { font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
     .swipe-hint .l { color:var(--prickly); } .swipe-hint .r { color:var(--gooey); } .swipe-hint .m { color:var(--ink-soft); }
     .swipe-buttons { display:flex; gap:12px; justify-content:center; margin-top:26px; flex-wrap:wrap; position:relative; z-index:10; }
+    .btn.dim { opacity:.4; }
+
+    /* ---------- Pass meter (subtle) ---------- */
+    .pass-meter { display:flex; align-items:center; justify-content:center; gap:9px; margin-top:16px; position:relative; z-index:10; opacity:.82; }
+    .pass-meter .lbl { font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+    .pass-meter .pips { display:inline-flex; gap:5px; }
+    .pass-meter .pip { width:8px; height:8px; border-radius:50%; border:1.5px solid color-mix(in srgb,var(--ink-soft) 55%, transparent); transition:background .3s, border-color .3s, transform .3s; }
+    .pass-meter .pip.on { background:var(--gooey); border-color:var(--gooey); }
+    .pass-meter .prog { font-size:.66rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+    .pass-meter.deny { animation:denyshake .4s ease; }
+    @keyframes denyshake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} 80%{transform:translateX(-3px)} }
 
     /* ---------- Buttons ---------- */
     .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
@@ -235,6 +246,7 @@
             <p class="sub">Swipe right for gooey, left for prickly, up to skip. Or use the buttons.</p>
             <div class="category-bar" id="vote-category-bar"></div>
             <div class="arena" id="arena"></div>
+            <div class="pass-meter" id="passMeter"></div>
         </section>
 
         <!-- VIEW: RESULTS -->
@@ -283,6 +295,10 @@
     const RANK_MIN_VOTES = 5;            // an item needs this many gooey+prickly votes to be ranked
     const SWIPE_THRESHOLD = 150;         // px drag that maps to full effect intensity
     const SWIPE_COMMIT = 110;            // px past which release commits the vote
+    const MAX_PASSES = 5;                // most passes that can be banked
+    const START_PASSES = 2;              // passes a new visitor begins with
+    const VOTES_PER_PASS = 5;            // real votes needed to earn 1 pass back
+    let passes = START_PASSES, votesTowardPass = 0;
     let votesThisSession = 0;
     let currentCategoryId = "tech_companies";
     const CATEGORIES = [
@@ -307,6 +323,7 @@
     const categoryBar = document.getElementById('category-bar');
     const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteKicker = document.getElementById('vote-kicker');
+    const passMeter = document.getElementById('passMeter');
     const root = document.documentElement;
     const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
     const fxL = document.getElementById('fxL'), fxR = document.getElementById('fxR');
@@ -464,17 +481,17 @@
 
         const hint = document.createElement('div');
         hint.className = 'swipe-hint';
-        hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↑ Skip</span><span class="r">Gooey →</span>';
+        hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
         arena.appendChild(hint);
 
         const buttons = document.createElement('div');
         buttons.className = 'swipe-buttons';
-        buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost">Skip</button><button class="btn btn-goo">Gooey</button>';
+        buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button><button class="btn btn-goo">Gooey</button>';
         arena.appendChild(buttons);
 
         beginCard(wrap.querySelector('#sc'), item);
         buttons.children[0].onclick = () => flySwipe('prickly');
-        buttons.children[1].onclick = () => flySwipe('skip');
+        buttons.children[1].onclick = () => attemptPass('up');
         buttons.children[2].onclick = () => flySwipe('gooey');
     }
 
@@ -496,7 +513,7 @@
         const dx = swipe.dx, dy = swipe.dy;
         swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
         const ax = Math.abs(dx), ay = Math.abs(dy);
-        if (dy < -28 && ay > ax) setSide('none', 0);            // leaning to skip: lift only
+        if (ay > ax && ay > 28) setSide('none', 0);             // leaning to pass (up/down): lift only
         else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
     }
     function onMove(e) {
@@ -505,20 +522,24 @@
         swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
         if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
     }
+    function bounceBack() {
+        if (!swipe) return;
+        swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
+        swipe.card.style.transform = 'translate(0,0)';
+        setSide('none', 0);
+    }
     function onUp() {
         if (!swipe || !swipe.dragging) return;
         swipe.dragging = false;
         const dx = swipe.dx, dy = swipe.dy;
-        if (dy < -SWIPE_COMMIT && Math.abs(dy) > Math.abs(dx)) flySwipe('skip');
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
+            if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
+        }
         else if (dx > SWIPE_COMMIT) flySwipe('gooey');
         else if (dx < -SWIPE_COMMIT) flySwipe('prickly');
-        else {
-            swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
-            swipe.card.style.transform = 'translate(0,0)';
-            setSide('none', 0);
-        }
+        else bounceBack();
     }
-    function flySwipe(verdict) {
+    function flySwipe(verdict, dir) {
         if (!swipe || swipe.done) return;
         swipe.done = true; swipe.dragging = false;
         const item = swipe.item, card = swipe.card;
@@ -527,7 +548,7 @@
         else setSide('none', 0);
         card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
-        const offY = verdict === 'skip' ? -(innerHeight) : -40;
+        const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
         card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
         setTimeout(() => commitVote(item, verdict), 460);
     }
@@ -535,6 +556,39 @@
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('touchend', onUp);
+
+    /* ===== 8b. PASSES ===== */
+    function loadPassState() {
+        const p = parseInt(localStorage.getItem('pg-passes'), 10);
+        const v = parseInt(localStorage.getItem('pg-passprog'), 10);
+        passes = isNaN(p) ? START_PASSES : Math.max(0, Math.min(MAX_PASSES, p));
+        votesTowardPass = isNaN(v) ? 0 : Math.max(0, Math.min(VOTES_PER_PASS - 1, v));
+    }
+    function savePassState() {
+        localStorage.setItem('pg-passes', passes);
+        localStorage.setItem('pg-passprog', votesTowardPass);
+    }
+    function renderPassMeter() {
+        let pips = '';
+        for (let i = 0; i < MAX_PASSES; i++) pips += '<span class="pip' + (i < passes ? ' on' : '') + '"></span>';
+        const prog = passes < MAX_PASSES ? '<span class="prog">+1 in ' + (VOTES_PER_PASS - votesTowardPass) + '</span>' : '';
+        passMeter.innerHTML = '<span class="lbl">Passes</span><span class="pips">' + pips + '</span>' + prog;
+    }
+    function earnTowardPass() {                 // called once per real (gooey/prickly) vote
+        if (passes >= MAX_PASSES) { votesTowardPass = 0; }
+        else {
+            votesTowardPass += 1;
+            if (votesTowardPass >= VOTES_PER_PASS) { passes += 1; votesTowardPass = 0; }
+        }
+        savePassState(); renderPassMeter();
+    }
+    function spendPass() { passes = Math.max(0, passes - 1); savePassState(); renderPassMeter(); }
+    function denyPass() { passMeter.classList.remove('deny'); void passMeter.offsetWidth; passMeter.classList.add('deny'); }
+    function attemptPass(dir) {                 // returns true if a pass was actually spent
+        if (!swipe || swipe.done) return false;
+        if (passes > 0) { spendPass(); flySwipe('skip', dir); return true; }
+        denyPass(); return false;
+    }
 
     /* ===== 9. RECORD VOTE ===== */
     async function commitVote(item, verdict) {
@@ -556,6 +610,7 @@
             catch (e2) { console.error("Vote write failed:", e2); }
         });
 
+        if (verdict !== 'skip') earnTowardPass();   // only real votes earn passes back
         votesThisSession += 1;
         maybeShowResults();
     }
@@ -664,6 +719,8 @@
 
     /* ===== 12. INIT ===== */
     buildEffects();
+    loadPassState();
+    renderPassMeter();
     loadCategory(currentCategoryId);
     </script>
 </body>
