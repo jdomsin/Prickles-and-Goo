@@ -9,11 +9,15 @@
        DESIGN TOKENS — "FT × Apple": FT paper + claret/teal,
        Apple whitespace & restraint. Light default + dark theme.
        ============================================================ */
+    @property --p   { syntax:'<number>'; initial-value:0; inherits:true; }
+    @property --goo { syntax:'<number>'; initial-value:0; inherits:true; }
+    @property --prk { syntax:'<number>'; initial-value:0; inherits:true; }
     :root {
         --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
         --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
-        --gooey:#0D7680; --gooey-soft:#E3EFEF;
-        --prickly:#990F3D; --prickly-soft:#F6E4E9;
+        --gooey:#0D7680; --gooey-soft:#E3EFEF; --gooey-lt:#7FE3DA; --gooey-2:#0a5d65;
+        --prickly:#990F3D; --prickly-soft:#F6E4E9; --prickly-lt:#FF6F91; --prickly-2:#73092c;
+        --gain:1;
         --shadow:0 1px 2px rgba(40,30,20,.05), 0 8px 28px rgba(40,30,20,.08);
         --shadow-lift:0 12px 40px rgba(40,30,20,.16);
         --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
@@ -23,8 +27,8 @@
     [data-theme="dark"] {
         --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
         --ink:#F3EBE2; --ink-soft:#A89C90; --hairline:#3A322C;
-        --gooey:#34B3BD; --gooey-soft:#16302F;
-        --prickly:#E5577E; --prickly-soft:#311721;
+        --gooey:#34B3BD; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
+        --prickly:#E5577E; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
         --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
         --shadow-lift:0 16px 48px rgba(0,0,0,.6);
     }
@@ -67,7 +71,7 @@
     .sub { color:var(--ink-soft); font-size:1rem; margin:0 0 34px; max-width:46ch; }
     .hidden { display:none !important; }
 
-    /* ---------- Item / swipe card ---------- */
+    /* ---------- Loading placeholder card ---------- */
     .card {
         background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r);
         box-shadow:var(--shadow); padding:32px 26px; text-align:center;
@@ -76,18 +80,79 @@
     .card .name { font-family:var(--serif); font-size:1.9rem; letter-spacing:-.01em; line-height:1.1; }
     .card .meta { font-size:.8rem; color:var(--ink-soft); }
 
-    .swipe-wrap { position:relative; height:340px; display:grid; place-items:center; }
-    .swipe-card { position:absolute; width:min(360px,84vw); min-height:280px; touch-action:none; cursor:grab; will-change:transform; }
+    /* ---------- Swipe arena ---------- */
+    .swipe-wrap { position:relative; height:340px; display:grid; place-items:center; z-index:10; }
+    .swipe-card {
+        position:relative; z-index:10; overflow:hidden;
+        width:min(360px,80vw); min-height:300px; padding:24px; text-align:center;
+        background:var(--surface); border:1px solid var(--hairline); border-radius:22px;
+        display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+        touch-action:none; cursor:grab; will-change:transform; user-select:none;
+        box-shadow: var(--shadow-lift),
+            0 0 calc(var(--goo) * 70px) color-mix(in srgb,var(--gooey) 60%, transparent),
+            0 0 calc(var(--prk) * 70px) color-mix(in srgb,var(--prickly) 60%, transparent);
+    }
     .swipe-card:active { cursor:grabbing; }
-    .stamp { position:absolute; font-family:var(--serif); font-weight:700; font-size:1.25rem; padding:4px 14px; border-radius:8px; border:2px solid; opacity:0; transition:opacity .08s; pointer-events:none; }
-    .stamp.goo { top:18px; right:16px; color:var(--gooey); border-color:var(--gooey); transform:rotate(12deg); }
-    .stamp.prk { top:18px; left:16px; color:var(--prickly); border-color:var(--prickly); transform:rotate(-12deg); }
-    .stamp.skp { top:14px; left:50%; transform:translateX(-50%); color:var(--ink-soft); border-color:var(--ink-soft); }
+    .swipe-card::before, .swipe-card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+    .swipe-card::before { background:linear-gradient(270deg, color-mix(in srgb,var(--gooey) 50%, transparent), transparent 56%); opacity:var(--goo); }
+    .swipe-card::after  { background:linear-gradient(90deg,  color-mix(in srgb,var(--prickly) 50%, transparent), transparent 56%); opacity:var(--prk); }
+    .swipe-card .name { font-family:var(--serif); font-size:2.1rem; letter-spacing:-.01em; line-height:1.1; position:relative; z-index:1; }
+    .swipe-card .meta { font-size:.8rem; color:var(--ink-soft); position:relative; z-index:1; }
 
-    .swipe-hint { display:flex; justify-content:space-between; align-items:center; width:min(460px,94vw); margin:18px auto 0; }
+    /* ---------- Edge effects (fixed, viewport-wide) ---------- */
+    .edge {
+        position:fixed; top:0; bottom:0; width:50vw; max-width:520px; pointer-events:none; overflow:hidden; z-index:5;
+        transition:--p .18s cubic-bezier(.2,.7,.2,1);
+        -webkit-mask-image:linear-gradient(var(--mask-dir), #000 28%, transparent 96%);
+                mask-image:linear-gradient(var(--mask-dir), #000 28%, transparent 96%);
+    }
+    .edge.right { right:0; --mask-dir:to left; }
+    .edge.left  { left:0;  --mask-dir:to right; }
+    .fx { position:absolute; inset:0; }
+
+    /* gooey glow (right) */
+    .glow-ambient { position:absolute; right:-12%; top:50%; transform:translateY(-50%); width:130%; height:150%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 85%, transparent), transparent 72%);
+        filter:blur(34px); opacity:calc(var(--p) * .5 * var(--gain)); }
+    .glow-core { position:absolute; right:0; top:0; bottom:0; width:62%;
+        background:radial-gradient(120% 78% at 100% 50%, color-mix(in srgb,var(--gooey-lt) 90%, transparent), color-mix(in srgb,var(--gooey) 60%, transparent) 38%, transparent 64%);
+        filter:blur(12px); opacity:calc(var(--p) * .8 * var(--gain)); }
+    .edge-rim { position:absolute; right:0; top:0; bottom:0; width:6px;
+        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), transparent);
+        filter:blur(2px); opacity:var(--p); }
+    .bubble { position:absolute; transform:translateY(calc(var(--p) * var(--rise))) translateX(calc(var(--p) * -8px)); will-change:transform;
+        opacity:clamp(0, (var(--p) - var(--d)) / .35, 1); filter:blur(calc((1 - var(--depth)) * 3px)); }
+    .bubble .ball { display:block; width:var(--s); height:var(--s); border-radius:50%;
+        background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(255,255,255,.25) 26%, var(--gooey) 58%, var(--gooey-2) 100%);
+        box-shadow: 0 0 calc(var(--s) * .55) color-mix(in srgb,var(--gooey) 65%, transparent), inset 0 calc(var(--s) * -.12) calc(var(--s) * .18) rgba(0,0,0,.18);
+        animation: floatwob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
+    @keyframes floatwob { 0%,100% { transform:translate(0,0); } 50% { transform:translate(-7px,-9px); } }
+
+    /* prickly shards (left) */
+    .prk-ambient { position:absolute; left:-12%; top:50%; transform:translateY(-50%); width:128%; height:135%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly) 60%, transparent), transparent 72%);
+        filter:blur(30px); opacity:calc(var(--p) * .34 * var(--gain)); }
+    .shard { position:absolute; left:0; top:var(--y); height:var(--h);
+        width:calc(clamp(0, (var(--p) - var(--d)) / .4, 1) * var(--len));
+        transform:rotate(var(--a)); transform-origin:left center;
+        background:linear-gradient(100deg, color-mix(in srgb,var(--prickly) 92%, transparent), color-mix(in srgb,var(--prickly-2) 72%, transparent) 70%, color-mix(in srgb,var(--prickly-2) 40%, transparent));
+        clip-path:polygon(0 0, 100% 16%, 100% 84%, 0 100%);
+        filter:drop-shadow(0 0 7px color-mix(in srgb,var(--prickly) 45%, transparent));
+        opacity:clamp(0, (var(--p) - var(--d)) / .3, 1); }
+    .shard::before { content:""; position:absolute; inset:0; clip-path:inherit;
+        background:linear-gradient(177deg, color-mix(in srgb,var(--prickly-lt) 95%, transparent), transparent 26%); }
+    .shard.back { filter:drop-shadow(0 0 5px color-mix(in srgb,var(--prickly) 30%, transparent)) blur(1.4px); }
+
+    /* quiet oversized word cue */
+    .word { position:fixed; top:50%; transform:translateY(-50%); z-index:4; pointer-events:none;
+        font-family:var(--serif); font-weight:700; letter-spacing:.02em; text-transform:uppercase; font-size:clamp(2.6rem,10vw,6rem); line-height:1; }
+    .word.goo { right:4%; color:var(--gooey); opacity:calc(var(--goo) * .14); transform:translateY(-50%) scale(calc(.9 + var(--goo)*.12)); }
+    .word.prk { left:4%;  color:var(--prickly); opacity:calc(var(--prk) * .14); transform:translateY(-50%) scale(calc(.9 + var(--prk)*.12)); }
+
+    .swipe-hint { display:flex; justify-content:center; align-items:center; gap:18px; width:min(460px,94vw); margin:18px auto 0; position:relative; z-index:10; }
     .swipe-hint span { font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
     .swipe-hint .l { color:var(--prickly); } .swipe-hint .r { color:var(--gooey); } .swipe-hint .m { color:var(--ink-soft); }
-    .swipe-buttons { display:flex; gap:12px; justify-content:center; margin-top:26px; flex-wrap:wrap; }
+    .swipe-buttons { display:flex; gap:12px; justify-content:center; margin-top:26px; flex-wrap:wrap; position:relative; z-index:10; }
 
     /* ---------- Buttons ---------- */
     .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
@@ -133,6 +198,16 @@
         .nav-links a { padding:8px 10px; font-size:.85rem; }
         .swipe-buttons .btn { flex:1; padding:13px 10px; }
     }
+    /* Mobile: no side gutters, so lift the effect layer ABOVE the card and
+       shrink the card — the incoming glow/shards spill over its leading edge. */
+    @media (max-width:768px) {
+        .edge { z-index:20; width:62vw;
+            -webkit-mask-image:linear-gradient(var(--mask-dir), #000 8%, transparent 98%);
+                    mask-image:linear-gradient(var(--mask-dir), #000 8%, transparent 98%); }
+        .word { z-index:19; font-size:clamp(2rem,13vw,4rem); }
+        .swipe-card { width:min(300px,66vw); min-height:228px; }
+        .swipe-card .name { font-size:1.7rem; }
+    }
 </style>
 </head>
 <body>
@@ -145,6 +220,12 @@
             <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌙</button>
         </div>
     </nav>
+
+    <!-- Glow & Shards effect layer (fixed, viewport-wide; inert until a swipe) -->
+    <div class="edge left"  id="edgeL"><div class="fx" id="fxL"></div></div>
+    <div class="edge right" id="edgeR"><div class="fx" id="fxR"></div></div>
+    <div class="word prk">Prickly</div>
+    <div class="word goo">Gooey</div>
 
     <main>
         <!-- VIEW: VOTE -->
@@ -199,7 +280,9 @@
     const POOL_FRACTION = 0.20;          // draw next card from the least-shown 20%
     const RESULTS_EVERY = 5;             // surface the interim top-5 every N swipes
     const TOP_N = 5;                     // how many to show in the interim panel
-    const RANK_MIN_VOTES = 1;            // TESTING: lowered from 5 so the top-5 panel appears quickly. Restore to 5 for production.
+    const RANK_MIN_VOTES = 5;            // an item needs this many gooey+prickly votes to be ranked
+    const SWIPE_THRESHOLD = 150;         // px drag that maps to full effect intensity
+    const SWIPE_COMMIT = 110;            // px past which release commits the vote
     let votesThisSession = 0;
     let currentCategoryId = "tech_companies";
     const CATEGORIES = [
@@ -224,6 +307,9 @@
     const categoryBar = document.getElementById('category-bar');
     const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteKicker = document.getElementById('vote-kicker');
+    const root = document.documentElement;
+    const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
+    const fxL = document.getElementById('fxL'), fxR = document.getElementById('fxR');
 
     /* ===== 4. THEME ===== */
     const themeBtn = document.getElementById('themeToggle');
@@ -246,6 +332,7 @@
         Object.values(navLinks).forEach(l => l.classList.remove('active'));
         views[name].classList.remove('hidden');
         if (navLinks[name]) navLinks[name].classList.add('active');
+        setSide('none', 0);
     }
     document.getElementById('nav-home').addEventListener('click', () => { showView('vote'); });
     navLinks.vote.addEventListener('click', () => { showView('vote'); });
@@ -323,8 +410,42 @@
         return pool[Math.floor(Math.random() * pool.length)];
     }
 
-    /* ===== 8. SWIPE CARD ===== */
+    /* ===== 8. SWIPE CARD + GLOW & SHARDS EFFECT ===== */
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+    // Build the glassy bubbles (right) and faceted shards (left) once.
+    function buildEffects() {
+        let R = '<div class="glow-ambient"></div><div class="glow-core"></div><div class="edge-rim"></div>';
+        for (let i = 0; i < 16; i++) {
+            R += '<div class="bubble" style="right:' + rnd(6, 240).toFixed(0) + 'px; bottom:' + rnd(-30, 70).toFixed(0) + 'px;' +
+                 '--s:' + rnd(9, 46).toFixed(0) + 'px; --depth:' + rnd(.25, 1).toFixed(2) + '; --rise:' + rnd(-180, -440).toFixed(0) + 'px;' +
+                 '--d:' + rnd(0, .5).toFixed(2) + '; --dur:' + rnd(3.2, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;">' +
+                 '<span class="ball"></span></div>';
+        }
+        fxR.innerHTML = R;
+
+        let L = '<div class="prk-ambient"></div>';
+        for (let i = 0; i < 12; i++) {
+            const back = Math.random() < .4;
+            L += '<div class="shard' + (back ? ' back' : '') + '" style="' +
+                 '--y:' + (i * 8 + rnd(0, 4)).toFixed(1) + '%; --h:' + (back ? rnd(14, 26) : rnd(26, 50)).toFixed(0) + 'px;' +
+                 '--len:' + (back ? rnd(110, 200) : rnd(180, 340)).toFixed(0) + 'px; --a:' + rnd(-7, 7).toFixed(1) + 'deg;' +
+                 '--d:' + rnd(0, .45).toFixed(2) + ';"></div>';
+        }
+        fxL.innerHTML = L;
+    }
+
+    // Drive effect intensity (0..1) for a side; 'none' clears both.
+    function setSide(side, p) {
+        edgeR.style.setProperty('--p', side === 'goo' ? p : 0);
+        edgeL.style.setProperty('--p', side === 'prk' ? p : 0);
+        root.style.setProperty('--goo', side === 'goo' ? p : 0);
+        root.style.setProperty('--prk', side === 'prk' ? p : 0);
+    }
+
     function nextCard() {
+        setSide('none', 0);
         currentItem = pickNext();
         if (!currentItem) return;
         renderCard(currentItem);
@@ -335,10 +456,7 @@
         const wrap = document.createElement('div');
         wrap.className = 'swipe-wrap';
         wrap.innerHTML =
-            '<div class="swipe-card card" id="sc">' +
-                '<div class="stamp prk">Prickly</div>' +
-                '<div class="stamp goo">Gooey</div>' +
-                '<div class="stamp skp">Skip</div>' +
+            '<div class="swipe-card" id="sc">' +
                 '<span class="name">' + item.name + '</span>' +
                 '<span class="meta">swipe or tap a button</span>' +
             '</div>';
@@ -354,44 +472,69 @@
         buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost">Skip</button><button class="btn btn-goo">Gooey</button>';
         arena.appendChild(buttons);
 
-        const card = wrap.querySelector('#sc');
-        const goo = card.querySelector('.goo'), prk = card.querySelector('.prk'), skp = card.querySelector('.skp');
-        const clamp = (v) => Math.max(0, Math.min(1, v));
-        let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, done = false;
-
-        function setT(x, y, animate) {
-            card.style.transition = animate ? 'transform .35s cubic-bezier(.2,.7,.2,1)' : 'none';
-            card.style.transform = 'translate(' + x + 'px,' + y + 'px) rotate(' + (x / 24) + 'deg)';
-            goo.style.opacity = x > 30 ? clamp((x - 30) / 90) : 0;
-            prk.style.opacity = x < -30 ? clamp((-x - 30) / 90) : 0;
-            skp.style.opacity = (y < -30 && Math.abs(y) > Math.abs(x)) ? clamp((-y - 30) / 90) : 0;
-        }
-        function fly(verdict) {
-            if (done) return; done = true;
-            const dest = verdict === 'gooey' ? [600, 0] : verdict === 'prickly' ? [-600, 0] : [0, -600];
-            setT(dest[0], dest[1], true);
-            setTimeout(() => commitVote(item, verdict), 300);
-        }
-        function down(e) { if (done) return; dragging = true; const p = e.touches ? e.touches[0] : e; startX = p.clientX; startY = p.clientY; }
-        function move(e) { if (!dragging) return; const p = e.touches ? e.touches[0] : e; dx = p.clientX - startX; dy = p.clientY - startY; setT(dx, dy, false); }
-        function up() {
-            if (!dragging) return; dragging = false;
-            if (dy < -110 && Math.abs(dy) > Math.abs(dx)) fly('skip');
-            else if (dx > 110) fly('gooey');
-            else if (dx < -110) fly('prickly');
-            else setT(0, 0, true);
-            dx = dy = 0;
-        }
-        card.addEventListener('mousedown', down);
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', up);
-        card.addEventListener('touchstart', down, { passive: true });
-        card.addEventListener('touchmove', move, { passive: true });
-        card.addEventListener('touchend', up);
-        buttons.children[0].onclick = () => fly('prickly');
-        buttons.children[1].onclick = () => fly('skip');
-        buttons.children[2].onclick = () => fly('gooey');
+        beginCard(wrap.querySelector('#sc'), item);
+        buttons.children[0].onclick = () => flySwipe('prickly');
+        buttons.children[1].onclick = () => flySwipe('skip');
+        buttons.children[2].onclick = () => flySwipe('gooey');
     }
+
+    /* ----- pointer-driven swipe (one shared window handler set) ----- */
+    let swipe = null;
+    function beginCard(card, item) {
+        swipe = { card, item, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0 };
+        card.addEventListener('mousedown', onDown);
+        card.addEventListener('touchstart', onDown, { passive: true });
+    }
+    function onDown(e) {
+        if (!swipe || swipe.done) return;
+        const t = e.touches ? e.touches[0] : e;
+        swipe.sx = t.clientX; swipe.sy = t.clientY; swipe.dragging = true;
+        swipe.card.style.transition = 'none';
+    }
+    function paintSwipe() {
+        swipe.raf = 0;
+        const dx = swipe.dx, dy = swipe.dy;
+        swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
+        const ax = Math.abs(dx), ay = Math.abs(dy);
+        if (dy < -28 && ay > ax) setSide('none', 0);            // leaning to skip: lift only
+        else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
+    }
+    function onMove(e) {
+        if (!swipe || !swipe.dragging) return;
+        const t = e.touches ? e.touches[0] : e;
+        swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
+    }
+    function onUp() {
+        if (!swipe || !swipe.dragging) return;
+        swipe.dragging = false;
+        const dx = swipe.dx, dy = swipe.dy;
+        if (dy < -SWIPE_COMMIT && Math.abs(dy) > Math.abs(dx)) flySwipe('skip');
+        else if (dx > SWIPE_COMMIT) flySwipe('gooey');
+        else if (dx < -SWIPE_COMMIT) flySwipe('prickly');
+        else {
+            swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
+            swipe.card.style.transform = 'translate(0,0)';
+            setSide('none', 0);
+        }
+    }
+    function flySwipe(verdict) {
+        if (!swipe || swipe.done) return;
+        swipe.done = true; swipe.dragging = false;
+        const item = swipe.item, card = swipe.card;
+        if (verdict === 'gooey') setSide('goo', 1);
+        else if (verdict === 'prickly') setSide('prk', 1);
+        else setSide('none', 0);
+        card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
+        const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
+        const offY = verdict === 'skip' ? -(innerHeight) : -40;
+        card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
+        setTimeout(() => commitVote(item, verdict), 460);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onUp);
 
     /* ===== 9. RECORD VOTE ===== */
     async function commitVote(item, verdict) {
@@ -458,6 +601,7 @@
         return row;
     }
     function showTopResults(top) {
+        setSide('none', 0);
         arena.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'result';
@@ -519,6 +663,7 @@
     }
 
     /* ===== 12. INIT ===== */
+    buildEffects();
     loadCategory(currentCategoryId);
     </script>
 </body>

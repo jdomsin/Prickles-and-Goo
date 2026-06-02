@@ -9,6 +9,7 @@ turned into a GitHub **Release** — see "Publishing a version" below).
 | `v0.1-baseline` | `115051d` | 2026-05-29 | Original working prototype: Firebase voting, single "Tech Companies" category, drag/tap sorting. |
 | `v0.2-error-feedback` | `3794e74` | 2026-05-29 | Added graceful error handling — failures now show a clear on-screen message instead of a silent "Loading…". |
 | `v0.3-swipe-redesign` | `2bd16cb` | 2026-05-29 | Full visual redesign (FT salmon + dark mode). Replaced drag-into-buckets with a swipe interaction (right = gooey, left = prickly, up = skip). New absolute-rating data model (`shown`/`gooey`/`prickly`/`skipped`) with least-shown selection (bottom-20% pool) and confidence-aware results. Note: vote counts reset — prior pairwise data is not comparable. |
+| `v0.4-glow-shards` | `d426bde` | 2026-06-02 | Shipped the high-fidelity "Glow & Shards" swipe feedback into the live app: layered gooey glow + glassy bubbles (right), faceted shards (left), card environment lighting, quiet word cue, feathered edges, mobile over-card spill. Added billionaires / presidents / alphabet categories + a Vote-screen category switcher. `RANK_MIN_VOTES` restored to 5 for production. |
 
 ## How to revert to a previous version
 
