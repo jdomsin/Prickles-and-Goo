@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// Production rules for Prickles & Goo.
+// Reads are public. The ONLY allowed write is a single valid vote: an item
+// update that bumps `shown` by 1 and exactly one of gooey/prickly/skipped by 1,
+// leaving everything else (including `name`) untouched. This blocks arbitrary
+// writes, value tampering, decrements, and document creation/deletion.
+//
+// SEEDING NOTE: seed.html writes item/category `name` fields, which these rules
+// DENY. Seed your categories BEFORE pasting these rules (or temporarily allow
+// writes, seed, then re-apply). Existing items must already exist for votes to
+// work — votes are updates, not creates.
+//
+// LIMITATION: without authentication / Firebase App Check, these rules cannot
+// rate-limit an anonymous user repeatedly casting +1 votes. They close the
+// data-corruption hole, not ballot-stuffing. Add App Check for that next level.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSingleVote() {
+      let r = request.resource.data;
+      let o = resource.data;
+      let changed = r.diff(o).affectedKeys();
+      return changed.hasOnly(['shown', 'gooey', 'prickly', 'skipped'])
+        && r.shown == o.get('shown', 0) + 1
+        && (
+             (r.gooey   == o.get('gooey', 0) + 1   && r.prickly == o.get('prickly', 0) && r.skipped == o.get('skipped', 0)) ||
+             (r.prickly == o.get('prickly', 0) + 1 && r.gooey   == o.get('gooey', 0)   && r.skipped == o.get('skipped', 0)) ||
+             (r.skipped == o.get('skipped', 0) + 1 && r.gooey   == o.get('gooey', 0)   && r.prickly == o.get('prickly', 0))
+           );
+    }
+
+    match /categories/{category} {
+      allow read: if true;
+      allow write: if false;                 // category docs are managed via seeding only
+
+      match /items/{item} {
+        allow read: if true;
+        allow create, delete: if false;
+        allow update: if isSingleVote();
+      }
+    }
+  }
+}

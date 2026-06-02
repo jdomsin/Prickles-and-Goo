@@ -72,7 +72,16 @@
 
     const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
+    // Refreshed Tech Companies list — from Lenny Rachitsky's May 2026
+    // "dream company to work for" poll (top 15, excluding "start my own company").
+    const TECH = [
+        "Anthropic", "OpenAI", "Google", "xAI", "SpaceX",
+        "Nvidia", "Vercel", "Linear", "Airbnb", "Every",
+        "Palantir", "Lovable", "Anduril", "Cursor", "PostHog"
+    ];
+
     const CATEGORIES = [
+        { id: "tech_companies", label: "Tech Companies", items: TECH },
         { id: "billionaires", label: "Billionaires", items: BILLIONAIRES },
         { id: "presidents",   label: "US Presidents", items: PRESIDENTS },
         { id: "alphabet",     label: "The Alphabet",  items: ALPHABET }
