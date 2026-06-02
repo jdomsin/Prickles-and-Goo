@@ -1,370 +1,727 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prickles and Goo</title>
-    <style>
-        /* --- General Page Styles --- */
-        :root { --prickly-red: #dc3545; --gooey-green: #28a745; --primary-blue: #007bff; --light-gray: #f8f9fa; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--light-gray); color: #333; margin: 0; padding-top: 80px;
-        }
-        .page-container { display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
-        .main-container {
-            background-color: #ffffff; border-radius: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-            padding: 30px 40px; max-width: 900px; width: 100%; text-align: center; border: 1px solid #e9ecef;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Prickles &amp; Goo</title>
+<style>
+    /* ============================================================
+       DESIGN TOKENS — "FT × Apple": FT paper + claret/teal,
+       Apple whitespace & restraint. Light default + dark theme.
+       ============================================================ */
+    @property --p   { syntax:'<number>'; initial-value:0; inherits:true; }
+    @property --goo { syntax:'<number>'; initial-value:0; inherits:true; }
+    @property --prk { syntax:'<number>'; initial-value:0; inherits:true; }
+    :root {
+        --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
+        --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
+        --gooey:#0D7680; --gooey-soft:#E3EFEF; --gooey-lt:#7FE3DA; --gooey-2:#0a5d65;
+        --prickly:#990F3D; --prickly-soft:#F6E4E9; --prickly-lt:#FF6F91; --prickly-2:#73092c;
+        --gain:1;
+        --shadow:0 1px 2px rgba(40,30,20,.05), 0 8px 28px rgba(40,30,20,.08);
+        --shadow-lift:0 12px 40px rgba(40,30,20,.16);
+        --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
+        --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Roboto,Helvetica,Arial,sans-serif;
+        --r:14px;
+    }
+    [data-theme="dark"] {
+        --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
+        --ink:#F3EBE2; --ink-soft:#A89C90; --hairline:#3A322C;
+        --gooey:#34B3BD; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
+        --prickly:#E5577E; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
+        --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
+        --shadow-lift:0 16px 48px rgba(0,0,0,.6);
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { margin:0; }
+    body {
+        font-family:var(--sans); background:var(--paper); color:var(--ink);
+        min-height:100vh; transition:background .4s ease,color .4s ease;
+        -webkit-font-smoothing:antialiased;
+    }
 
-        /* --- Navigation --- */
-        nav {
-            position: fixed; top: 0; left: 0; width: 100%; background-color: #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: center;
-            align-items: center; padding: 10px 20px; z-index: 1000;
-        }
-        nav a {
-            color: #495057; text-decoration: none; font-size: 1.1em; font-weight: 600;
-            padding: 10px 20px; margin: 0 10px; border-radius: 8px; transition: background-color 0.2s;
-        }
-        nav a:hover { background-color: #e9ecef; }
-        nav a.brand { font-size: 1.5em; color: var(--prickly-red); }
+    /* ---------- Nav ---------- */
+    nav {
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
+        padding:16px clamp(16px,5vw,40px); border-bottom:1px solid var(--hairline);
+        position:sticky; top:0; z-index:50;
+        background:color-mix(in srgb, var(--paper) 88%, transparent);
+        backdrop-filter:saturate(140%) blur(12px);
+    }
+    .brand { font-family:var(--serif); font-weight:700; font-size:1.2rem; letter-spacing:-.01em; cursor:pointer; }
+    .brand .amp { color:var(--prickly); }
+    .nav-links { display:flex; align-items:center; gap:4px; }
+    .nav-links a {
+        font-size:.92rem; font-weight:600; color:var(--ink-soft); text-decoration:none;
+        padding:8px 14px; border-radius:999px; cursor:pointer; transition:color .2s,background .2s;
+    }
+    .nav-links a:hover { color:var(--ink); background:var(--surface-2); }
+    .nav-links a.active { color:var(--ink); background:var(--surface); box-shadow:var(--shadow); }
+    .theme-toggle {
+        width:38px; height:38px; border-radius:999px; border:1px solid var(--hairline);
+        background:var(--surface); color:var(--ink); cursor:pointer; font-size:1rem;
+        display:grid; place-items:center; transition:transform .2s; flex:0 0 auto;
+    }
+    .theme-toggle:active { transform:scale(.92); }
 
-        /* --- Typography & Content --- */
-        h1 { font-size: 3em; color: var(--prickly-red); margin-bottom: 10px; }
-        h2 { font-size: 1.8em; margin-bottom: 5px; color: #495057; }
-        h3 { font-size: 1.5em; margin: 0; }
-        .result-item h3 { font-size: 1.8em; color: #343a40; margin-bottom: 10px; }
-        p { color: #6c757d; line-height: 1.5; margin-bottom: 30px; }
+    /* ---------- Stage ---------- */
+    main { max-width:760px; margin:0 auto; padding:clamp(24px,6vw,56px) clamp(16px,5vw,40px) 90px; }
+    .kicker { font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--prickly); margin:0 0 10px; }
+    h1.prompt { font-family:var(--serif); font-size:clamp(2rem,6vw,3rem); line-height:1.04; letter-spacing:-.02em; margin:0 0 8px; }
+    .sub { color:var(--ink-soft); font-size:1rem; margin:0 0 34px; max-width:46ch; }
+    .hidden { display:none !important; }
 
-        .hidden { display: none; }
-        
-        /* --- Voting Area --- */
-        .sorter-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-        .drop-zone {
-            width: 35%; height: 350px; border: 3px dashed #dee2e6; border-radius: 12px; display: flex;
-            flex-direction: column; justify-content: center; align-items: center; transition: background-color 0.3s, border-color 0.3s;
-            padding: 20px; box-sizing: border-box; cursor: pointer;
-        }
-        .drop-zone h3 { color: #6c757d; }
-        .drop-zone.over { background-color: #e9ecef; border-color: #adb5bd; }
-        .draggable-items-start { display: flex; flex-direction: column; align-items: center; gap: 40px; }
-        
-        .item-card {
-            background-color: white; border: 1px solid #ced4da; border-radius: 8px; padding: 20px;
-            width: 200px; cursor: grab; transition: opacity 0.3s, box-shadow 0.2s, outline 0.2s;
-            font-size: 1.5em; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .item-card.dragging { opacity: 0.5; box-shadow: 0 8px 16px rgba(0,0,0,0.1); cursor: grabbing; }
-        .item-card.selected { outline: 3px solid var(--primary-blue); }
+    /* ---------- Loading placeholder card ---------- */
+    .card {
+        background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r);
+        box-shadow:var(--shadow); padding:32px 26px; text-align:center;
+        display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    }
+    .card .name { font-family:var(--serif); font-size:1.9rem; letter-spacing:-.01em; line-height:1.1; }
+    .card .meta { font-size:.8rem; color:var(--ink-soft); }
 
-        /* --- About & Full Results Sections --- */
-        .about-section, .full-results-section { text-align: left; }
-        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; margin-bottom: 20px;}
-        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .category-list button { margin: 5px; }
+    /* ---------- Swipe arena ---------- */
+    .swipe-wrap { position:relative; height:340px; display:grid; place-items:center; z-index:10; }
+    .swipe-card {
+        position:relative; z-index:10; overflow:hidden;
+        width:min(360px,80vw); min-height:300px; padding:24px; text-align:center;
+        background:var(--surface); border:1px solid var(--hairline); border-radius:22px;
+        display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+        touch-action:none; cursor:grab; will-change:transform; user-select:none;
+        box-shadow: var(--shadow-lift),
+            0 0 calc(var(--goo) * 70px) color-mix(in srgb,var(--gooey) 60%, transparent),
+            0 0 calc(var(--prk) * 70px) color-mix(in srgb,var(--prickly) 60%, transparent);
+    }
+    .swipe-card:active { cursor:grabbing; }
+    .swipe-card::before, .swipe-card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+    .swipe-card::before { background:linear-gradient(270deg, color-mix(in srgb,var(--gooey) 50%, transparent), transparent 56%); opacity:var(--goo); }
+    .swipe-card::after  { background:linear-gradient(90deg,  color-mix(in srgb,var(--prickly) 50%, transparent), transparent 56%); opacity:var(--prk); }
+    .swipe-card .name { font-family:var(--serif); font-size:2.1rem; letter-spacing:-.01em; line-height:1.1; position:relative; z-index:1; }
+    .swipe-card .meta { font-size:.8rem; color:var(--ink-soft); position:relative; z-index:1; }
 
-        /* --- Results Styles (Shared) --- */
-        .result-item { margin-bottom: 25px; text-align: left; }
-        .results-bar-container {
-            display: flex; background-color: #e9ecef; border-radius: 8px;
-            overflow: hidden; height: 35px; width: 100%; margin: 10px 0; border: 1px solid #dee2e6;
-        }
-        .prickly-fill { background-color: var(--prickly-red); }
-        .gooey-fill { background-color: var(--gooey-green); }
-        .prickly-fill, .gooey-fill { transition: width 0.5s ease-in-out; }
-        .vote-details { color: #495057; margin-top: 5px; }
-        .vote-details span { margin-right: 15px; }
-        button {
-            background-color: var(--primary-blue); color: white; border: none; padding: 12px 24px;
-            border-radius: 8px; font-size: 1em; cursor: pointer; transition: background-color 0.2s;
-        }
-        button:hover { background-color: #0056b3; }
-        
-        /* --- Mobile Responsive Styles --- */
-        @media (max-width: 768px) {
-            .sorter-container { flex-direction: column; }
-            .drop-zone { width: 100%; height: 150px; margin-bottom: 15px; }
-            .draggable-items-start { margin: 20px 0; }
-            nav a { padding: 8px 10px; font-size: 1em; }
-            nav a.brand { font-size: 1.2em; }
-            .main-container { padding: 20px 15px; }
-        }
-    </style>
+    /* ---------- Edge effects (fixed, viewport-wide) ---------- */
+    .edge {
+        position:fixed; top:0; bottom:0; width:50vw; max-width:520px; pointer-events:none; overflow:hidden; z-index:5;
+        transition:--p .18s cubic-bezier(.2,.7,.2,1);
+        -webkit-mask-image:linear-gradient(var(--mask-dir), #000 28%, transparent 96%);
+                mask-image:linear-gradient(var(--mask-dir), #000 28%, transparent 96%);
+    }
+    .edge.right { right:0; --mask-dir:to left; }
+    .edge.left  { left:0;  --mask-dir:to right; }
+    .fx { position:absolute; inset:0; }
+
+    /* gooey glow (right) */
+    .glow-ambient { position:absolute; right:-12%; top:50%; transform:translateY(-50%); width:130%; height:150%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 85%, transparent), transparent 72%);
+        filter:blur(34px); opacity:calc(var(--p) * .5 * var(--gain)); }
+    .glow-core { position:absolute; right:0; top:0; bottom:0; width:62%;
+        background:radial-gradient(120% 78% at 100% 50%, color-mix(in srgb,var(--gooey-lt) 90%, transparent), color-mix(in srgb,var(--gooey) 60%, transparent) 38%, transparent 64%);
+        filter:blur(12px); opacity:calc(var(--p) * .8 * var(--gain)); }
+    .edge-rim { position:absolute; right:0; top:0; bottom:0; width:6px;
+        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), transparent);
+        filter:blur(2px); opacity:var(--p); }
+    .bubble { position:absolute; transform:translateY(calc(var(--p) * var(--rise))) translateX(calc(var(--p) * -8px)); will-change:transform;
+        opacity:clamp(0, (var(--p) - var(--d)) / .35, 1); filter:blur(calc((1 - var(--depth)) * 3px)); }
+    .bubble .ball { display:block; width:var(--s); height:var(--s); border-radius:50%;
+        background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(255,255,255,.25) 26%, var(--gooey) 58%, var(--gooey-2) 100%);
+        box-shadow: 0 0 calc(var(--s) * .55) color-mix(in srgb,var(--gooey) 65%, transparent), inset 0 calc(var(--s) * -.12) calc(var(--s) * .18) rgba(0,0,0,.18);
+        animation: floatwob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
+    @keyframes floatwob { 0%,100% { transform:translate(0,0); } 50% { transform:translate(-7px,-9px); } }
+
+    /* prickly shards (left) */
+    .prk-ambient { position:absolute; left:-12%; top:50%; transform:translateY(-50%); width:128%; height:135%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly) 60%, transparent), transparent 72%);
+        filter:blur(30px); opacity:calc(var(--p) * .34 * var(--gain)); }
+    .shard { position:absolute; left:0; top:var(--y); height:var(--h);
+        width:calc(clamp(0, (var(--p) - var(--d)) / .4, 1) * var(--len));
+        transform:rotate(var(--a)); transform-origin:left center;
+        background:linear-gradient(100deg, color-mix(in srgb,var(--prickly) 92%, transparent), color-mix(in srgb,var(--prickly-2) 72%, transparent) 70%, color-mix(in srgb,var(--prickly-2) 40%, transparent));
+        clip-path:polygon(0 0, 100% 16%, 100% 84%, 0 100%);
+        filter:drop-shadow(0 0 7px color-mix(in srgb,var(--prickly) 45%, transparent));
+        opacity:clamp(0, (var(--p) - var(--d)) / .3, 1); }
+    .shard::before { content:""; position:absolute; inset:0; clip-path:inherit;
+        background:linear-gradient(177deg, color-mix(in srgb,var(--prickly-lt) 95%, transparent), transparent 26%); }
+    .shard.back { filter:drop-shadow(0 0 5px color-mix(in srgb,var(--prickly) 30%, transparent)) blur(1.4px); }
+
+    /* quiet oversized word cue */
+    .word { position:fixed; top:50%; transform:translateY(-50%); z-index:4; pointer-events:none;
+        font-family:var(--serif); font-weight:700; letter-spacing:.02em; text-transform:uppercase; font-size:clamp(2.6rem,10vw,6rem); line-height:1; }
+    .word.goo { right:4%; color:var(--gooey); opacity:calc(var(--goo) * .14); transform:translateY(-50%) scale(calc(.9 + var(--goo)*.12)); }
+    .word.prk { left:4%;  color:var(--prickly); opacity:calc(var(--prk) * .14); transform:translateY(-50%) scale(calc(.9 + var(--prk)*.12)); }
+
+    .swipe-hint { display:flex; justify-content:center; align-items:center; gap:18px; width:min(460px,94vw); margin:18px auto 0; position:relative; z-index:10; }
+    .swipe-hint span { font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
+    .swipe-hint .l { color:var(--prickly); } .swipe-hint .r { color:var(--gooey); } .swipe-hint .m { color:var(--ink-soft); }
+    .swipe-buttons { display:flex; gap:12px; justify-content:center; margin-top:26px; flex-wrap:wrap; position:relative; z-index:10; }
+    .btn.dim { opacity:.4; }
+
+    /* ---------- Pass meter (subtle) ---------- */
+    .pass-meter { display:flex; align-items:center; justify-content:center; gap:9px; margin-top:16px; position:relative; z-index:10; opacity:.82; }
+    .pass-meter .lbl { font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+    .pass-meter .pips { display:inline-flex; gap:5px; }
+    .pass-meter .pip { width:8px; height:8px; border-radius:50%; border:1.5px solid color-mix(in srgb,var(--ink-soft) 55%, transparent); transition:background .3s, border-color .3s, transform .3s; }
+    .pass-meter .pip.on { background:var(--gooey); border-color:var(--gooey); }
+    .pass-meter .prog { font-size:.66rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+    .pass-meter.deny { animation:denyshake .4s ease; }
+    @keyframes denyshake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} 80%{transform:translateX(-3px)} }
+
+    /* ---------- Buttons ---------- */
+    .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
+    .btn:active { transform:scale(.97); }
+    .btn-primary { background:var(--ink); color:var(--paper); }
+    .btn-ghost { background:var(--surface); color:var(--ink); border:1px solid var(--hairline); }
+    .btn-goo { background:var(--gooey); color:#fff; } .btn-prk { background:var(--prickly); color:#fff; }
+
+    /* ---------- Results ---------- */
+    .result { animation:rise .4s cubic-bezier(.2,.7,.2,1) both; }
+    @keyframes rise { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:none;} }
+    .result h3, .results-head { font-family:var(--serif); font-weight:700; color:var(--ink-soft); }
+    .result h3 { font-size:1.1rem; margin:0 0 22px; }
+    .results-head { font-size:1rem; margin:0 0 6px; }
+    .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 26px; }
+    .row { margin-bottom:20px; text-align:left; }
+    .row .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; }
+    .row .nm { font-family:var(--serif); font-size:1.2rem; }
+    .row .pct { font-variant-numeric:tabular-nums; font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
+    .row .pct .low { color:var(--prickly); font-weight:600; }
+    .bar { display:flex; height:12px; border-radius:999px; overflow:hidden; background:var(--hairline); }
+    .bar .g { background:var(--gooey); } .bar .p { background:var(--prickly); }
+    .bar .g, .bar .p { transition:width .6s cubic-bezier(.2,.7,.2,1); }
+    .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; }
+    .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+    .next-wrap { margin-top:28px; }
+
+    .category-bar { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 26px; }
+    .category-bar .cat { font-size:.85rem; font-weight:600; padding:8px 16px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
+    .category-bar .cat.active { color:var(--ink); border-color:var(--gooey); box-shadow:0 0 0 1px var(--gooey); }
+
+    /* ---------- About ---------- */
+    .about { text-align:left; }
+    .about p { color:var(--ink-soft); line-height:1.65; font-size:1.02rem; }
+    .about .lead { color:var(--ink); font-family:var(--serif); font-size:1.25rem; line-height:1.5; }
+    .video { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:var(--r); background:#000; margin:26px 0; box-shadow:var(--shadow); }
+    .video iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+
+    /* ---------- Error banner ---------- */
+    .error-banner { background:var(--prickly-soft); color:var(--prickly); border:1px solid color-mix(in srgb,var(--prickly) 30%,transparent); border-radius:var(--r); padding:14px 18px; margin:20px auto 0; max-width:520px; text-align:center; line-height:1.45; font-size:.92rem; }
+
+    @media (max-width:560px) {
+        .nav-links a { padding:8px 10px; font-size:.85rem; }
+        .swipe-buttons .btn { flex:1; padding:13px 10px; }
+    }
+    /* Mobile: no side gutters, so lift the effect layer ABOVE the card and
+       shrink the card — the incoming glow/shards spill over its leading edge. */
+    @media (max-width:768px) {
+        .edge { z-index:20; width:62vw;
+            -webkit-mask-image:linear-gradient(var(--mask-dir), #000 8%, transparent 98%);
+                    mask-image:linear-gradient(var(--mask-dir), #000 8%, transparent 98%); }
+        .word { z-index:19; font-size:clamp(2rem,13vw,4rem); }
+        .swipe-card { width:min(300px,66vw); min-height:228px; }
+        .swipe-card .name { font-size:1.7rem; }
+    }
+</style>
 </head>
-    
 <body>
-
     <nav>
-        <a href="#" id="nav-home" class="brand">Prickles and Goo</a>
-        <a href="#" id="nav-results">Results</a>
-        <a href="#" id="nav-about">About</a>
+        <div class="brand" id="nav-home">Prickles <span class="amp">&amp;</span> Goo</div>
+        <div class="nav-links">
+            <a id="link-vote" class="active">Vote</a>
+            <a id="link-results">Results</a>
+            <a id="link-about">About</a>
+            <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌙</button>
+        </div>
     </nav>
 
-    <div class="page-container">
-        <div class="main-container">
-            <!-- VIEW 1: Voting Area -->
-            <div id="voting-area">
-                <h2>Tech Companies</h2>
-                <p>Which is more prickly or gooey? Drag or tap an item, then a bucket.</p>
-                <div class="sorter-container">
-                    <div id="gooey-zone" class="drop-zone"><h3>Gooey</h3></div>
-                    <div id="draggable-items-start" class="draggable-items-start"></div>
-                    <div id="prickly-zone" class="drop-zone"><h3>Prickly</h3></div>
-                </div>
-            </div>
+    <!-- Glow & Shards effect layer (fixed, viewport-wide; inert until a swipe) -->
+    <div class="edge left"  id="edgeL"><div class="fx" id="fxL"></div></div>
+    <div class="edge right" id="edgeR"><div class="fx" id="fxR"></div></div>
+    <div class="word prk">Prickly</div>
+    <div class="word goo">Gooey</div>
 
-            <!-- VIEW 2: Full Results Area -->
-            <div id="full-results-area" class="hidden">
-                <h1>Results</h1>
-                <div id="full-results-category-list" class="category-list">
-                    <p>Select a category to see the results:</p>
-                    <button data-category-id="tech_companies" class="category-button">Tech Companies</button>
-                </div>
-                <hr>
-                <div id="full-results-item-list"></div>
-            </div>
-            
-            
-            <!-- VIEW 3: About Area -->
-            <div id="about-area" class="hidden">
-                <h1>About Prickles and Goo</h1>
-                <div class="about-section">
-                    <p>I'm John, a UX / design researcher continually exploring ways to build. I'm sinspired by implicit ways of knowing and Alan Watts spoke of "Prickles" and "Goo," a lovely way to relate to just about anything. This site is an experiment in understanding what is more prickly and gooey based on collective voting. </p>
-                    <div class="video-container">
-                        <iframe src="https://www.youtube.com/embed/D4vHnM8WPvU?si=pCPgMFs2tDe6tUCp" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    </div>
-                    <p> I'm curious what you think! As a working prototype, this may break in a number of ways. If you have any questions or feedback, please share!</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <main>
+        <!-- VIEW: VOTE -->
+        <section id="vote-view">
+            <p class="kicker" id="vote-kicker">Tech Companies</p>
+            <h1 class="prompt">Prickly or gooey?</h1>
+            <p class="sub">Swipe right for gooey, left for prickly, up to skip. Or use the buttons.</p>
+            <div class="category-bar" id="vote-category-bar"></div>
+            <div class="arena" id="arena"></div>
+            <div class="pass-meter" id="passMeter"></div>
+        </section>
 
-    <!-- Hidden templates for dynamic creation -->
-    <div id="card-templates" class="hidden">
-        <div id="itemA-card" class="item-card" draggable="true"></div>
-        <div id="itemB-card" class="item-card" draggable="true"></div>
-    </div>
+        <!-- VIEW: RESULTS -->
+        <section id="results-view" class="hidden">
+            <p class="kicker">The standings</p>
+            <h1 class="prompt">Results</h1>
+            <div class="category-bar" id="category-bar"></div>
+            <div id="results-list"></div>
+        </section>
 
-   <!-- CORRECT "Compatibility" version -->
+        <!-- VIEW: ABOUT -->
+        <section id="about-view" class="hidden">
+            <p class="kicker">About</p>
+            <h1 class="prompt">Prickles &amp; Goo</h1>
+            <div class="about">
+                <p class="lead">An experiment in discovering what feels more prickly or more gooey, through collective voting.</p>
+                <p>I'm John, a UX and design researcher continually exploring new ways to build. I'm drawn to implicit ways of knowing — and to Alan Watts, who spoke of "prickles" and "goo" as a way to relate to almost anything. This site puts that idea to a vote.</p>
+                <div class="video">
+                    <iframe src="https://www.youtube.com/embed/D4vHnM8WPvU?si=pCPgMFs2tDe6tUCp" title="Alan Watts — Prickles and Goo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
+                <p>It's a working prototype, so it may break in interesting ways. Questions or feedback are welcome.</p>
+            </div>
+        </section>
+    </main>
+
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-
     <script>
-        // === 1. FIREBASE SETUP ===
-        const firebaseConfig = {
-            apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
-            authDomain: "prickles-or-goo.firebaseapp.com",
-            projectId: "prickles-or-goo", // e.g., "prickles-and-goo-app"
-            storageBucket: "prickles-or-goo.firebasestorage.app",
-            messagingSenderId: "863779147603",
-            appId: "1:863779147603:web:55f24624e9850d30715ba6"
+    /* ===== 1. FIREBASE ===== */
+    const firebaseConfig = {
+        apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
+        authDomain: "prickles-or-goo.firebaseapp.com",
+        projectId: "prickles-or-goo",
+        storageBucket: "prickles-or-goo.firebasestorage.app",
+        messagingSenderId: "863779147603",
+        appId: "1:863779147603:web:55f24624e9850d30715ba6"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const inc = (n) => firebase.firestore.FieldValue.increment(n);
+
+    /* ===== 2. STATE ===== */
+    const POOL_FRACTION = 0.20;          // draw next card from the least-shown 20%
+    const RESULTS_EVERY = 5;             // surface the interim top-5 every N swipes
+    const TOP_N = 5;                     // how many to show in the interim panel
+    const RANK_MIN_VOTES = 5;            // an item needs this many gooey+prickly votes to be ranked
+    const SWIPE_THRESHOLD = 150;         // px drag that maps to full effect intensity
+    const SWIPE_COMMIT = 110;            // px past which release commits the vote
+    const MAX_PASSES = 5;                // most passes that can be banked
+    const START_PASSES = 2;              // passes a new visitor begins with
+    const VOTES_PER_PASS = 5;            // real votes needed to earn 1 pass back
+    let passes = START_PASSES, votesTowardPass = 0;
+    let votesThisSession = 0;
+    let currentCategoryId = "tech_companies";
+    const CATEGORIES = [
+        { id: "tech_companies", label: "Tech Companies" },
+        { id: "billionaires",   label: "Billionaires" },
+        { id: "presidents",     label: "US Presidents" },
+        { id: "alphabet",       label: "The Alphabet" }
+    ];
+    let items = [];                       // in-memory view of the category
+    let lastShownId = null;
+    let currentItem = null;
+
+    /* ===== 3. DOM ===== */
+    const views = {
+        vote:    document.getElementById('vote-view'),
+        results: document.getElementById('results-view'),
+        about:   document.getElementById('about-view')
+    };
+    const navLinks = { vote: document.getElementById('link-vote'), results: document.getElementById('link-results'), about: document.getElementById('link-about') };
+    const arena = document.getElementById('arena');
+    const resultsList = document.getElementById('results-list');
+    const categoryBar = document.getElementById('category-bar');
+    const voteCategoryBar = document.getElementById('vote-category-bar');
+    const voteKicker = document.getElementById('vote-kicker');
+    const passMeter = document.getElementById('passMeter');
+    const root = document.documentElement;
+    const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
+    const fxL = document.getElementById('fxL'), fxR = document.getElementById('fxR');
+
+    /* ===== 4. THEME ===== */
+    const themeBtn = document.getElementById('themeToggle');
+    (function initTheme(){
+        const saved = localStorage.getItem('pg-theme');
+        if (saved) document.documentElement.setAttribute('data-theme', saved);
+        themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+    })();
+    themeBtn.addEventListener('click', () => {
+        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const next = dark ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('pg-theme', next);
+        themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+    });
+
+    /* ===== 5. NAVIGATION ===== */
+    function showView(name) {
+        Object.values(views).forEach(v => v.classList.add('hidden'));
+        Object.values(navLinks).forEach(l => l.classList.remove('active'));
+        views[name].classList.remove('hidden');
+        if (navLinks[name]) navLinks[name].classList.add('active');
+        setSide('none', 0);
+    }
+    document.getElementById('nav-home').addEventListener('click', () => { showView('vote'); });
+    navLinks.vote.addEventListener('click', () => { showView('vote'); });
+    navLinks.results.addEventListener('click', () => { showView('results'); loadResults(); });
+    navLinks.about.addEventListener('click', () => showView('about'));
+
+    /* ===== 6. ERRORS ===== */
+    function describeError(err) {
+        if (!navigator.onLine) return "You appear to be offline. Check your connection and try again.";
+        switch (err && err.code) {
+            case 'permission-denied': return "The database denied access — the Firestore rules may have expired or be too strict (Firebase Console → Firestore → Rules).";
+            case 'unavailable': return "Couldn't reach the database. Try again in a moment.";
+            case 'not-found': return "That data wasn't found in the database.";
+            default: return "Something went wrong with the database" + (err && err.code ? " (" + err.code + ")" : "") + ".";
+        }
+    }
+    function showError(container, msg) {
+        let b = container.querySelector('.error-banner');
+        if (!b) { b = document.createElement('div'); b.className = 'error-banner'; container.appendChild(b); }
+        b.textContent = msg; b.classList.remove('hidden');
+    }
+
+    /* ===== 7. DATA ===== */
+    function normalize(doc) {
+        const d = doc.data() || {};
+        return {
+            id: doc.id,
+            name: d.name || doc.id,
+            shown: d.shown || 0,
+            gooey: d.gooey || 0,
+            prickly: d.prickly || 0,
+            skipped: d.skipped || 0
         };
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(app);
-
-        // === 2. GLOBAL STATE & DOM ELEMENTS ===
-        let currentCategoryId = "tech_companies";
-        let itemA = null, itemB = null;
-        let selectedItemCard = null;
-
-        const allViews = document.querySelectorAll('#voting-area, #full-results-area, #about-area');
-        const votingArea = document.getElementById('voting-area'), resultsArea = document.getElementById('full-results-area'), aboutArea = document.getElementById('about-area');
-        
-        const draggableStartContainer = document.getElementById('draggable-items-start');
-        const itemA_card = document.getElementById('itemA-card'), itemB_card = document.getElementById('itemB-card');
-        const dropZones = document.querySelectorAll('.drop-zone'), gooeyZone = document.getElementById('gooey-zone'), pricklyZone = document.getElementById('prickly-zone');
-        
-        const fullResultsItemList = document.getElementById('full-results-item-list');
-
-        // === 3. CORE FUNCTIONS ===
-        function showView(viewToShow) {
-            const tempResults = document.getElementById('temp-results');
-            if (tempResults) tempResults.remove();
-            
-            allViews.forEach(view => view.classList.add('hidden'));
-            viewToShow.classList.remove('hidden');
+    }
+    function renderVoteCategoryBar() {
+        voteCategoryBar.innerHTML = '';
+        CATEGORIES.forEach(c => {
+            const b = document.createElement('button');
+            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
+            b.textContent = c.label;
+            b.onclick = () => { if (c.id !== currentCategoryId) loadCategory(c.id); };
+            voteCategoryBar.appendChild(b);
+        });
+    }
+    async function loadCategory(categoryId) {
+        currentCategoryId = categoryId;
+        votesThisSession = 0;
+        const cat = CATEGORIES.find(c => c.id === categoryId);
+        voteKicker.textContent = cat ? cat.label : categoryId;
+        renderVoteCategoryBar();
+        arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
+        try {
+            const snap = await db.collection('categories').doc(categoryId).collection('items').get();
+            items = snap.docs.map(normalize);
+            lastShownId = null;
+            if (items.length < 1) { showError(views.vote, "This category has no items yet. Add some in Firebase Console → Firestore."); return; }
+            nextCard();
+        } catch (err) {
+            console.error("Failed to load category:", err);
+            arena.innerHTML = '';
+            showError(views.vote, describeError(err));
         }
-        
-        async function loadNewPair() {
-            showView(votingArea);
-            selectedItemCard = null;
-            itemA_card.classList.remove('selected');
-            itemB_card.classList.remove('selected');
-            draggableStartContainer.appendChild(itemA_card);
-            draggableStartContainer.appendChild(itemB_card);
-            itemA_card.textContent = "Loading...";
-            itemB_card.textContent = "Loading...";
-            
-            const itemsRef = db.collection('categories').doc(currentCategoryId).collection('items');
-            const snapshot = await itemsRef.get();
-            let allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            if(allItems.length < 2) { console.error("Not enough items."); return; }
-            allItems.sort(() => 0.5 - Math.random());
-            itemA = allItems[0];
-            itemB = allItems[1];
-            itemA_card.textContent = itemA.name;
-            itemB_card.textContent = itemB.name;
+    }
+
+    /* ----- least-shown selection with bottom-20% softening ----- */
+    function pickNext() {
+        if (items.length === 0) return null;
+        const sorted = [...items].sort((a, b) => (a.shown - b.shown) || (Math.random() - 0.5));
+        const poolSize = Math.max(1, Math.ceil(items.length * POOL_FRACTION));
+        let pool = sorted.slice(0, poolSize);
+        if (pool.length > 1 && lastShownId !== null) {
+            const filtered = pool.filter(i => i.id !== lastShownId);
+            if (filtered.length) pool = filtered;
         }
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
 
-        async function handleVote(votedPricklyItem, votedGooeyItem) {
-            const pricklyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedPricklyItem.id);
-            const gooeyRef = db.collection('categories').doc(currentCategoryId).collection('items').doc(votedGooeyItem.id);
-            await Promise.all([
-                pricklyRef.update({ pricklyVotes: firebase.firestore.FieldValue.increment(1) }),
-                gooeyRef.update({ gooeyVotes: firebase.firestore.FieldValue.increment(1) })
-            ]);
-            votedPricklyItem.pricklyVotes++;
-            votedGooeyItem.gooeyVotes++;
-            
-            const tempResultsContainer = createTemporaryResults(votedPricklyItem, votedGooeyItem);
-            votingArea.classList.add('hidden');
-            votingArea.parentNode.insertBefore(tempResultsContainer, votingArea.nextSibling);
+    /* ===== 8. SWIPE CARD + GLOW & SHARDS EFFECT ===== */
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+    // Build the glassy bubbles (right) and faceted shards (left) once.
+    function buildEffects() {
+        let R = '<div class="glow-ambient"></div><div class="glow-core"></div><div class="edge-rim"></div>';
+        for (let i = 0; i < 16; i++) {
+            R += '<div class="bubble" style="right:' + rnd(6, 240).toFixed(0) + 'px; bottom:' + rnd(-30, 70).toFixed(0) + 'px;' +
+                 '--s:' + rnd(9, 46).toFixed(0) + 'px; --depth:' + rnd(.25, 1).toFixed(2) + '; --rise:' + rnd(-180, -440).toFixed(0) + 'px;' +
+                 '--d:' + rnd(0, .5).toFixed(2) + '; --dur:' + rnd(3.2, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;">' +
+                 '<span class="ball"></span></div>';
         }
-        
-        function createResultElement(item) {
-            const resultItemDiv = document.createElement('div');
-            resultItemDiv.className = 'result-item';
+        fxR.innerHTML = R;
 
-            const nameEl = document.createElement('h3');
-            nameEl.textContent = item.name;
-
-            const barContainer = document.createElement('div');
-            barContainer.className = 'results-bar-container';
-            const pBarEl = document.createElement('span');
-            pBarEl.className = 'prickly-fill';
-            const gBarEl = document.createElement('span');
-            gBarEl.className = 'gooey-fill';
-            barContainer.append(pBarEl, gBarEl);
-            
-            const detailsEl = document.createElement('p');
-            detailsEl.className = 'vote-details';
-
-            const totalVotes = item.pricklyVotes + item.gooeyVotes;
-            const pricklyPercent = totalVotes > 0 ? (item.pricklyVotes / totalVotes) * 100 : 0;
-            const gooeyPercent = 100 - pricklyPercent;
-            pBarEl.style.width = pricklyPercent + '%';
-            gBarEl.style.width = gooeyPercent + '%';
-            detailsEl.innerHTML = `<span>Total Votes: ${totalVotes}</span><span>Prickly: ${item.pricklyVotes}</span><span>Gooey: ${item.gooeyVotes}</span><span>(${Math.round(gooeyPercent)}% Gooey)</span>`;
-            
-            resultItemDiv.append(nameEl, barContainer, detailsEl);
-            return resultItemDiv;
+        let L = '<div class="prk-ambient"></div>';
+        for (let i = 0; i < 12; i++) {
+            const back = Math.random() < .4;
+            L += '<div class="shard' + (back ? ' back' : '') + '" style="' +
+                 '--y:' + (i * 8 + rnd(0, 4)).toFixed(1) + '%; --h:' + (back ? rnd(14, 26) : rnd(26, 50)).toFixed(0) + 'px;' +
+                 '--len:' + (back ? rnd(110, 200) : rnd(180, 340)).toFixed(0) + 'px; --a:' + rnd(-7, 7).toFixed(1) + 'deg;' +
+                 '--d:' + rnd(0, .45).toFixed(2) + ';"></div>';
         }
+        fxL.innerHTML = L;
+    }
 
-        function createTemporaryResults(item1, item2) {
-            const tempResultsDiv = document.createElement('div');
-            tempResultsDiv.id = 'temp-results';
-            tempResultsDiv.innerHTML = '<h2>Results</h2>';
-            
-            if (item1.id === itemA.id) {
-                tempResultsDiv.appendChild(createResultElement(item1));
-                tempResultsDiv.appendChild(createResultElement(item2));
-            } else {
-                tempResultsDiv.appendChild(createResultElement(item2));
-                tempResultsDiv.appendChild(createResultElement(item1));
-            }
-            
-            const nextButton = document.createElement('button');
-            nextButton.textContent = 'Vote on Next Pair';
-            nextButton.onclick = () => {
-                document.getElementById('temp-results').remove();
-                loadNewPair();
-            };
-            tempResultsDiv.appendChild(nextButton);
-            return tempResultsDiv;
+    // Drive effect intensity (0..1) for a side; 'none' clears both.
+    function setSide(side, p) {
+        edgeR.style.setProperty('--p', side === 'goo' ? p : 0);
+        edgeL.style.setProperty('--p', side === 'prk' ? p : 0);
+        root.style.setProperty('--goo', side === 'goo' ? p : 0);
+        root.style.setProperty('--prk', side === 'prk' ? p : 0);
+    }
+
+    function nextCard() {
+        setSide('none', 0);
+        currentItem = pickNext();
+        if (!currentItem) return;
+        renderCard(currentItem);
+    }
+
+    function renderCard(item) {
+        arena.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'swipe-wrap';
+        wrap.innerHTML =
+            '<div class="swipe-card" id="sc">' +
+                '<span class="name">' + item.name + '</span>' +
+                '<span class="meta">swipe or tap a button</span>' +
+            '</div>';
+        arena.appendChild(wrap);
+
+        const hint = document.createElement('div');
+        hint.className = 'swipe-hint';
+        hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
+        arena.appendChild(hint);
+
+        const buttons = document.createElement('div');
+        buttons.className = 'swipe-buttons';
+        buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button><button class="btn btn-goo">Gooey</button>';
+        arena.appendChild(buttons);
+
+        beginCard(wrap.querySelector('#sc'), item);
+        buttons.children[0].onclick = () => flySwipe('prickly');
+        buttons.children[1].onclick = () => attemptPass('up');
+        buttons.children[2].onclick = () => flySwipe('gooey');
+    }
+
+    /* ----- pointer-driven swipe (one shared window handler set) ----- */
+    let swipe = null;
+    function beginCard(card, item) {
+        swipe = { card, item, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0 };
+        card.addEventListener('mousedown', onDown);
+        card.addEventListener('touchstart', onDown, { passive: true });
+    }
+    function onDown(e) {
+        if (!swipe || swipe.done) return;
+        const t = e.touches ? e.touches[0] : e;
+        swipe.sx = t.clientX; swipe.sy = t.clientY; swipe.dragging = true;
+        swipe.card.style.transition = 'none';
+    }
+    function paintSwipe() {
+        swipe.raf = 0;
+        const dx = swipe.dx, dy = swipe.dy;
+        swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
+        const ax = Math.abs(dx), ay = Math.abs(dy);
+        if (ay > ax && ay > 28) setSide('none', 0);             // leaning to pass (up/down): lift only
+        else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
+    }
+    function onMove(e) {
+        if (!swipe || !swipe.dragging) return;
+        const t = e.touches ? e.touches[0] : e;
+        swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
+    }
+    function bounceBack() {
+        if (!swipe) return;
+        swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
+        swipe.card.style.transform = 'translate(0,0)';
+        setSide('none', 0);
+    }
+    function onUp() {
+        if (!swipe || !swipe.dragging) return;
+        swipe.dragging = false;
+        const dx = swipe.dx, dy = swipe.dy;
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
+            if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
         }
+        else if (dx > SWIPE_COMMIT) flySwipe('gooey');
+        else if (dx < -SWIPE_COMMIT) flySwipe('prickly');
+        else bounceBack();
+    }
+    function flySwipe(verdict, dir) {
+        if (!swipe || swipe.done) return;
+        swipe.done = true; swipe.dragging = false;
+        const item = swipe.item, card = swipe.card;
+        if (verdict === 'gooey') setSide('goo', 1);
+        else if (verdict === 'prickly') setSide('prk', 1);
+        else setSide('none', 0);
+        card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
+        const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
+        const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
+        card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
+        setTimeout(() => commitVote(item, verdict), 460);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onUp);
 
-        async function loadFullResults(categoryId) {
-            showView(resultsArea);
-            fullResultsItemList.innerHTML = '<h3>Loading Results...</h3>';
-            const itemsRef = db.collection('categories').doc(categoryId).collection('items');
-            const snapshot = await itemsRef.get();
-            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            allItems.sort((a, b) => {
-                const totalVotesA = a.pricklyVotes + a.gooeyVotes, percentGooeyA = totalVotesA > 0 ? a.gooeyVotes / totalVotesA : 0;
-                const totalVotesB = b.pricklyVotes + b.gooeyVotes, percentGooeyB = totalVotesB > 0 ? b.gooeyVotes / totalVotesB : 0;
-                return percentGooeyB - percentGooeyA;
-            });
-            
-            fullResultsItemList.innerHTML = '<h2>Sorted from most Gooey to most Prickly</h2><hr>'; 
-            allItems.forEach(item => fullResultsItemList.appendChild(createResultElement(item)));
+    /* ===== 8b. PASSES ===== */
+    function loadPassState() {
+        const p = parseInt(localStorage.getItem('pg-passes'), 10);
+        const v = parseInt(localStorage.getItem('pg-passprog'), 10);
+        passes = isNaN(p) ? START_PASSES : Math.max(0, Math.min(MAX_PASSES, p));
+        votesTowardPass = isNaN(v) ? 0 : Math.max(0, Math.min(VOTES_PER_PASS - 1, v));
+    }
+    function savePassState() {
+        localStorage.setItem('pg-passes', passes);
+        localStorage.setItem('pg-passprog', votesTowardPass);
+    }
+    function renderPassMeter() {
+        let pips = '';
+        for (let i = 0; i < MAX_PASSES; i++) pips += '<span class="pip' + (i < passes ? ' on' : '') + '"></span>';
+        const prog = passes < MAX_PASSES ? '<span class="prog">+1 in ' + (VOTES_PER_PASS - votesTowardPass) + '</span>' : '';
+        passMeter.innerHTML = '<span class="lbl">Passes</span><span class="pips">' + pips + '</span>' + prog;
+    }
+    function earnTowardPass() {                 // called once per real (gooey/prickly) vote
+        if (passes >= MAX_PASSES) { votesTowardPass = 0; }
+        else {
+            votesTowardPass += 1;
+            if (votesTowardPass >= VOTES_PER_PASS) { passes += 1; votesTowardPass = 0; }
         }
+        savePassState(); renderPassMeter();
+    }
+    function spendPass() { passes = Math.max(0, passes - 1); savePassState(); renderPassMeter(); }
+    function denyPass() { passMeter.classList.remove('deny'); void passMeter.offsetWidth; passMeter.classList.add('deny'); }
+    function attemptPass(dir) {                 // returns true if a pass was actually spent
+        if (!swipe || swipe.done) return false;
+        if (passes > 0) { spendPass(); flySwipe('skip', dir); return true; }
+        denyPass(); return false;
+    }
 
-        function processVoteAndTransition(chosenCard, destinationZoneId) {
-            const otherCard = (chosenCard.id === 'itemA-card') ? itemB_card : itemA_card;
-            const isPricklyDrop = destinationZoneId === 'prickly-zone';
-            
-            const destinationZone = isPricklyDrop ? pricklyZone : gooeyZone;
-            const oppositeZone = isPricklyDrop ? gooeyZone : pricklyZone;
-            
-            destinationZone.appendChild(chosenCard);
-            oppositeZone.appendChild(otherCard);
+    /* ===== 9. RECORD VOTE ===== */
+    async function commitVote(item, verdict) {
+        // optimistic local update keeps selection balanced within the session
+        item.shown += 1;
+        if (verdict === 'gooey') item.gooey += 1;
+        else if (verdict === 'prickly') item.prickly += 1;
+        else item.skipped += 1;
+        lastShownId = item.id;
 
-            setTimeout(() => {
-                const votedPrickly = (chosenCard.id === 'itemA-card') === isPricklyDrop ? itemA : itemB;
-                const votedGooey = (votedPrickly.id === itemA.id) ? itemB : itemA;
-                handleVote(votedPrickly, votedGooey);
-            }, 500);
-        }
+        const update = { shown: inc(1) };
+        if (verdict === 'gooey') update.gooey = inc(1);
+        else if (verdict === 'prickly') update.prickly = inc(1);
+        else update.skipped = inc(1);
 
-        // === 4. EVENT LISTENERS ===
-        // Navigation
-        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showView(votingArea); if(!itemA || !itemB) loadNewPair(); });
-        document.getElementById('nav-results').addEventListener('click', (e) => { e.preventDefault(); loadFullResults(currentCategoryId); });
-        document.getElementById('nav-about').addEventListener('click', (e) => { e.preventDefault(); showView(aboutArea); });
-        document.querySelector('.category-button').addEventListener('click', (e) => loadFullResults(e.target.dataset.categoryId));
-
-        // Tap to select an item
-        [itemA_card, itemB_card].forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (selectedItemCard === e.currentTarget) {
-                    selectedItemCard.classList.remove('selected');
-                    selectedItemCard = null;
-                } else {
-                    itemA_card.classList.remove('selected');
-                    itemB_card.classList.remove('selected');
-                    e.currentTarget.classList.add('selected');
-                    selectedItemCard = e.currentTarget;
-                }
-            });
+        const ref = db.collection('categories').doc(currentCategoryId).collection('items').doc(item.id);
+        ref.update(update).catch(async (err) => {
+            try { await ref.set(update, { merge: true }); }
+            catch (e2) { console.error("Vote write failed:", e2); }
         });
 
-        // Tap a zone to place a selected item
-        dropZones.forEach(zone => {
-            zone.addEventListener('click', (e) => {
-                if (selectedItemCard) {
-                    processVoteAndTransition(selectedItemCard, e.currentTarget.id);
-                }
-            });
-        });
+        if (verdict !== 'skip') earnTowardPass();   // only real votes earn passes back
+        votesThisSession += 1;
+        maybeShowResults();
+    }
 
-        // Drag and Drop
-        [itemA_card, itemB_card].forEach(draggable => {
-            draggable.addEventListener('dragstart', e => {
-                selectedItemCard = null;
-                itemA_card.classList.remove('selected');
-                itemB_card.classList.remove('selected');
-                e.target.classList.add('dragging');
-                e.dataTransfer.setData('text/plain', e.target.id);
-            });
-            draggable.addEventListener('dragend', e => e.target.classList.remove('dragging'));
-        });
+    /* Show the interim top-5 only on the cadence AND once a full top-5 worth
+       of items has crossed the vote threshold; otherwise keep swiping. */
+    function maybeShowResults() {
+        const ranked = rankedQualifiers();
+        if (votesThisSession % RESULTS_EVERY === 0 && ranked.length >= TOP_N) {
+            showTopResults(ranked.slice(0, TOP_N));
+        } else {
+            nextCard();
+        }
+    }
+    function shareGooey(item) {
+        const t = item.gooey + item.prickly;
+        return t > 0 ? item.gooey / t : 0;
+    }
+    function rankedQualifiers() {
+        return items
+            .filter(i => (i.gooey + i.prickly) >= RANK_MIN_VOTES)
+            .sort((a, b) => shareGooey(b) - shareGooey(a));
+    }
 
-        dropZones.forEach(zone => {
-            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
-            zone.addEventListener('dragleave', () => zone.classList.remove('over'));
-            zone.addEventListener('drop', e => {
-                e.preventDefault();
-                zone.classList.remove('over');
-                const droppedId = e.dataTransfer.getData('text');
-                const droppedCard = document.getElementById(droppedId);
-                processVoteAndTransition(droppedCard, e.currentTarget.id);
-            });
+    /* ===== 10. RESULT PANELS ===== */
+    function stats(item) {
+        const total = item.gooey + item.prickly;
+        const gp = total > 0 ? Math.round((item.gooey / total) * 100) : 0;
+        const margin = total > 0 ? Math.round(100 / Math.sqrt(total)) : 0;
+        return { total, gp, pp: 100 - gp, margin, low: total < 5 };
+    }
+    function resultRow(item) {
+        const s = stats(item);
+        const row = document.createElement('div');
+        row.className = 'row';
+        const lowTag = s.low ? ' · <span class="low">few votes</span>' : '';
+        row.innerHTML =
+            '<div class="top"><span class="nm">' + item.name + '</span>' +
+            '<span class="pct">' + s.gp + '% gooey · ±' + s.margin + '% · ' + s.total + ' votes' + lowTag + '</span></div>' +
+            '<div class="bar"><span class="g" style="width:0%"></span><span class="p" style="width:0%"></span></div>';
+        const g = row.querySelector('.g'), p = row.querySelector('.p');
+        requestAnimationFrame(() => { g.style.width = s.gp + '%'; p.style.width = s.pp + '%'; });
+        return row;
+    }
+    function showTopResults(top) {
+        setSide('none', 0);
+        arena.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'result';
+        wrap.innerHTML = '<h3>Gooiest so far — top ' + top.length + '</h3>';
+        const legend = document.createElement('div');
+        legend.className = 'legend';
+        legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
+        wrap.appendChild(legend);
+        top.forEach(it => wrap.appendChild(resultRow(it)));
+
+        const nw = document.createElement('div');
+        nw.className = 'next-wrap swipe-buttons';
+        const keep = document.createElement('button');
+        keep.className = 'btn btn-primary';
+        keep.textContent = 'Keep swiping →';
+        keep.onclick = () => nextCard();
+        const full = document.createElement('button');
+        full.className = 'btn btn-ghost';
+        full.textContent = 'See full results';
+        full.onclick = () => { showView('results'); loadResults(); };
+        nw.append(keep, full);
+        wrap.appendChild(nw);
+        arena.appendChild(wrap);
+    }
+
+    /* ===== 11. FULL RESULTS ===== */
+    function renderCategoryBar() {
+        categoryBar.innerHTML = '';
+        CATEGORIES.forEach(c => {
+            const b = document.createElement('button');
+            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
+            b.textContent = c.label;
+            b.onclick = () => { currentCategoryId = c.id; loadResults(); };
+            categoryBar.appendChild(b);
         });
-        
-        // === 5. INITIALIZATION ===
-        loadNewPair();
+    }
+    async function loadResults() {
+        renderCategoryBar();
+        resultsList.innerHTML = '<p class="results-sub">Loading…</p>';
+        try {
+            const snap = await db.collection('categories').doc(currentCategoryId).collection('items').get();
+            const all = snap.docs.map(normalize);
+            all.sort((a, b) => {
+                const ta = a.gooey + a.prickly, pa = ta ? a.gooey / ta : 0;
+                const tb = b.gooey + b.prickly, pb = tb ? b.gooey / tb : 0;
+                return pb - pa;
+            });
+            resultsList.innerHTML = '<p class="results-head">Most gooey to most prickly</p><p class="results-sub">Ranked by the share of voters who called each one gooey. ± shows how settled the number is.</p>';
+            const legend = document.createElement('div');
+            legend.className = 'legend';
+            legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
+            resultsList.appendChild(legend);
+            all.forEach(it => resultsList.appendChild(resultRow(it)));
+        } catch (err) {
+            console.error("Failed to load results:", err);
+            resultsList.innerHTML = '';
+            showError(views.results, describeError(err));
+        }
+    }
+
+    /* ===== 12. INIT ===== */
+    buildEffects();
+    loadPassState();
+    renderPassMeter();
+    loadCategory(currentCategoryId);
     </script>
 </body>
 </html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Prickles &amp; Goo — Animation Lab</title>
+<style>
+    /* Registered so --p (drag progress 0..1) can transition smoothly. */
+    @property --p { syntax: '<number>'; initial-value: 0; inherits: true; }
+
+    :root {
+        --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
+        --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
+        --gooey:#0D7680; --gooey-2:#0a5d65;
+        --prickly:#990F3D; --prickly-2:#73092c;
+        --shadow:0 1px 2px rgba(40,30,20,.05), 0 10px 30px rgba(40,30,20,.10);
+        --shadow-lift:0 18px 50px rgba(40,30,20,.20);
+        --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
+        --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Roboto,Helvetica,Arial,sans-serif;
+    }
+    [data-theme="dark"] {
+        --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
+        --ink:#F3EBE2; --ink-soft:#A89C90; --hairline:#3A322C;
+        --gooey:#34B3BD; --gooey-2:#1d6f77; --prickly:#E5577E; --prickly-2:#a83257;
+        --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.5);
+        --shadow-lift:0 22px 60px rgba(0,0,0,.65);
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { margin:0; height:100%; overflow:hidden; }
+    body { font-family:var(--sans); background:var(--paper); color:var(--ink); transition:background .4s,color .4s; -webkit-font-smoothing:antialiased; }
+
+    header {
+        position:fixed; top:0; left:0; right:0; z-index:30;
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
+        padding:14px clamp(14px,4vw,28px);
+        background:color-mix(in srgb,var(--paper) 80%,transparent); backdrop-filter:saturate(140%) blur(12px);
+        border-bottom:1px solid var(--hairline);
+    }
+    .brand { font-family:var(--serif); font-weight:700; font-size:1.05rem; }
+    .brand .amp { color:var(--prickly); }
+    .segmented { display:inline-flex; background:var(--surface-2); border:1px solid var(--hairline); border-radius:999px; padding:4px; }
+    .segmented button { font:600 .8rem var(--sans); border:0; background:transparent; color:var(--ink-soft); padding:7px 13px; border-radius:999px; cursor:pointer; transition:.2s; }
+    .segmented button.active { color:var(--ink); background:var(--surface); box-shadow:var(--shadow); }
+    .theme-toggle { width:36px; height:36px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); cursor:pointer; display:grid; place-items:center; flex:0 0 auto; }
+
+    /* ---------- edges ---------- */
+    .edge { position:fixed; top:0; bottom:0; width:46vw; max-width:460px; pointer-events:none; overflow:hidden; z-index:5; transition:--p .16s cubic-bezier(.2,.7,.2,1); }
+    .edge.left { left:0; } .edge.right { right:0; }
+    .fx-content { position:absolute; inset:0; }
+
+    /* === OOZE (gooey, right) — metaball via blur+contrast === */
+    .fx-ooze.right .fx-content { filter: blur(7px) contrast(16); }
+    .fx-ooze .blob {
+        position:absolute; right:0; border-radius:50%; background:var(--gooey);
+        width: calc(48px + var(--p) * 150px); height: calc(48px + var(--p) * 150px);
+        transform: translateX(calc(70px - var(--p) * 78px));
+        opacity: clamp(0,calc(var(--p)*3),1);
+    }
+    /* === SPIKES (prickly, left) === */
+    .fx-ooze.left .spike {
+        position:absolute; left:0; background:var(--prickly);
+        clip-path: polygon(0 0, 0 100%, 100% 50%);
+        width: calc(var(--p) * var(--len)); height: var(--h); top: var(--y);
+        opacity: clamp(0,calc(var(--p)*2.5),1);
+    }
+
+    /* === GLOW (gooey, right) === */
+    .fx-glow.right .glow {
+        position:absolute; inset:0; opacity: var(--p);
+        background: radial-gradient(130% 90% at 100% 50%, var(--gooey), color-mix(in srgb,var(--gooey) 30%, transparent) 45%, transparent 72%);
+        filter: blur(6px);
+    }
+    .fx-glow .bubble {
+        position:absolute; right: calc(8px + var(--i) * 1px); bottom:-40px; border-radius:50%;
+        background:var(--gooey); width:var(--s); height:var(--s);
+        opacity: calc(var(--p) * .85);
+        transform: translateY(calc(var(--p) * var(--rise))) scale(calc(.4 + var(--p)*.6));
+    }
+    /* === SHARDS (prickly, left) === */
+    .fx-glow.left .shard {
+        position:absolute; left:0; background: linear-gradient(90deg, var(--prickly), var(--prickly-2));
+        width: calc(var(--p) * var(--len)); height: var(--h); top: var(--y);
+        clip-path: polygon(0 0, 100% 14%, 100% 86%, 0 100%);
+        transform: rotate(var(--a)); transform-origin:left center;
+        opacity: clamp(0,calc(var(--p)*2.2),1);
+    }
+
+    /* === DRIP (gooey, right) === */
+    .fx-drip .drip {
+        position:absolute; top:-2px; right: calc(var(--x) * 1px); width: var(--w);
+        background: linear-gradient(var(--gooey-2), var(--gooey));
+        border-radius: 0 0 60% 60% / 0 0 26px 26px;
+        height: calc(8px + var(--p) * var(--len));
+        opacity: clamp(0,calc(var(--p)*3),1);
+    }
+    .fx-drip .drip::after {
+        content:""; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%);
+        width: var(--w); height: var(--w); border-radius:50%; background: var(--gooey);
+        opacity: var(--p);
+    }
+    /* === NEEDLES (prickly, left) === */
+    .fx-drip.left .needle {
+        position:absolute; left:0; height:2px; top: var(--y);
+        background: linear-gradient(90deg, var(--prickly), color-mix(in srgb,var(--prickly) 40%, transparent));
+        width: calc(var(--p) * var(--len)); transform: rotate(var(--a)); transform-origin:left center;
+        opacity: clamp(0,calc(var(--p)*2.5),1);
+    }
+
+    /* ---------- stage ---------- */
+    main { position:fixed; inset:0; display:grid; place-items:center; z-index:10; }
+    .stack { text-align:center; }
+    .fx-name { font-family:var(--serif); font-style:italic; color:var(--ink-soft); margin:0 0 18px; font-size:.95rem; }
+    .swipe-card {
+        width:min(360px,78vw); min-height:300px; background:var(--surface); border:1px solid var(--hairline);
+        border-radius:18px; box-shadow:var(--shadow-lift); display:flex; flex-direction:column; align-items:center;
+        justify-content:center; gap:10px; touch-action:none; cursor:grab; will-change:transform; user-select:none;
+    }
+    .swipe-card:active { cursor:grabbing; }
+    .swipe-card .name { font-family:var(--serif); font-size:2rem; letter-spacing:-.01em; }
+    .swipe-card .meta { font-size:.8rem; color:var(--ink-soft); }
+    .buttons { display:flex; gap:12px; justify-content:center; margin-top:24px; }
+    .btn { font:600 .92rem var(--sans); border:0; border-radius:999px; padding:13px 26px; cursor:pointer; color:#fff; transition:transform .15s; }
+    .btn:active { transform:scale(.96); }
+    .btn-prk { background:var(--prickly); } .btn-goo { background:var(--gooey); }
+    .hint { margin-top:20px; font-size:.74rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); opacity:.7; }
+</style>
+</head>
+<body>
+    <header>
+        <div class="brand">Prickles <span class="amp">&amp;</span> Goo · FX</div>
+        <div class="segmented" id="fxModes">
+            <button data-fx="ooze" class="active">Ooze &amp; Spikes</button>
+            <button data-fx="glow">Glow &amp; Shards</button>
+            <button data-fx="drip">Drip &amp; Needles</button>
+        </div>
+        <button class="theme-toggle" id="themeToggle">🌙</button>
+    </header>
+
+    <div class="edge left"  id="edgeL"><div class="fx-content" id="contentL"></div></div>
+    <div class="edge right" id="edgeR"><div class="fx-content" id="contentR"></div></div>
+
+    <main>
+        <div class="stack">
+            <p class="fx-name" id="fxLabel">Ooze &amp; Spikes — drag the card</p>
+            <div class="swipe-card" id="card">
+                <span class="name" id="cardName">Apple</span>
+                <span class="meta">drag toward a side, or use the buttons</span>
+            </div>
+            <div class="buttons">
+                <button class="btn btn-prk" id="btnPrk">Prickly</button>
+                <button class="btn btn-goo" id="btnGoo">Gooey</button>
+            </div>
+            <p class="hint">← Prickly &nbsp;·&nbsp; Gooey →</p>
+        </div>
+    </main>
+
+<script>
+    const SAMPLES = ["Apple","Tesla","Netflix","Amazon","Nvidia","A","Elon Musk","Microsoft","Google","Z"];
+    let sampleIdx = 0;
+
+    const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
+    const contentL = document.getElementById('contentL'), contentR = document.getElementById('contentR');
+    const card = document.getElementById('card'), cardName = document.getElementById('cardName');
+    const fxLabel = document.getElementById('fxLabel');
+    let fx = 'ooze';
+
+    /* ---- build the edge artwork for a given fx theme ---- */
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function buildFX(id) {
+        edgeL.className = 'edge left fx-' + id;
+        edgeR.className = 'edge right fx-' + id;
+        let L = '', R = '';
+        if (id === 'ooze') {
+            for (let i = 0; i < 6; i++) {
+                const top = 8 + i * 15 + rnd(-4, 4);
+                R += `<div class="blob" style="top:${top}%; margin-top:-90px;"></div>`;
+            }
+            for (let i = 0; i < 10; i++) {
+                L += `<div class="spike" style="--y:${i * 10 + rnd(0,3)}%; --len:${rnd(120,260)}px; --h:${rnd(14,30)}px;"></div>`;
+            }
+        } else if (id === 'glow') {
+            R += '<div class="glow"></div>';
+            for (let i = 0; i < 8; i++) {
+                R += `<div class="bubble" style="--i:${rnd(10,150)}; --s:${rnd(10,42)}px; --rise:${rnd(-160,-380)}px;"></div>`;
+            }
+            for (let i = 0; i < 7; i++) {
+                L += `<div class="shard" style="--y:${i * 13 + rnd(0,4)}%; --len:${rnd(140,300)}px; --h:${rnd(26,52)}px; --a:${rnd(-6,6)}deg;"></div>`;
+            }
+        } else { /* drip */
+            for (let i = 0; i < 8; i++) {
+                R += `<div class="drip" style="--x:${i * 46 + rnd(0,18)}; --w:${rnd(14,30)}px; --len:${rnd(120,300)}px;"></div>`;
+            }
+            for (let i = 0; i < 18; i++) {
+                L += `<div class="needle" style="--y:${i * 5.4 + rnd(0,2)}%; --len:${rnd(120,320)}px; --a:${rnd(-10,10)}deg;"></div>`;
+            }
+        }
+        contentL.innerHTML = L; contentR.innerHTML = R;
+        setP(edgeL, 0); setP(edgeR, 0);
+    }
+    function setP(edge, v) { edge.style.setProperty('--p', v); }
+
+    /* ---- swipe physics ---- */
+    const THRESH = 150, COMMIT = 110;
+    let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, busy = false, raf = 0;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    function frame() {
+        raf = 0;
+        card.style.transform = `translate(${dx}px, ${dy * .25}px) rotate(${dx / 26}deg)`;
+        const p = clamp(Math.abs(dx) / THRESH, 0, 1);
+        if (dx > 0) { setP(edgeR, p); setP(edgeL, 0); }
+        else if (dx < 0) { setP(edgeL, p); setP(edgeR, 0); }
+        else { setP(edgeL, 0); setP(edgeR, 0); }
+    }
+    function schedule() { if (!raf) raf = requestAnimationFrame(frame); }
+
+    function down(e) { if (busy) return; dragging = true; const t = e.touches ? e.touches[0] : e; startX = t.clientX; startY = t.clientY; card.style.transition = 'none'; }
+    function move(e) { if (!dragging) return; const t = e.touches ? e.touches[0] : e; dx = t.clientX - startX; dy = t.clientY - startY; schedule(); }
+    function up() {
+        if (!dragging) return; dragging = false;
+        if (Math.abs(dx) > COMMIT) commit(dx > 0 ? 'gooey' : 'prickly');
+        else reset();
+    }
+    function reset() {
+        card.style.transition = 'transform .4s cubic-bezier(.2,.8,.2,1)';
+        card.style.transform = 'translate(0,0) rotate(0)';
+        dx = dy = 0; setP(edgeL, 0); setP(edgeR, 0);
+    }
+    function commit(verdict) {
+        busy = true;
+        const edge = verdict === 'gooey' ? edgeR : edgeL;
+        setP(edge, 1); // burst the effect to full
+        card.style.transition = 'transform .42s cubic-bezier(.4,0,.2,1)';
+        const off = verdict === 'gooey' ? innerWidth : -innerWidth;
+        card.style.transform = `translate(${off}px, -40px) rotate(${off / 24}deg)`;
+        setTimeout(() => {
+            setP(edgeL, 0); setP(edgeR, 0);
+            sampleIdx = (sampleIdx + 1) % SAMPLES.length;
+            cardName.textContent = SAMPLES[sampleIdx];
+            card.style.transition = 'none';
+            card.style.transform = 'translate(0,0)';
+            dx = dy = 0; busy = false;
+        }, 460);
+    }
+
+    card.addEventListener('mousedown', down);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    card.addEventListener('touchstart', down, { passive: true });
+    card.addEventListener('touchmove', move, { passive: true });
+    card.addEventListener('touchend', up);
+    document.getElementById('btnGoo').onclick = () => { if (!busy) commit('gooey'); };
+    document.getElementById('btnPrk').onclick = () => { if (!busy) commit('prickly'); };
+
+    /* ---- controls ---- */
+    document.getElementById('fxModes').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        document.querySelectorAll('#fxModes button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        fx = b.dataset.fx;
+        fxLabel.textContent = b.textContent + ' — drag the card';
+        buildFX(fx);
+    });
+    const themeBtn = document.getElementById('themeToggle');
+    themeBtn.onclick = () => {
+        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        themeBtn.textContent = dark ? '🌙' : '☀️';
+    };
+
+    buildFX('ooze');
+</script>
+</body>
+</html>

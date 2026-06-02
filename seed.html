@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prickles &amp; Goo — Database Seeder</title>
+<style>
+    :root { --paper:#FFF1E5; --ink:#1D1B19; --soft:#6B6259; --line:#E6D7C9; --teal:#0D7680; --claret:#990F3D; }
+    * { box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--paper); color:var(--ink); margin:0; padding:40px 20px; }
+    .wrap { max-width:680px; margin:0 auto; }
+    h1 { font-family:Georgia,serif; font-size:2rem; margin:0 0 6px; }
+    p.lead { color:var(--soft); line-height:1.5; }
+    .warn { background:#F6E4E9; color:var(--claret); border:1px solid #f0c9d4; border-radius:10px; padding:12px 16px; font-size:.92rem; margin:18px 0; }
+    .cats { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+    .pill { font-size:.85rem; background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 14px; color:var(--soft); }
+    button { font:inherit; font-weight:600; background:var(--ink); color:var(--paper); border:0; border-radius:999px; padding:14px 28px; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:default; }
+    #log { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:22px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; line-height:1.6; white-space:pre-wrap; max-height:340px; overflow:auto; }
+    .ok { color:var(--teal); } .err { color:var(--claret); }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Database Seeder</h1>
+    <p class="lead">One-time setup. Writes the category lists into Firestore. Non-destructive: it only sets each item's <code>name</code> (using merge), so existing vote counts are never touched. Safe to run more than once.</p>
+    <div class="cats" id="cats"></div>
+    <div class="warn">This writes to the live <strong>prickles-or-goo</strong> database. Run it once, then you can ignore this page.</div>
+    <button id="seedBtn">Seed database</button>
+    <div id="log" hidden></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
+        authDomain: "prickles-or-goo.firebaseapp.com",
+        projectId: "prickles-or-goo",
+        storageBucket: "prickles-or-goo.firebasestorage.app",
+        messagingSenderId: "863779147603",
+        appId: "1:863779147603:web:55f24624e9850d30715ba6"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    /* ---- Category data ---- */
+    const PRESIDENTS = [
+        "George Washington","John Adams","Thomas Jefferson","James Madison","James Monroe",
+        "John Quincy Adams","Andrew Jackson","Martin Van Buren","William Henry Harrison","John Tyler",
+        "James K. Polk","Zachary Taylor","Millard Fillmore","Franklin Pierce","James Buchanan",
+        "Abraham Lincoln","Andrew Johnson","Ulysses S. Grant","Rutherford B. Hayes","James A. Garfield",
+        "Chester A. Arthur","Grover Cleveland","Benjamin Harrison","William McKinley","Theodore Roosevelt",
+        "William Howard Taft","Woodrow Wilson","Warren G. Harding","Calvin Coolidge","Herbert Hoover",
+        "Franklin D. Roosevelt","Harry S. Truman","Dwight D. Eisenhower","John F. Kennedy","Lyndon B. Johnson",
+        "Richard Nixon","Gerald Ford","Jimmy Carter","Ronald Reagan","George H. W. Bush",
+        "Bill Clinton","George W. Bush","Barack Obama","Donald Trump","Joe Biden"
+    ];
+
+    const BILLIONAIRES = [
+        "Elon Musk","Jeff Bezos","Mark Zuckerberg","Larry Ellison","Bernard Arnault",
+        "Bill Gates","Warren Buffett","Larry Page","Sergey Brin","Steve Ballmer",
+        "Mukesh Ambani","Gautam Adani","Michael Bloomberg","Jensen Huang","Michael Dell",
+        "Carlos Slim","Françoise Bettencourt Meyers","Amancio Ortega","Jim Walton","Rob Walton",
+        "Alice Walton","Jacqueline Mars","Julia Koch","Charles Koch","Phil Knight",
+        "MacKenzie Scott","Zhong Shanshan","Giovanni Ferrero","Pony Ma","Zhang Yiming",
+        "Colin Huang","Masayoshi Son","Jack Ma","Li Ka-shing","Thomas Peterffy",
+        "Stephen Schwarzman","Ken Griffin","Gina Rinehart","Andrew Forrest","Mark Cuban",
+        "Eric Schmidt","Laurene Powell Jobs","Donald Bren","Rupert Murdoch","Charles Schwab",
+        "George Soros","Leonard Lauder","Dustin Moskovitz","Jan Koum","Brian Chesky"
+    ];
+
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+    const CATEGORIES = [
+        { id: "billionaires", label: "Billionaires", items: BILLIONAIRES },
+        { id: "presidents",   label: "US Presidents", items: PRESIDENTS },
+        { id: "alphabet",     label: "The Alphabet",  items: ALPHABET }
+    ];
+
+    /* ---- UI ---- */
+    const catsEl = document.getElementById('cats');
+    CATEGORIES.forEach(c => {
+        const span = document.createElement('span');
+        span.className = 'pill';
+        span.textContent = c.label + " (" + c.items.length + ")";
+        catsEl.appendChild(span);
+    });
+
+    const logEl = document.getElementById('log');
+    function log(msg, cls) { logEl.hidden = false; const line = document.createElement('div'); if (cls) line.className = cls; line.textContent = msg; logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight; }
+    function slug(name) { return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+    document.getElementById('seedBtn').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        log("Starting…");
+        try {
+            for (const cat of CATEGORIES) {
+                await db.collection('categories').doc(cat.id).set({ name: cat.label }, { merge: true });
+                log("• Category: " + cat.label);
+                let n = 0;
+                for (const name of cat.items) {
+                    const id = slug(name) || ("item-" + (++n));
+                    await db.collection('categories').doc(cat.id).collection('items').doc(id).set({ name: name }, { merge: true });
+                    n++;
+                }
+                log("  ✓ " + n + " items written", "ok");
+            }
+            log("Done. All categories seeded.", "ok");
+        } catch (err) {
+            console.error(err);
+            log("Error: " + (err.code || err.message || err), "err");
+            log("If this says permission-denied, the Firestore rules are blocking writes.", "err");
+            e.target.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>
