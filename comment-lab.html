@@ -137,7 +137,8 @@
     <div class="lab-bar">
         <span class="tag">Prickles <span class="amp">&amp;</span> Goo · <span style="color:var(--ink-soft);font-weight:400">Commentary Lab</span></span>
         <span class="seg" id="modeSeg">
-            <button data-mode="chips" class="on">Reason chips</button>
+            <button data-mode="adaptive" class="on">Adaptive</button>
+            <button data-mode="chips">Reason chips</button>
             <button data-mode="text">Free text</button>
             <button data-mode="crowd">Crowd reasons</button>
         </span>
@@ -149,12 +150,12 @@
 
     <main>
         <p class="kicker">Tech Companies</p>
-        <p class="lead">Swipe a few. We only ask <em>why</em> when you land on something you've swiped before — a repeat. Flip your verdict and the ask changes.</p>
+        <p class="lead">Swipe a few. We only ask <em>why</em> when you land on something you've swiped before — a repeat. <b>Adaptive</b> takes free text until an item has a few reasons, then lets you agree with the crowd. Flip your verdict and the ask changes.</p>
         <div class="arena" id="arena"></div>
 
         <div class="log-wrap">
             <h3>Captured commentary</h3>
-            <p class="sub">What this interaction would collect. Mode: <b id="modeLabel">Reason chips</b>.</p>
+            <p class="sub">What this interaction would collect. Mode: <b id="modeLabel">Adaptive</b>.</p>
             <div id="log"><p class="log-empty">Nothing yet — swipe, then swipe a repeat.</p></div>
         </div>
     </main>
@@ -172,12 +173,26 @@
         prickly: ["Aggressive","Cold","Defensive","Sharp","Distant","Corporate"]
     };
 
-    /* seed crowd reasons so the flywheel feels populated */
-    function seedReasons() {
-        return {
-            gooey:   [ {t:"Feels human and approachable", v:14}, {t:"Reminds me of something comforting", v:9}, {t:"Design is soft and rounded", v:6} ],
-            prickly: [ {t:"Too aggressive / corporate", v:12}, {t:"Cold, all business", v:8}, {t:"Sharp edges, defensive vibe", v:5} ]
+    /* A reason pool that grows as people contribute, keyed name::verdict.
+       THRESHOLD reasons must exist before an item switches from "write your
+       own" (free text) to "agree with the crowd" — the cold-start hand-off.
+       Items are seeded at different fullness so you can feel both states. */
+    const THRESHOLD = 3;
+    function reasonsFor(name, verdict){ const k = name + '::' + verdict; return (reasonStore[k] = reasonStore[k] || []); }
+    function seedReasons(){
+        const S = {
+            "Nvidia::gooey":  [{t:"Feels human and approachable",v:14},{t:"The keynotes feel like a show",v:9},{t:"Friendly green branding",v:6}],
+            "Nvidia::prickly":[{t:"Too dominant, a bit ruthless",v:7}],
+            "Figma::gooey":   [{t:"Playful, made for tinkering",v:11},{t:"Soft, rounded design",v:8},{t:"The community feels warm",v:5}],
+            "Apple::gooey":   [{t:"Familiar, part of daily life",v:13},{t:"Beautiful, tactile objects",v:9}],
+            "Apple::prickly": [{t:"Locked-down and controlling",v:10}],
+            "Meta::prickly":  [{t:"Cold, all business",v:12},{t:"Feels extractive",v:9},{t:"Defensive and distant",v:5}],
+            "Meta::gooey":    [{t:"Connects me to people I love",v:4}],
+            "Tesla::prickly": [{t:"Aggressive, combative",v:11},{t:"Sharp and polarizing",v:6}],
+            "Tesla::gooey":   [{t:"Bold, optimistic about the future",v:8},{t:"Fun, a bit playful",v:5}]
+            /* Salesforce & Snapchat intentionally empty → free text first */
         };
+        Object.keys(S).forEach(k => reasonStore[k] = S[k]);
     }
 
     /* ===== persistent memory of prior verdicts (the "repeat" engine) ===== */
@@ -186,8 +201,8 @@
     function remember(name, verdict){ history[name]=verdict; localStorage.setItem(MEM_KEY, JSON.stringify(history)); updateMemNote(); }
     function priorOf(name){ return history[name] || null; }
 
-    let mode = "chips";
-    let crowd = {};                 // name -> {gooey:[...], prickly:[...]}
+    let mode = "adaptive";
+    const reasonStore = {};         // "Name::verdict" -> [{t,v}] — the growing pool
     const captured = [];            // {name, verdict, reason}
     let recentlyShown = [];
 
@@ -334,24 +349,40 @@
         draft = { chips:new Set(), text:'', crowd:null };
         const m = classify(verdict, prior);
         const vClass = verdict==='gooey'?'goo':verdict==='prickly'?'prk':'';
+        const pool = verdict==='skip' ? [] : reasonsFor(name, verdict);
         let body = '';
 
-        if (mode==='chips' && verdict!=='skip') {
+        // choose the capture UI for this ask. Adaptive = free text until the
+        // item has THRESHOLD reasons, then switch that item to "agree".
+        let ui;
+        if (verdict==='skip')      ui = 'text';     // a pass can't be chipped
+        else if (mode==='chips')   ui = 'chips';
+        else if (mode==='text')    ui = 'text';
+        else if (mode==='crowd')   ui = 'crowd';
+        else                       ui = pool.length >= THRESHOLD ? 'crowd' : 'text';
+
+        if (ui==='chips') {
             const list = CHIPS[verdict] || [];
             body = '<div class="chips">' +
                 list.map(c => '<button class="chip" data-chip="'+c+'">'+c+'</button>').join('') +
                 '<button class="chip add" data-add>+ other</button>' +
                 '</div>';
-        } else if (mode==='text' || verdict==='skip') {
-            body = '<textarea class="why-input" id="whyText" rows="2" maxlength="140" placeholder="In a few words…"></textarea>' +
-                   '<div class="counter"><span id="cc">0</span>/140</div>';
-        } else { // crowd
-            const r = (crowd[name] && crowd[name][verdict]) ? crowd[name][verdict] : (seedReasons()[verdict]||[]);
-            crowd[name] = crowd[name] || {}; crowd[name][verdict] = r;
+        } else if (ui==='crowd') {
+            const sorted = pool.slice().sort((a,b)=>b.v-a.v);
             body = '<p class="crowd-hd">Others who called ' + name + ' ' + verdict + ' said — tap to agree, or add your own:</p>' +
-                   r.sort((a,b)=>b.v-a.v).map((re,i)=>'<button class="reason" data-i="'+i+'"><span class="up">▲ '+re.v+'</span><span class="txt">'+re.t+'</span></button>').join('') +
+                   sorted.map((re,i)=>'<button class="reason" data-i="'+i+'"><span class="up">▲ '+re.v+'</span><span class="txt">'+re.t+'</span></button>').join('') +
                    '<button class="reason" data-add style="justify-content:center;color:var(--ink-soft)"><span class="txt" style="text-align:center">+ add a new reason</span></button>' +
                    '<textarea class="why-input" id="whyText" rows="1" maxlength="140" placeholder="A reason others can agree with…" style="margin-top:8px;display:none"></textarea>';
+        } else { // free text — with an adaptive nudge showing how close the pool is to "agree"
+            let seedLine = '';
+            if (mode==='adaptive') {
+                seedLine = pool.length
+                    ? '<p class="crowd-hd">Only ' + pool.length + ' of ' + THRESHOLD + ' reasons so far — one more unlocks agreeing for everyone.</p>'
+                    : '<p class="crowd-hd">No one\'s put this into words yet — you\'d be the first.</p>';
+            }
+            body = seedLine +
+                   '<textarea class="why-input" id="whyText" rows="2" maxlength="140" placeholder="In a few words…"></textarea>' +
+                   '<div class="counter"><span id="cc">0</span>/140</div>';
         }
 
         sheet.innerHTML =
@@ -408,14 +439,14 @@
     function saveWhy(name, verdict){
         let reason = '';
         if (draft.chips.size) reason = [...draft.chips].join(', ');
-        else if (draft.crowd !== null && crowd[name] && crowd[name][verdict]) {
-            const sorted = crowd[name][verdict].slice().sort((a,b)=>b.v-a.v);
+        else if (draft.crowd !== null && verdict!=='skip') {
+            const sorted = reasonsFor(name,verdict).slice().sort((a,b)=>b.v-a.v);
             const re = sorted[draft.crowd]; if (re){ re.v += 1; reason = re.t + ' (agreed)'; }
         }
         if (draft.text.trim()) {
             reason = reason ? (reason + ' — ' + draft.text.trim()) : draft.text.trim();
-            // a brand-new crowd reason joins the pool for next time
-            if (mode==='crowd') { crowd[name] = crowd[name]||{}; crowd[name][verdict]=crowd[name][verdict]||[]; crowd[name][verdict].push({t:draft.text.trim(), v:1}); }
+            // a fresh reason joins the pool, pushing the item toward "agree" mode
+            if ((mode==='crowd' || mode==='adaptive') && verdict!=='skip') reasonsFor(name,verdict).push({t:draft.text.trim(), v:1});
         }
         if (reason) captured.unshift({ name, verdict, reason });
         renderLog();
@@ -436,6 +467,7 @@
     }
 
     /* ===== init ===== */
+    seedReasons();
     updateMemNote();
     nextCard();
 </script>
