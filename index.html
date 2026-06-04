@@ -252,8 +252,18 @@
     .why-addbtn { justify-content:center; color:var(--ink-soft); border-style:dashed; }
     .why-actions { display:flex; gap:10px; margin-top:12px; }
     .why-actions .btn { flex:1; }
-    .reason-quote { font-family:var(--serif); font-style:italic; font-size:.9rem; color:var(--ink-soft); margin-top:8px; padding-left:12px; border-left:2px solid var(--hairline); }
-    .reason-quote.g { border-left-color:var(--gooey); } .reason-quote.p { border-left-color:var(--prickly); }
+    /* results comments: top-reason tease + tap-to-expand breakdown */
+    .rx { margin-top:8px; }
+    .rx-tease { font-family:var(--serif); font-style:italic; font-size:.9rem; color:var(--ink-soft); padding-left:12px; border-left:2px solid var(--hairline); }
+    .rx-tease.g { border-left-color:var(--gooey); } .rx-tease.p { border-left-color:var(--prickly); }
+    .rx-toggle { margin-top:8px; font:inherit; font-size:.8rem; cursor:pointer; background:none; border:0; color:var(--ink-soft); padding:3px 0; }
+    .rx-toggle:hover { color:var(--ink); }
+    .rx-panel { display:none; } .rx-panel.open { display:block; }
+    .rx-sub { font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin:11px 0 3px; }
+    .rx-sub.g { color:var(--gooey); } .rx-sub.p { color:var(--prickly); }
+    .rx-reason { display:flex; gap:9px; align-items:flex-start; font-size:.88rem; line-height:1.35; padding:7px 11px; border:1px solid var(--hairline); border-radius:10px; margin-top:6px; background:var(--surface); }
+    .rx-reason.g { border-left:3px solid var(--gooey); } .rx-reason.p { border-left:3px solid var(--prickly); }
+    .rx-up { font-size:.72rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink-soft); white-space:nowrap; padding-top:1px; }
 
     @media (max-width:560px) {
         .nav-links a { padding:8px 10px; font-size:.85rem; }
@@ -884,17 +894,43 @@
     function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
     scrim.addEventListener('click', () => { if (activeAsk) skipWhy(); });
 
-    // Surface the most-agreed reason for an item on a results row (read-frugal: one query).
-    async function attachTopReason(rowEl, item, categoryId) {
-        const verdict = item.gooey >= item.prickly ? 'gooey' : 'prickly';
+    // Surface comments on a results row: a top-reason tease + a tap-to-expand panel
+    // with the full gooey/prickly breakdown and upvote counts.
+    async function attachReasons(rowEl, item, categoryId) {
+        let gooey = [], prickly = [];
         try {
-            const snap = await reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(1).get();
-            if (snap.empty) return;
-            const q = document.createElement('div');
-            q.className = 'reason-quote ' + (verdict === 'gooey' ? 'g' : 'p');
-            q.innerHTML = '“' + escapeHtml(snap.docs[0].data().text) + '”';
-            rowEl.appendChild(q);
-        } catch (e) { /* quietly skip */ }
+            const [gs, ps] = await Promise.all([
+                reasonsCol(categoryId, item.id, 'gooey').orderBy('votes', 'desc').limit(20).get(),
+                reasonsCol(categoryId, item.id, 'prickly').orderBy('votes', 'desc').limit(20).get()
+            ]);
+            gooey = gs.docs.map(d => ({ text: d.data().text, votes: d.data().votes || 0 }));
+            prickly = ps.docs.map(d => ({ text: d.data().text, votes: d.data().votes || 0 }));
+        } catch (e) { return; }                  // quietly skip on error
+        const total = gooey.length + prickly.length;
+        if (!total) return;
+
+        // tease = top reason of the side this item leans toward
+        const leanGoo = item.gooey >= item.prickly;
+        let tease, teaseGoo;
+        if (leanGoo) { if (gooey[0]) { tease = gooey[0]; teaseGoo = true; } else { tease = prickly[0]; teaseGoo = false; } }
+        else         { if (prickly[0]) { tease = prickly[0]; teaseGoo = false; } else { tease = gooey[0]; teaseGoo = true; } }
+
+        const reasonList = (arr, cls) => arr.map(r =>
+            '<div class="rx-reason ' + cls + '"><span class="rx-up">▲ ' + r.votes + '</span><span>' + escapeHtml(r.text) + '</span></div>').join('');
+        let panel = '';
+        if (gooey.length)   panel += '<div class="rx-sub g">Gooey — why</div>'   + reasonList(gooey, 'g');
+        if (prickly.length) panel += '<div class="rx-sub p">Prickly — why</div>' + reasonList(prickly, 'p');
+        const label = n => n + (n === 1 ? ' comment' : ' comments');
+
+        const wrap = document.createElement('div');
+        wrap.className = 'rx';
+        wrap.innerHTML =
+            '<div class="rx-tease ' + (teaseGoo ? 'g' : 'p') + '">“' + escapeHtml(tease.text) + '”</div>' +
+            '<button class="rx-toggle" type="button">▸ ' + label(total) + '</button>' +
+            '<div class="rx-panel">' + panel + '</div>';
+        const btn = wrap.querySelector('.rx-toggle'), pn = wrap.querySelector('.rx-panel');
+        btn.onclick = () => { const open = pn.classList.toggle('open'); btn.textContent = (open ? '▾ ' : '▸ ') + label(total); };
+        rowEl.appendChild(wrap);
     }
 
     /* ===== 9. RECORD VOTE ===== */
@@ -992,7 +1028,7 @@
         legend.className = 'legend';
         legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
         wrap.appendChild(legend);
-        top.forEach(it => { const r = resultRow(it); wrap.appendChild(r); attachTopReason(r, it, it.categoryId || currentCategoryId); });
+        top.forEach(it => { const r = resultRow(it); wrap.appendChild(r); attachReasons(r, it, it.categoryId || currentCategoryId); });
 
         const nw = document.createElement('div');
         nw.className = 'next-wrap swipe-buttons';
@@ -1041,7 +1077,7 @@
             legend.className = 'legend';
             legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
             resultsList.appendChild(legend);
-            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); if (idx < 12) attachTopReason(r, it, it.categoryId || currentCategoryId); });
+            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); if (idx < 12) attachReasons(r, it, it.categoryId || currentCategoryId); });
         } catch (err) {
             console.error("Failed to load results:", err);
             resultsList.innerHTML = '';
