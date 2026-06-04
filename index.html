@@ -99,6 +99,15 @@
     .swipe-card .name { font-family:var(--serif); font-size:2.1rem; letter-spacing:-.01em; line-height:1.1; position:relative; z-index:1; }
     .swipe-card .meta { font-size:.8rem; color:var(--ink-soft); position:relative; z-index:1; }
 
+    /* ---------- Card media (Wikimedia-unified imagery) ---------- */
+    .card-media { position:relative; z-index:1; width:96px; height:96px; margin:0 auto 2px; display:grid; place-items:center; }
+    .card-plate { width:96px; height:96px; background:#fff; border-radius:20px; padding:14px; display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+    .card-plate img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
+    .card-face { width:96px; height:96px; border-radius:50%; overflow:hidden; box-shadow:inset 0 0 0 1px var(--hairline); background:var(--surface-2); }
+    .card-face img { width:100%; height:100%; object-fit:cover; display:block; }
+    .card-mono { width:96px; height:96px; border-radius:50%; display:grid; place-items:center; color:#fff; font-family:var(--serif); font-weight:700; font-size:2rem; letter-spacing:.02em; }
+    .card-mono.plate { border-radius:20px; }
+
     /* ---------- Edge effects (fixed, viewport-wide) ---------- */
     .edge {
         position:fixed; top:0; bottom:0; width:50vw; max-width:520px; pointer-events:none; overflow:hidden; z-index:5;
@@ -413,6 +422,7 @@
             id: doc.id,
             name: d.name || doc.id,
             named: !!d.name,        // false = stray doc created by a misrouted vote; hidden from play
+            wiki: d.wiki || '',     // Wikipedia page title for card imagery (seeded)
             shown: d.shown || 0,
             gooey: d.gooey || 0,
             prickly: d.prickly || 0,
@@ -496,6 +506,47 @@
         root.style.setProperty('--prk', side === 'prk' ? p : 0);
     }
 
+    /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
+    const IMAGE_KIND = { tech_companies: 'logo', billionaires: 'face', presidents: 'face' };
+    const wikiCache = new Map();        // title -> thumbnail url (or null)
+    function wikiThumb(title) {
+        if (!title || typeof fetch !== 'function') return Promise.resolve(null);
+        if (wikiCache.has(title)) return Promise.resolve(wikiCache.get(title));
+        return fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title))
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { const u = (d && d.thumbnail && d.thumbnail.source) || null; wikiCache.set(title, u); return u; })
+            .catch(() => { wikiCache.set(title, null); return null; });
+    }
+    function monoInitials(name) { return name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+    function monoHue(name) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+    function monoNode(name, kind) {
+        const d = document.createElement('div');
+        d.className = 'card-mono' + (kind === 'logo' ? ' plate' : '');
+        d.style.background = 'linear-gradient(135deg, hsl(' + monoHue(name) + ' 52% 42%), hsl(' + ((monoHue(name) + 40) % 360) + ' 56% 32%))';
+        d.textContent = monoInitials(name);
+        return d;
+    }
+    function buildCardMedia(holder, item) {
+        const kind = IMAGE_KIND[currentCategoryId];
+        if (!kind) return;                       // e.g. alphabet — the letter is the card
+        const mono = monoNode(item.name, kind);
+        holder.appendChild(mono);
+        if (!item.wiki) return;                  // no title → monogram stays
+        wikiThumb(item.wiki).then(url => {
+            if (!url || !holder.isConnected) return;
+            const img = new Image();
+            img.referrerPolicy = 'no-referrer'; img.alt = item.name;
+            img.onload = () => {                  // swap in only once it has actually loaded
+                if (!holder.isConnected) return;
+                const box = document.createElement('div');
+                box.className = kind === 'logo' ? 'card-plate' : 'card-face';
+                box.appendChild(img);
+                mono.replaceWith(box);
+            };
+            img.src = url;                        // onerror: silently keep the monogram
+        });
+    }
+
     function nextCard() {
         setSide('none', 0);
         currentItem = pickNext();
@@ -509,10 +560,12 @@
         wrap.className = 'swipe-wrap';
         wrap.innerHTML =
             '<div class="swipe-card" id="sc">' +
+                '<div class="card-media" id="cardMedia"></div>' +
                 '<span class="name">' + item.name + '</span>' +
                 '<span class="meta">swipe or tap a button</span>' +
             '</div>';
         arena.appendChild(wrap);
+        buildCardMedia(wrap.querySelector('#cardMedia'), item);
 
         const hint = document.createElement('div');
         hint.className = 'swipe-hint';
