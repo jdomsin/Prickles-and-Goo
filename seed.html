@@ -98,12 +98,29 @@
     };
     function wikiFor(name) { return WIKI_OVERRIDES[name] || name; }
 
+    // Consumer money & investing apps (the approachable end).
+    const MONEY_APPS = [
+        "Cash App", "Venmo", "PayPal", "Zelle", "Chase", "Robinhood", "Coinbase", "Kraken", "SoFi", "Revolut",
+        "Wise", "Chime", "Monzo", "Apple Card", "Acorns", "Betterment", "Wealthfront", "Fidelity", "Charles Schwab", "Klarna", "Affirm"
+    ];
+
+    // Active / pro / derivatives platforms + prediction markets (the hardcore end).
+    // Apps with a distinct pro surface appear here separately from their consumer app.
+    const TERMINALS = [
+        "Interactive Brokers", "tastytrade", "thinkorswim", "TradeStation", "NinjaTrader", "Tradovate", "TradingView", "MetaTrader",
+        "Coinbase Advanced", "Kraken Pro", "Robinhood Legend", "Deribit", "GreeksLive", "Hyperliquid", "Binance", "Bybit", "OKX", "dYdX", "Bitget",
+        "Kalshi", "Polymarket", "Manifold"
+    ];
+
     const CATEGORIES = [
-        // images:false → letters render as a glyph, no wiki title needed
-        { id: "tech_companies", label: "Tech Companies", items: TECH,         images: true },
-        { id: "billionaires", label: "Billionaires",     items: BILLIONAIRES, images: true },
-        { id: "presidents",   label: "US Presidents",    items: PRESIDENTS,   images: true },
-        { id: "alphabet",     label: "The Alphabet",     items: ALPHABET,     images: false }
+        // images:false → app logos come from the live app's domain map (or letters render
+        // as a glyph), so no wiki title is needed for these.
+        { id: "tech_companies",    label: "Tech Companies",    items: TECH,         images: true },
+        { id: "money_apps",        label: "Money Apps",        items: MONEY_APPS,   images: false },
+        { id: "trading_terminals", label: "Trading Terminals", items: TERMINALS,    images: false },
+        { id: "billionaires",      label: "Billionaires",      items: BILLIONAIRES, images: true },
+        { id: "presidents",        label: "US Presidents",     items: PRESIDENTS,   images: true },
+        { id: "alphabet",          label: "The Alphabet",      items: ALPHABET,     images: false }
     ];
 
     /* ---- UI ---- */

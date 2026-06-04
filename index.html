@@ -370,13 +370,15 @@
     let votesSinceAsk = 0;               // votes since the last commentary prompt (cooldown)
     let currentCategoryId = "tech_companies";
     const CATEGORIES = [
-        { id: "tech_companies", label: "Tech Companies" },
-        { id: "billionaires",   label: "Billionaires" },
-        { id: "presidents",     label: "US Presidents" },
-        { id: "alphabet",       label: "The Alphabet" }
+        { id: "tech_companies",    label: "Tech Companies" },
+        { id: "money_apps",        label: "Money Apps" },
+        { id: "trading_terminals", label: "Trading Terminals" },
+        { id: "billionaires",      label: "Billionaires" },
+        { id: "presidents",        label: "US Presidents" },
+        { id: "alphabet",          label: "The Alphabet" }
     ];
     const RANDOM_ID = "random";
-    const CAT_BADGE = { tech_companies: "Tech", billionaires: "Billionaire", presidents: "President", alphabet: "Letter" };
+    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter" };
     let items = [];                       // in-memory view of the category
     let lastShownId = null;
     let currentItem = null;
@@ -563,11 +565,12 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', billionaires: 'face', presidents: 'face', alphabet: 'glyph' };
-    // Curated tech logos: domain + tile treatment, keyed by item id (the seeded slug).
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', alphabet: 'glyph' };
+    // Curated app logos: domain + tile treatment, keyed by item id (the seeded slug).
     // fill = app-icon that carries its own background, render edge-to-edge; otherwise a
     // padded mark on a white plate. Clearbit supplies the art (Google favicon fallback).
-    const TECH_LOGOS = {
+    const APP_LOGOS = {
+        // tech companies
         apple:{d:'apple.com'}, amazon:{d:'amazon.com'}, tesla:{d:'tesla.com'},
         microsoft:{d:'microsoft.com'}, meta:{d:'meta.com'}, figma:{d:'figma.com',fill:1},
         salesforce:{d:'salesforce.com'}, snapchat:{d:'snapchat.com',fill:1}, adobe:{d:'adobe.com'},
@@ -575,7 +578,24 @@
         xai:{d:'x.ai'}, spacex:{d:'spacex.com',fill:1}, nvidia:{d:'nvidia.com'},
         vercel:{d:'vercel.com',fill:1,bg:'#000'}, linear:{d:'linear.app'}, airbnb:{d:'airbnb.com',fill:1},
         every:{d:'every.to'}, palantir:{d:'palantir.com',fill:1}, lovable:{d:'lovable.dev'},
-        anduril:{d:'anduril.com'}, cursor:{d:'cursor.com'}, posthog:{d:'posthog.com'}
+        anduril:{d:'anduril.com'}, cursor:{d:'cursor.com'}, posthog:{d:'posthog.com'},
+        // money apps (consumer)
+        'cash-app':{d:'cash.app',fill:1}, venmo:{d:'venmo.com',fill:1}, paypal:{d:'paypal.com',fill:1},
+        zelle:{d:'zellepay.com',fill:1}, chase:{d:'chase.com'}, robinhood:{d:'robinhood.com',fill:1},
+        coinbase:{d:'coinbase.com',fill:1}, kraken:{d:'kraken.com',fill:1}, sofi:{d:'sofi.com',fill:1},
+        revolut:{d:'revolut.com',fill:1}, wise:{d:'wise.com',fill:1}, chime:{d:'chime.com',fill:1},
+        monzo:{d:'monzo.com',fill:1}, 'apple-card':{d:'apple.com'}, acorns:{d:'acorns.com',fill:1},
+        betterment:{d:'betterment.com'}, wealthfront:{d:'wealthfront.com'}, fidelity:{d:'fidelity.com'},
+        'charles-schwab':{d:'schwab.com'}, klarna:{d:'klarna.com',fill:1}, affirm:{d:'affirm.com'},
+        // trading terminals (pro / derivatives / prediction markets)
+        'interactive-brokers':{d:'interactivebrokers.com'}, tastytrade:{d:'tastytrade.com'},
+        thinkorswim:{d:'thinkorswim.com'}, tradestation:{d:'tradestation.com'}, ninjatrader:{d:'ninjatrader.com'},
+        tradovate:{d:'tradovate.com'}, tradingview:{d:'tradingview.com',fill:1}, metatrader:{d:'metaquotes.net'},
+        'coinbase-advanced':{d:'coinbase.com',fill:1}, 'kraken-pro':{d:'kraken.com',fill:1},
+        'robinhood-legend':{d:'robinhood.com',fill:1}, deribit:{d:'deribit.com'}, greekslive:{d:'greeks.live'},
+        hyperliquid:{d:'hyperliquid.xyz'}, binance:{d:'binance.com',fill:1}, bybit:{d:'bybit.com',fill:1},
+        okx:{d:'okx.com',fill:1}, dydx:{d:'dydx.exchange'}, bitget:{d:'bitget.com',fill:1},
+        kalshi:{d:'kalshi.com',fill:1}, polymarket:{d:'polymarket.com',fill:1}, manifold:{d:'manifold.markets'}
     };
     function logoUrl(domain, which) {
         return which === 'g' ? 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128'
@@ -633,7 +653,7 @@
     function buildLogo(holder, item, sizeClass) {
         const mono = monoNode(item.name, 'logo', sizeClass);
         holder.appendChild(mono);
-        const meta = TECH_LOGOS[item.id];
+        const meta = APP_LOGOS[item.id];
         if (!meta || typeof Image !== 'function') return;   // unknown company → monogram
         const img = new Image();
         img.referrerPolicy = 'no-referrer'; img.alt = item.name;
