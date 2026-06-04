@@ -241,7 +241,7 @@
     .why-sheet.show { transform:translate(-50%,0); }
     .why-grip { width:38px; height:4px; border-radius:99px; background:var(--hairline); margin:0 auto 16px; }
     .why-moment { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin:0 0 6px; }
-    .why-moment.flip { color:var(--prickly); } .why-moment.conviction { color:var(--gooey); } .why-moment.resolved { color:var(--ink-soft); }
+    .why-moment.flip { color:var(--prickly); } .why-moment.conviction { color:var(--gooey); } .why-moment.resolved, .why-moment.first { color:var(--ink-soft); }
     .why-title { font-family:var(--serif); font-size:1.4rem; line-height:1.2; margin:0 0 16px; }
     .why-crowd-hd { font-size:.82rem; color:var(--ink-soft); margin:0 0 12px; line-height:1.45; }
     .why-input { width:100%; font:inherit; font-size:1rem; border:1px solid var(--hairline); border-radius:14px; background:var(--surface-2); color:var(--ink); padding:13px 15px; resize:none; line-height:1.4; }
@@ -261,6 +261,8 @@
     .rx-tease.g { border-left-color:var(--gooey); } .rx-tease.p { border-left-color:var(--prickly); }
     .rx-toggle { margin-top:9px; font:inherit; font-size:.8rem; font-weight:600; cursor:pointer; background:var(--surface-2); border:1px solid var(--hairline); color:var(--ink-soft); padding:7px 13px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; }
     .rx-toggle:hover { color:var(--ink); border-color:var(--gooey); }
+    .rx-add-wrap { margin-top:8px; }
+    .rx-toggle.rx-add { background:transparent; border-style:dashed; }
     .rx-panel { display:none; } .rx-panel.open { display:block; }
     .rx-sub { font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin:11px 0 3px; }
     .rx-sub.g { color:var(--gooey); } .rx-sub.p { color:var(--prickly); }
@@ -328,6 +330,7 @@
             <p class="kicker">The standings</p>
             <h1 class="prompt">Results</h1>
             <div class="category-bar" id="category-bar"></div>
+            <select class="category-select" id="results-category-select" aria-label="Choose a category"></select>
             <div id="results-list"></div>
         </section>
 
@@ -407,6 +410,8 @@
     const arena = document.getElementById('arena');
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
+    const resultsCategorySelect = document.getElementById('results-category-select');
+    resultsCategorySelect.onchange = () => { currentCategoryId = resultsCategorySelect.value; loadResults(); };
     const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteCategorySelect = document.getElementById('vote-category-select');
     voteCategorySelect.onchange = () => {
@@ -855,8 +860,9 @@
 
     let activeAsk = null;
     function classifyMoment(verdict, prior) {
-        if (prior === 'skip') return { key: 'resolved',   label: 'You passed before' };
-        if (prior !== verdict) return { key: 'flip',      label: 'You flipped' };
+        if (!prior)            return { key: 'first',      label: 'Your take' };
+        if (prior === 'skip')  return { key: 'resolved',   label: 'You passed before' };
+        if (prior !== verdict) return { key: 'flip',       label: 'You flipped' };
         return { key: 'conviction', label: 'Same call, again' };
     }
     function whyHeadline(name, m, verdict) {
@@ -937,10 +943,44 @@
         finishAsk();
     }
     function skipWhy() { if (activeAsk) markAsked(activeAsk.categoryId, activeAsk.item.id); finishAsk(); }
-    function finishAsk() { closeSheet(); activeAsk = null; maybeShowResults(); }
+    function finishAsk() {
+        const fromResults = activeAsk && activeAsk.fromResults;
+        closeSheet(); activeAsk = null;
+        // refresh the results list so a just-added reason shows; otherwise resume the vote flow
+        if (fromResults) { if (!views.results.classList.contains('hidden')) loadResults(); }
+        else { maybeShowResults(); }
+    }
     function openSheet() { scrim.classList.add('show'); requestAnimationFrame(() => sheet.classList.add('show')); }
     function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
     scrim.addEventListener('click', () => { if (activeAsk) skipWhy(); });
+
+    // Add a reason from the results page (no vote): pick a side, then write/agree.
+    function addReason(item, categoryId) {
+        activeAsk = { item, categoryId, fromResults: true, verdict: null, reasons: [], useCrowd: false, picked: null, text: '' };
+        sheet.innerHTML =
+            '<div class="why-grip"></div>' +
+            '<p class="why-moment first">Your take</p>' +
+            '<h2 class="why-title">How do you see ' + escapeHtml(item.name) + '?</h2>' +
+            '<div class="why-actions">' +
+                '<button class="btn btn-prk" id="sidePrk">Prickly</button>' +
+                '<button class="btn btn-goo" id="sideGoo">Gooey</button>' +
+            '</div>' +
+            '<div class="why-actions" style="margin-top:8px"><button class="btn btn-ghost" id="whySkip">Cancel</button></div>';
+        sheet.querySelector('#sideGoo').onclick = () => chooseSide('gooey');
+        sheet.querySelector('#sidePrk').onclick = () => chooseSide('prickly');
+        sheet.querySelector('#whySkip').onclick = () => { closeSheet(); activeAsk = null; };
+        openSheet();
+    }
+    async function chooseSide(verdict) {
+        const a = activeAsk; if (!a) return;
+        a.verdict = verdict;
+        try {
+            const snap = await reasonsCol(a.categoryId, a.item.id, verdict).orderBy('votes', 'desc').limit(5).get();
+            a.reasons = snap.docs.map(d => ({ id: d.id, text: d.data().text, votes: d.data().votes || 0 }));
+        } catch (e) { a.reasons = []; }
+        a.useCrowd = a.reasons.length >= REASON_THRESHOLD; a.picked = null; a.text = '';
+        renderSheet({ key: 'first', label: 'Your take' }, verdict);
+    }
 
     // Surface comments on a results row: a top-reason tease + a tap-to-expand panel
     // with the full gooey/prickly breakdown and upvote counts.
@@ -978,7 +1018,17 @@
             '<div class="rx-panel">' + panel + '</div>';
         const btn = wrap.querySelector('.rx-toggle'), pn = wrap.querySelector('.rx-panel');
         btn.onclick = () => { const open = pn.classList.toggle('open'); btn.textContent = '💬 ' + label(total) + (open ? ' ▾' : ' ▸'); };
-        rowEl.appendChild(wrap);
+        rowEl.insertBefore(wrap, rowEl.querySelector('.rx-add-wrap'));   // keep comments above the "add" button
+    }
+    // An always-available "add a reason" button on a results row.
+    function addReasonButton(rowEl, item, categoryId) {
+        const w = document.createElement('div');
+        w.className = 'rx rx-add-wrap';
+        const b = document.createElement('button');
+        b.className = 'rx-toggle rx-add'; b.type = 'button'; b.textContent = '✏️ add a reason';
+        b.onclick = () => addReason(item, categoryId);
+        w.appendChild(b);
+        rowEl.appendChild(w);
     }
 
     /* ===== 9. RECORD VOTE ===== */
@@ -1005,13 +1055,13 @@
         votesThisSession += 1;
         votesSinceAsk += 1;
 
-        // Repeat gate: if this visitor has voted on this item before, ask *why* — but
-        // only once per item (flips always re-ask), and never more than once every
-        // COMMENTARY_MIN_GAP votes so a swipe session stays uninterrupted.
+        // Ask *why* on a real vote — including first-time votes, so comments actually
+        // accumulate — but only once per item (flips always re-ask), and never more
+        // than once every COMMENTARY_MIN_GAP votes so a swipe session stays uninterrupted.
         const prior = priorVerdict(categoryId, item.id);
         rememberVerdict(categoryId, item.id, verdict);
         const isFlip = prior && prior !== 'skip' && verdict !== 'skip' && prior !== verdict;
-        const eligible = verdict !== 'skip' && prior && (isFlip || !hasAsked(categoryId, item.id));
+        const eligible = verdict !== 'skip' && (isFlip || !hasAsked(categoryId, item.id));
         if (eligible && votesSinceAsk >= COMMENTARY_MIN_GAP) {
             votesSinceAsk = 0;
             askWhy(item, verdict, prior, categoryId);
@@ -1099,12 +1149,19 @@
     /* ===== 11. FULL RESULTS ===== */
     function renderCategoryBar() {
         categoryBar.innerHTML = '';
+        resultsCategorySelect.innerHTML = '';
         voteCategories().forEach(c => {
+            const label = c.id === RANDOM_ID ? 'All' : c.label;    // results: "All", not "Random"
             const b = document.createElement('button');
             b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
-            b.textContent = c.id === RANDOM_ID ? 'All' : c.label;   // results: "All", not "Random"
+            b.textContent = label;
             b.onclick = () => { currentCategoryId = c.id; loadResults(); };
             categoryBar.appendChild(b);
+
+            const o = document.createElement('option');            // mirror into the mobile dropdown
+            o.value = c.id; o.textContent = label;
+            if (c.id === currentCategoryId) o.selected = true;
+            resultsCategorySelect.appendChild(o);
         });
     }
     async function loadResults() {
@@ -1129,7 +1186,7 @@
             legend.className = 'legend';
             legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
             resultsList.appendChild(legend);
-            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); if (idx < 12) attachReasons(r, it, it.categoryId || currentCategoryId); });
+            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat); if (idx < 12) attachReasons(r, it, cat); });
         } catch (err) {
             console.error("Failed to load results:", err);
             resultsList.innerHTML = '';
