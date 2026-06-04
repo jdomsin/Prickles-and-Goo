@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prickles &amp; Goo — Card / Logo Lab</title>
+<style>
+    :root{
+        --paper:#FFF1E5; --surface:#fff; --surface-2:#FBEFE3; --ink:#1D1B19; --ink-soft:#6B6259;
+        --hairline:#E6D7C9; --serif:Georgia,"Times New Roman",serif;
+        --gooey:#0D7680; --prickly:#990F3D;
+        --box:62px; --pad:20px;   /* logo footprint + plate padding (tunable) */
+    }
+    [data-theme="dark"]{
+        --paper:#16130F; --surface:#211C16; --surface-2:#2A241D; --ink:#F3E9DD; --ink-soft:#B3A595; --hairline:#3A322A;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:28px clamp(16px,4vw,40px) 80px;}
+    h1{font-family:var(--serif); font-size:1.8rem; margin:0 0 4px;}
+    p.lead{color:var(--ink-soft); margin:0 0 20px; line-height:1.5; max-width:680px;}
+    .bar{display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin-bottom:8px;}
+    .group{display:flex; gap:6px; align-items:center;}
+    .group .lbl{font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin-right:4px;}
+    .chip{font:inherit; font-size:.86rem; cursor:pointer; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); border-radius:999px; padding:7px 14px;}
+    .chip.active{border-color:var(--ink); background:var(--ink); color:var(--paper);}
+    .note{font-size:.8rem; color:var(--ink-soft); margin:14px 0 22px;}
+    .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:18px;}
+
+    /* shared card frame */
+    .card{position:relative; border-radius:22px; overflow:hidden; min-height:230px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:26px 18px; text-align:center;}
+    .card .nm{font-family:var(--serif); font-size:1.4rem; line-height:1.15;}
+    .mono{display:grid; place-items:center; color:#fff; font-family:var(--serif); font-weight:700;}
+    .logo{display:block; object-fit:contain;}
+
+    /* 1 · PLATE — white rounded tile, logo normalized to one square footprint */
+    .style-plate .card{background:var(--surface); border:1px solid var(--hairline);}
+    .style-plate .plate{width:calc(var(--box) + var(--pad)*2); height:calc(var(--box) + var(--pad)*2); background:#fff; border-radius:24px; display:grid; place-items:center; box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.05);}
+    .style-plate .logo{width:var(--box); height:var(--box); object-fit:contain;}
+    .style-plate .mono{width:var(--box);height:var(--box);border-radius:18px;font-size:2.2rem;}
+    /* footprint guide: outlines the identical square every logo is fit into */
+    .guides .style-plate .logo, .guides .style-plate .mono{outline:1.5px dashed rgba(220,30,30,.6); outline-offset:2px;}
+    /* curated "fill" — app-icon logos fill the whole tile edge-to-edge */
+    .style-plate .fill{width:calc(var(--box) + var(--pad)*2); height:calc(var(--box) + var(--pad)*2); border-radius:24px; overflow:hidden; display:grid; place-items:center; background:var(--tilebg,#fff); box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.06);}
+    .style-plate .fill .logo{width:100%; height:100%; object-fit:cover;}
+    .style-plate .fill .mono{width:100%; height:100%; border-radius:0; font-size:2.2rem;}
+    .guides .style-plate .fill{outline:1.5px dashed rgba(220,30,30,.6); outline-offset:2px;}
+
+    /* 2 · BLEED — full brand-color card, big white name + small logo chip */
+    .style-bleed .card{justify-content:flex-end; align-items:flex-start; text-align:left; color:#fff; min-height:230px;}
+    .style-bleed .chiplogo{position:absolute; top:18px; left:18px; width:46px; height:46px; background:#fff; border-radius:13px; display:grid; place-items:center; padding:8px;}
+    .style-bleed .chiplogo .logo{max-width:100%;max-height:100%;}
+    .style-bleed .chiplogo .mono{width:100%;height:100%;border-radius:8px;font-size:1.1rem;}
+    .style-bleed .nm{color:#fff; font-size:1.7rem; font-weight:600;}
+
+    /* 3 · BARE — large logo floating on paper, no tile */
+    .style-bare .card{background:transparent; border:1px dashed var(--hairline);}
+    .style-bare .bare{width:120px; height:120px; display:grid; place-items:center;}
+    .style-bare .logo{max-width:100%; max-height:100%;}
+    .style-bare .mono{width:104px;height:104px;border-radius:50%;font-size:2.1rem;}
+
+    /* 4 · WORDMARK — editorial row: mark + name, left aligned */
+    .style-wordmark .card{flex-direction:row; align-items:center; justify-content:flex-start; gap:16px; text-align:left; background:var(--surface); border:1px solid var(--hairline); min-height:120px; padding:22px;}
+    .style-wordmark .mark{width:56px; height:56px; flex:0 0 auto; background:#fff; border-radius:15px; display:grid; place-items:center; padding:9px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);}
+    .style-wordmark .mark .logo{max-width:100%;max-height:100%;}
+    .style-wordmark .mark .mono{width:100%;height:100%;border-radius:9px;font-size:1.3rem;}
+    .style-wordmark .nm{font-size:1.5rem;}
+    .style-wordmark .grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
+</style>
+</head>
+<body>
+    <h1>Card &amp; Logo Lab</h1>
+    <p class="lead">Comparing real logo sources (by company domain) across four card styles. Pick a <strong>style</strong> and a <strong>logo source</strong>; tell me the combo you like and I'll wire it into the live cards. Needs internet — logos load from third-party services.</p>
+
+    <div class="bar">
+        <div class="group" id="styleBar"><span class="lbl">Style</span></div>
+        <div class="group" id="sourceBar"><span class="lbl">Logos</span></div>
+        <div class="group" id="themeBar"><span class="lbl">Theme</span></div>
+    </div>
+    <div class="bar">
+        <label class="group"><span class="lbl">Logo size</span><input type="range" id="boxR" min="36" max="92" value="62"></label>
+        <label class="group"><span class="lbl">Plate padding</span><input type="range" id="padR" min="6" max="36" value="20"></label>
+        <label class="group" style="cursor:pointer"><input type="checkbox" id="guidesC"> <span class="lbl" style="margin:0 0 0 6px">Footprint guides</span></label>
+    </div>
+    <p class="note" id="note"></p>
+
+    <div id="stage"></div>
+
+<script>
+    // ---- sample companies: name, domain, brand color ----
+    const COMPANIES = [
+        { name:"Apple",     domain:"apple.com",     color:"#1d1d1f" },
+        { name:"Google",    domain:"google.com",    color:"#4285F4" },
+        { name:"OpenAI",    domain:"openai.com",    color:"#0f0f0f" },
+        { name:"Anthropic", domain:"anthropic.com", color:"#C9663B" },
+        { name:"NVIDIA",    domain:"nvidia.com",    color:"#76B900" },
+        { name:"Tesla",     domain:"tesla.com",     color:"#E82127" },
+        { name:"Airbnb",    domain:"airbnb.com",    color:"#FF5A5F" },
+        { name:"Figma",     domain:"figma.com",     color:"#1E1E1E" },
+        { name:"Adobe",     domain:"adobe.com",     color:"#FA0F00" },
+        { name:"Vercel",    domain:"vercel.com",    color:"#0f0f0f" },
+        { name:"Palantir",  domain:"palantir.com",  color:"#101418" },
+        { name:"SpaceX",    domain:"spacex.com",    color:"#0b0f17" }
+    ];
+
+    // Curated treatment per company: app-icon logos that carry their own
+    // background fill the tile edge-to-edge; everyone else defaults to a padded
+    // mark on a white plate. (Vercel's circle gets a black tile so corners match.)
+    const CURATED = {
+        "Airbnb":   { treatment:"fill" },
+        "Figma":    { treatment:"fill" },   // Clearbit returns a dark app-icon, not a bare mark
+        "Palantir": { treatment:"fill" },
+        "SpaceX":   { treatment:"fill" },
+        "Vercel":   { treatment:"fill", bg:"#000000" }
+    };
+
+    const STYLES  = [ ["plate","Plate"], ["bleed","Brand bleed"], ["bare","Bare logo"], ["wordmark","Wordmark"] ];
+    const SOURCES = [ ["curated","Curated · color"], ["si-ink","Simple Icons · ink"], ["si-brand","Simple Icons · brand"], ["auto","Auto (color)"], ["google","Google favicon"] ];
+    const SOURCE_NOTE = {
+        curated:    "Full-color logos, hand-tuned for consistency: app-icon logos (Airbnb, Palantir, SpaceX, Vercel) fill the tile edge-to-edge; bare marks sit padded on a white plate. Same tile size for all → consistent grid.",
+        "si-ink":   "Simple Icons, recolored to your ink tone (adapts to theme). Monochrome SVGs all normalized to one viewBox → identical size & weight. Best consistency; gaps → monogram.",
+        "si-brand": "Simple Icons in each brand's official color. Still one normalized shape/size — consistent footprint, but multi-hued. Gaps → monogram.",
+        auto:       "Auto tries Clearbit → DuckDuckGo → Google. Full color, but formats are inconsistent (some bare marks, some full-bleed icons with baked backgrounds) — sizes will vary.",
+        google:     "Google favicon — reliable but low-res and mixed (often app-icons with backgrounds)."
+    };
+
+    let style = "plate", source = "curated";
+    const isDark = () => document.documentElement.getAttribute("data-theme") === "dark";
+    function siSlug(c){ return c.si || c.name.toLowerCase().replace(/[^a-z0-9]/g,""); }
+
+    function urlFor(src, c){
+        if (src === "si-ink")   return "https://cdn.simpleicons.org/" + siSlug(c) + "/" + (isDark() ? "E7DDCE" : "1D1B19");
+        if (src === "si-brand") return "https://cdn.simpleicons.org/" + siSlug(c);
+        if (src === "clearbit") return "https://logo.clearbit.com/" + c.domain + "?size=256";
+        if (src === "ddg")      return "https://icons.duckduckgo.com/ip3/" + c.domain + ".ico";
+        if (src === "google")   return "https://www.google.com/s2/favicons?domain=" + c.domain + "&sz=128";
+        return null;
+    }
+    function monoHue(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))%360; return h; }
+    function monoNode(name){
+        const d=document.createElement("div"); d.className="mono";
+        d.style.background="linear-gradient(135deg,hsl("+monoHue(name)+" 50% 42%),hsl("+((monoHue(name)+40)%360)+" 55% 32%))";
+        d.textContent=name.replace(/[^A-Za-z0-9]/g,"").slice(0,2).toUpperCase();
+        return d;
+    }
+    // build a logo holder that tries sources in order, else shows monogram
+    function logoHolder(company){
+        const holder=document.createElement("div");
+        const mono=monoNode(company.name);
+        holder.appendChild(mono);
+        const chain = source==="auto" ? ["clearbit","ddg","google"]
+                    : source==="curated" ? ["clearbit","google"]
+                    : [source];
+        let i=0;
+        const img=new Image(); img.className="logo"; img.alt=company.name; img.referrerPolicy="no-referrer"; img.style.display="none";
+        img.onload=()=>{ if(img.naturalWidth>1){ mono.style.display="none"; img.style.display="block"; } };
+        img.onerror=()=>{ if(i<chain.length){ img.src=urlFor(chain[i++], company); } };
+        holder.appendChild(img);
+        i=1; img.src=urlFor(chain[0], company);   // kick off
+        return { holder, img, mono };
+    }
+
+    function card(company){
+        const card=document.createElement("div");
+        card.className="card";
+        const { holder } = logoHolder(company);
+        const nm=document.createElement("div"); nm.className="nm"; nm.textContent=company.name;
+
+        if (style==="plate"){
+            if (source==="curated"){
+                const m = CURATED[company.name] || { treatment:"plate" };
+                holder.className = m.treatment==="fill" ? "fill" : "plate";
+                if (m.bg) holder.style.setProperty("--tilebg", m.bg);
+            } else { holder.className="plate"; }
+            card.append(holder, nm);
+        }
+        else if (style==="bare"){ holder.className="bare"; card.append(holder, nm); }
+        else if (style==="wordmark"){ holder.className="mark"; card.append(holder, nm); }
+        else if (style==="bleed"){
+            card.style.background=company.color;
+            holder.className="chiplogo"; card.append(holder, nm);
+        }
+        return card;
+    }
+
+    function render(){
+        const stage=document.getElementById("stage");
+        stage.className="style-"+style;
+        const grid=document.createElement("div"); grid.className="grid";
+        COMPANIES.forEach(c=>grid.appendChild(card(c)));
+        stage.innerHTML=""; stage.appendChild(grid);
+        document.getElementById("note").textContent = SOURCE_NOTE[source];
+    }
+
+    function buildBar(el, items, current, on){
+        items.forEach(([val,label])=>{
+            const b=document.createElement("button"); b.className="chip"+(val===current?" active":""); b.textContent=label;
+            b.onclick=()=>{ on(val); [...el.querySelectorAll(".chip")].forEach(x=>x.classList.remove("active")); b.classList.add("active"); render(); };
+            el.appendChild(b);
+        });
+    }
+    buildBar(document.getElementById("styleBar"),  STYLES,  style,  v=>style=v);
+    buildBar(document.getElementById("sourceBar"), SOURCES, source, v=>source=v);
+    buildBar(document.getElementById("themeBar"), [["light","Light"],["dark","Dark"]], "light",
+        v=>document.documentElement.setAttribute("data-theme", v==="dark"?"dark":""));
+
+    // sizing + guides
+    const root=document.documentElement;
+    const boxR=document.getElementById("boxR"), padR=document.getElementById("padR"), guidesC=document.getElementById("guidesC");
+    function applySizing(){ root.style.setProperty("--box",boxR.value+"px"); root.style.setProperty("--pad",padR.value+"px"); document.body.classList.toggle("guides",guidesC.checked); }
+    boxR.oninput=applySizing; padR.oninput=applySizing; guidesC.onchange=applySizing;
+    applySizing();
+
+    render();
+</script>
+</body>
+</html>
