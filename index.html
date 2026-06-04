@@ -328,6 +328,7 @@
             <p class="kicker">The standings</p>
             <h1 class="prompt">Results</h1>
             <div class="category-bar" id="category-bar"></div>
+            <select class="category-select" id="results-category-select" aria-label="Choose a category"></select>
             <div id="results-list"></div>
         </section>
 
@@ -407,6 +408,8 @@
     const arena = document.getElementById('arena');
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
+    const resultsCategorySelect = document.getElementById('results-category-select');
+    resultsCategorySelect.onchange = () => { currentCategoryId = resultsCategorySelect.value; loadResults(); };
     const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteCategorySelect = document.getElementById('vote-category-select');
     voteCategorySelect.onchange = () => {
@@ -1100,12 +1103,19 @@
     /* ===== 11. FULL RESULTS ===== */
     function renderCategoryBar() {
         categoryBar.innerHTML = '';
+        resultsCategorySelect.innerHTML = '';
         voteCategories().forEach(c => {
+            const label = c.id === RANDOM_ID ? 'All' : c.label;    // results: "All", not "Random"
             const b = document.createElement('button');
             b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
-            b.textContent = c.id === RANDOM_ID ? 'All' : c.label;   // results: "All", not "Random"
+            b.textContent = label;
             b.onclick = () => { currentCategoryId = c.id; loadResults(); };
             categoryBar.appendChild(b);
+
+            const o = document.createElement('option');            // mirror into the mobile dropdown
+            o.value = c.id; o.textContent = label;
+            if (c.id === currentCategoryId) o.selected = true;
+            resultsCategorySelect.appendChild(o);
         });
     }
     async function loadResults() {
