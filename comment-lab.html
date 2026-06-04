@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Prickles &amp; Goo — Commentary Lab</title>
+<style>
+    /* ============================================================
+       THROWAWAY PROTOTYPE — exploring how to capture *why* prickly
+       or gooey. No backend; mock data + localStorage memory of what
+       you've swiped, so repeat / flip moments fire within a few cards.
+       Toggle the three capture modalities to compare the feel.
+       ============================================================ */
+    :root {
+        --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
+        --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
+        --gooey:#0D7680; --gooey-soft:#E3EFEF; --gooey-lt:#7FE3DA;
+        --prickly:#990F3D; --prickly-soft:#F6E4E9; --prickly-lt:#FF6F91;
+        --shadow:0 1px 2px rgba(40,30,20,.05), 0 8px 28px rgba(40,30,20,.08);
+        --shadow-lift:0 12px 40px rgba(40,30,20,.16);
+        --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
+        --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Roboto,Helvetica,Arial,sans-serif;
+        --r:14px;
+    }
+    [data-theme="dark"] {
+        --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
+        --ink:#F3EBE2; --ink-soft:#A89C90; --hairline:#3A322C;
+        --gooey:#34B3BD; --gooey-soft:#16302F; --gooey-lt:#A9F4EC;
+        --prickly:#E5577E; --prickly-soft:#311721; --prickly-lt:#FF9DB6;
+        --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
+        --shadow-lift:0 16px 48px rgba(0,0,0,.6);
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { margin:0; }
+    body { font-family:var(--sans); background:var(--paper); color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+    /* ---- lab chrome ---- */
+    .lab-bar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px clamp(16px,5vw,32px);
+        border-bottom:1px solid var(--hairline); background:color-mix(in srgb,var(--paper) 90%, transparent);
+        backdrop-filter:blur(10px); position:sticky; top:0; z-index:60; }
+    .lab-bar .tag { font-family:var(--serif); font-weight:700; font-size:1.05rem; }
+    .lab-bar .tag .amp { color:var(--prickly); }
+    .lab-bar .note { font-size:.72rem; color:var(--ink-soft); }
+    .seg { display:inline-flex; background:var(--surface-2); border:1px solid var(--hairline); border-radius:999px; padding:3px; gap:2px; }
+    .seg button { font:inherit; font-size:.78rem; font-weight:600; border:0; background:transparent; color:var(--ink-soft);
+        padding:7px 13px; border-radius:999px; cursor:pointer; transition:background .2s,color .2s; }
+    .seg button.on { background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+    .lab-bar .spacer { flex:1; }
+    .ghost-btn { font:inherit; font-size:.75rem; font-weight:600; border:1px solid var(--hairline); background:var(--surface);
+        color:var(--ink-soft); border-radius:999px; padding:7px 13px; cursor:pointer; }
+
+    main { max-width:560px; margin:0 auto; padding:clamp(20px,5vw,40px) clamp(16px,5vw,32px) 80px; }
+    .kicker { font-size:.7rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--prickly); margin:0 0 8px; }
+    .lead { color:var(--ink-soft); font-size:.92rem; margin:0 0 24px; line-height:1.5; }
+
+    /* ---- swipe card ---- */
+    .arena { position:relative; min-height:300px; display:grid; place-items:center; }
+    .swipe-card { position:relative; overflow:hidden; width:min(340px,82vw); min-height:240px; padding:26px; text-align:center;
+        background:var(--surface); border:1px solid var(--hairline); border-radius:22px;
+        display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+        touch-action:none; cursor:grab; will-change:transform; user-select:none; box-shadow:var(--shadow-lift); }
+    .swipe-card:active { cursor:grabbing; }
+    .swipe-card::before,.swipe-card::after { content:""; position:absolute; inset:0; pointer-events:none; transition:opacity .15s; opacity:0; }
+    .swipe-card::before { background:linear-gradient(270deg, color-mix(in srgb,var(--gooey) 55%, transparent), transparent 60%); }
+    .swipe-card::after  { background:linear-gradient(90deg,  color-mix(in srgb,var(--prickly) 55%, transparent), transparent 60%); }
+    .swipe-card[data-lean="goo"]::before { opacity:var(--lean,0); }
+    .swipe-card[data-lean="prk"]::after  { opacity:var(--lean,0); }
+    .swipe-card .name { font-family:var(--serif); font-size:2.1rem; letter-spacing:-.01em; line-height:1.1; position:relative; z-index:1; }
+    .swipe-card .recall { font-size:.74rem; color:var(--ink-soft); position:relative; z-index:1; min-height:1em; }
+    .swipe-card .recall b { color:var(--ink); font-weight:600; }
+    .swipe-card .meta { font-size:.74rem; color:var(--ink-soft); position:relative; z-index:1; }
+
+    .hint { display:flex; justify-content:center; gap:16px; margin:16px 0 0; font-size:.7rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+    .hint .l { color:var(--prickly); } .hint .r { color:var(--gooey); } .hint .m { color:var(--ink-soft); opacity:.7; }
+    .buttons { display:flex; gap:10px; justify-content:center; margin-top:22px; }
+    .btn { font-family:var(--sans); font-size:.9rem; font-weight:600; cursor:pointer; border-radius:999px; padding:12px 22px; border:1px solid transparent; transition:transform .15s; }
+    .btn:active { transform:scale(.96); }
+    .btn-prk { background:var(--prickly); color:#fff; } .btn-goo { background:var(--gooey); color:#fff; }
+    .btn-ghost { background:var(--surface); color:var(--ink); border:1px solid var(--hairline); }
+
+    /* ---- the "why" sheet ---- */
+    .sheet-scrim { position:fixed; inset:0; background:rgba(20,14,10,.34); opacity:0; pointer-events:none; transition:opacity .25s; z-index:70; }
+    .sheet-scrim.show { opacity:1; pointer-events:auto; }
+    .sheet { position:fixed; left:50%; bottom:0; transform:translate(-50%,100%); width:min(520px,100%);
+        background:var(--surface); border:1px solid var(--hairline); border-bottom:0; border-radius:22px 22px 0 0;
+        box-shadow:0 -16px 50px rgba(20,14,10,.22); padding:22px clamp(18px,5vw,28px) calc(22px + env(safe-area-inset-bottom));
+        z-index:71; transition:transform .32s cubic-bezier(.2,.8,.2,1); }
+    .sheet.show { transform:translate(-50%,0); }
+    .sheet .grip { width:38px; height:4px; border-radius:99px; background:var(--hairline); margin:0 auto 16px; }
+    .sheet .moment { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin:0 0 6px; }
+    .sheet .moment.flip { color:var(--prickly); } .sheet .moment.conviction { color:var(--gooey); } .sheet .moment.hesitation { color:var(--ink-soft); }
+    .sheet h2 { font-family:var(--serif); font-size:1.45rem; line-height:1.2; margin:0 0 4px; }
+    .sheet .verdict-line { font-size:.82rem; color:var(--ink-soft); margin:0 0 18px; }
+    .sheet .verdict-line .g { color:var(--gooey); font-weight:600; } .sheet .verdict-line .p { color:var(--prickly); font-weight:600; }
+
+    /* chips */
+    .chips { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px; }
+    .chip { font:inherit; font-size:.86rem; font-weight:600; border:1px solid var(--hairline); background:var(--surface-2);
+        color:var(--ink); border-radius:999px; padding:9px 16px; cursor:pointer; transition:transform .12s,background .2s,border-color .2s,color .2s; }
+    .chip:active { transform:scale(.95); }
+    .chip.sel { border-color:transparent; color:#fff; }
+    .chip.sel.goo { background:var(--gooey); } .chip.sel.prk { background:var(--prickly); }
+    .chip.add { border-style:dashed; color:var(--ink-soft); background:transparent; }
+
+    /* free text */
+    .why-input { width:100%; font:inherit; font-size:1rem; border:1px solid var(--hairline); border-radius:14px;
+        background:var(--surface-2); color:var(--ink); padding:13px 15px; resize:none; line-height:1.4; }
+    .why-input:focus { outline:2px solid color-mix(in srgb,var(--gooey) 50%, transparent); border-color:transparent; }
+    .counter { font-size:.72rem; color:var(--ink-soft); text-align:right; margin:6px 2px 0; }
+
+    /* crowd reasons */
+    .crowd-hd { font-size:.78rem; color:var(--ink-soft); margin:0 0 10px; }
+    .reason { display:flex; align-items:center; gap:10px; width:100%; text-align:left; font:inherit; cursor:pointer;
+        border:1px solid var(--hairline); background:var(--surface); color:var(--ink); border-radius:12px; padding:11px 13px; margin-bottom:8px; transition:border-color .2s,background .2s; }
+    .reason:hover { border-color:color-mix(in srgb,var(--gooey) 50%, transparent); }
+    .reason.picked { border-color:var(--gooey); background:var(--gooey-soft); }
+    .reason .up { font-size:.78rem; font-weight:700; color:var(--ink-soft); font-variant-numeric:tabular-nums; min-width:36px; display:inline-flex; align-items:center; gap:4px; }
+    .reason .txt { flex:1; font-size:.92rem; }
+
+    .sheet-actions { display:flex; gap:10px; margin-top:8px; }
+    .sheet-actions .btn { flex:1; }
+
+    /* ---- captured log ---- */
+    .log-wrap { margin-top:34px; border-top:1px solid var(--hairline); padding-top:20px; }
+    .log-wrap h3 { font-family:var(--serif); font-size:1rem; color:var(--ink-soft); margin:0 0 4px; }
+    .log-wrap .sub { font-size:.78rem; color:var(--ink-soft); margin:0 0 14px; }
+    .log-empty { font-size:.85rem; color:var(--ink-soft); font-style:italic; }
+    .log-item { display:flex; gap:10px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--hairline); font-size:.88rem; }
+    .log-item .dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; margin-top:5px; }
+    .log-item .dot.goo { background:var(--gooey); } .log-item .dot.prk { background:var(--prickly); } .log-item .dot.skip { background:var(--ink-soft); }
+    .log-item .nm { font-family:var(--serif); font-weight:600; }
+    .log-item .rs { color:var(--ink-soft); }
+    .log-item .rs em { color:var(--ink); font-style:normal; }
+</style>
+</head>
+<body>
+    <div class="lab-bar">
+        <span class="tag">Prickles <span class="amp">&amp;</span> Goo · <span style="color:var(--ink-soft);font-weight:400">Commentary Lab</span></span>
+        <span class="seg" id="modeSeg">
+            <button data-mode="adaptive" class="on">Adaptive</button>
+            <button data-mode="chips">Reason chips</button>
+            <button data-mode="text">Free text</button>
+            <button data-mode="crowd">Crowd reasons</button>
+        </span>
+        <span class="spacer"></span>
+        <span class="note" id="memNote"></span>
+        <button class="ghost-btn" id="themeBtn">🌙</button>
+        <button class="ghost-btn" id="resetBtn">Reset memory</button>
+    </div>
+
+    <main>
+        <p class="kicker">Tech Companies</p>
+        <p class="lead">Swipe a few. We only ask <em>why</em> when you land on something you've swiped before — a repeat. <b>Adaptive</b> takes free text until an item has a few reasons, then lets you agree with the crowd. Flip your verdict and the ask changes.</p>
+        <div class="arena" id="arena"></div>
+
+        <div class="log-wrap">
+            <h3>Captured commentary</h3>
+            <p class="sub">What this interaction would collect. Mode: <b id="modeLabel">Adaptive</b>.</p>
+            <div id="log"><p class="log-empty">Nothing yet — swipe, then swipe a repeat.</p></div>
+        </div>
+    </main>
+
+    <div class="sheet-scrim" id="scrim"></div>
+    <div class="sheet" id="sheet"></div>
+
+<script>
+    /* ===== mock deck — small so repeats come fast ===== */
+    const DECK = ["Apple","Tesla","Nvidia","Figma","Meta","Salesforce","Snapchat"];
+
+    /* chip vocabularies per verdict */
+    const CHIPS = {
+        gooey:   ["Warm","Trustworthy","Soft","Familiar","Playful","Safe"],
+        prickly: ["Aggressive","Cold","Defensive","Sharp","Distant","Corporate"]
+    };
+
+    /* A reason pool that grows as people contribute, keyed name::verdict.
+       THRESHOLD reasons must exist before an item switches from "write your
+       own" (free text) to "agree with the crowd" — the cold-start hand-off.
+       Items are seeded at different fullness so you can feel both states. */
+    const THRESHOLD = 3;
+    function reasonsFor(name, verdict){ const k = name + '::' + verdict; return (reasonStore[k] = reasonStore[k] || []); }
+    function seedReasons(){
+        const S = {
+            "Nvidia::gooey":  [{t:"Feels human and approachable",v:14},{t:"The keynotes feel like a show",v:9},{t:"Friendly green branding",v:6}],
+            "Nvidia::prickly":[{t:"Too dominant, a bit ruthless",v:7}],
+            "Figma::gooey":   [{t:"Playful, made for tinkering",v:11},{t:"Soft, rounded design",v:8},{t:"The community feels warm",v:5}],
+            "Apple::gooey":   [{t:"Familiar, part of daily life",v:13},{t:"Beautiful, tactile objects",v:9}],
+            "Apple::prickly": [{t:"Locked-down and controlling",v:10}],
+            "Meta::prickly":  [{t:"Cold, all business",v:12},{t:"Feels extractive",v:9},{t:"Defensive and distant",v:5}],
+            "Meta::gooey":    [{t:"Connects me to people I love",v:4}],
+            "Tesla::prickly": [{t:"Aggressive, combative",v:11},{t:"Sharp and polarizing",v:6}],
+            "Tesla::gooey":   [{t:"Bold, optimistic about the future",v:8},{t:"Fun, a bit playful",v:5}]
+            /* Salesforce & Snapchat intentionally empty → free text first */
+        };
+        Object.keys(S).forEach(k => reasonStore[k] = S[k]);
+    }
+
+    /* ===== persistent memory of prior verdicts (the "repeat" engine) ===== */
+    const MEM_KEY = "pg-lab-history";
+    let history = JSON.parse(localStorage.getItem(MEM_KEY) || "{}");   // {name: 'gooey'|'prickly'|'skip'}
+    function remember(name, verdict){ history[name]=verdict; localStorage.setItem(MEM_KEY, JSON.stringify(history)); updateMemNote(); }
+    function priorOf(name){ return history[name] || null; }
+
+    let mode = "adaptive";
+    const reasonStore = {};         // "Name::verdict" -> [{t,v}] — the growing pool
+    const captured = [];            // {name, verdict, reason}
+    let recentlyShown = [];
+
+    /* ===== DOM ===== */
+    const arena = document.getElementById('arena');
+    const scrim = document.getElementById('scrim');
+    const sheet = document.getElementById('sheet');
+    const logEl = document.getElementById('log');
+    const memNote = document.getElementById('memNote');
+    const modeLabel = document.getElementById('modeLabel');
+
+    /* mode toggle */
+    document.getElementById('modeSeg').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        mode = b.dataset.mode;
+        [...e.currentTarget.children].forEach(c => c.classList.toggle('on', c===b));
+        modeLabel.textContent = b.textContent;
+    });
+    /* theme + reset */
+    document.getElementById('themeBtn').addEventListener('click', () => {
+        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        document.getElementById('themeBtn').textContent = dark ? '🌙' : '☀️';
+    });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        history = {}; localStorage.removeItem(MEM_KEY); recentlyShown=[]; updateMemNote(); nextCard();
+    });
+    function updateMemNote(){
+        const n = Object.keys(history).length;
+        memNote.textContent = n ? (n + " swiped · repeats unlock the ask") : "fresh memory";
+    }
+
+    /* ===== selection: surface repeats once a couple are seen ===== */
+    function pickNext() {
+        const seen = DECK.filter(n => history[n]);
+        const unseen = DECK.filter(n => !history[n]);
+        let pool;
+        // once 2+ are seen, lean toward repeats so the "why" moment shows up
+        if (seen.length >= 2 && Math.random() < 0.6) pool = seen;
+        else pool = unseen.length ? unseen : seen;
+        pool = pool.filter(n => n !== recentlyShown[recentlyShown.length-1]);
+        if (!pool.length) pool = DECK.slice();
+        const name = pool[Math.floor(Math.random()*pool.length)];
+        recentlyShown.push(name); if (recentlyShown.length>3) recentlyShown.shift();
+        return name;
+    }
+
+    /* ===== card ===== */
+    let swipe = null;
+    function nextCard() {
+        const name = pickNext();
+        const prior = priorOf(name);
+        arena.innerHTML = '';
+        const card = document.createElement('div');
+        card.className = 'swipe-card';
+        card.innerHTML =
+            '<span class="name">' + name + '</span>' +
+            '<span class="recall">' + (prior ? ('you said <b>' + prior + '</b> last time') : '&nbsp;') + '</span>' +
+            '<span class="meta">swipe or tap below</span>';
+        arena.appendChild(card);
+
+        const hint = document.createElement('div');
+        hint.className = 'hint';
+        hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
+        arena.appendChild(hint);
+
+        const btns = document.createElement('div');
+        btns.className = 'buttons';
+        btns.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost">Pass</button><button class="btn btn-goo">Gooey</button>';
+        arena.appendChild(btns);
+        btns.children[0].onclick = () => commit(name, 'prickly');
+        btns.children[1].onclick = () => commit(name, 'skip');
+        btns.children[2].onclick = () => commit(name, 'gooey');
+
+        bindSwipe(card, name);
+    }
+
+    function bindSwipe(card, name) {
+        swipe = { card, name, sx:0, sy:0, dx:0, dy:0, dragging:false, done:false };
+        const down = e => { if (swipe.done) return; const t=e.touches?e.touches[0]:e; swipe.sx=t.clientX; swipe.sy=t.clientY; swipe.dragging=true; card.style.transition='none'; };
+        card.addEventListener('mousedown', down);
+        card.addEventListener('touchstart', down, {passive:true});
+    }
+    function move(e){
+        if (!swipe || !swipe.dragging) return;
+        const t = e.touches?e.touches[0]:e;
+        swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        const {card,dx,dy} = swipe;
+        card.style.transform = 'translate('+dx+'px,'+(dy*.28)+'px) rotate('+(dx/26)+'deg)';
+        const ax=Math.abs(dx), ay=Math.abs(dy), lean=Math.min(1, ax/150);
+        if (ay>ax && ay>28){ card.dataset.lean=''; card.style.setProperty('--lean',0); }
+        else { card.dataset.lean = dx>0?'goo':'prk'; card.style.setProperty('--lean', lean); }
+    }
+    function up(){
+        if (!swipe || !swipe.dragging) return;
+        swipe.dragging=false;
+        const {card,dx,dy,name}=swipe;
+        if (Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>100){ fly(card,'skip',dy<0?-1:1,name); }
+        else if (dx>110){ fly(card,'gooey',1,name); }
+        else if (dx<-110){ fly(card,'prickly',-1,name); }
+        else { card.style.transition='transform .4s cubic-bezier(.2,.85,.25,1)'; card.style.transform='translate(0,0)'; card.style.setProperty('--lean',0); }
+    }
+    function fly(card, verdict, dir, name){
+        if (swipe.done) return; swipe.done=true; swipe.dragging=false;
+        card.style.transition='transform .42s cubic-bezier(.4,0,.2,1)';
+        const offX = verdict==='gooey'?innerWidth+240:verdict==='prickly'?-(innerWidth+240):0;
+        const offY = verdict==='skip'?dir*(innerHeight+160):-40;
+        card.style.transform='translate('+offX+'px,'+offY+'px) rotate('+(offX/26)+'deg)';
+        setTimeout(()=>commit(name, verdict), 380);
+    }
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, {passive:true});
+    window.addEventListener('touchend', up);
+
+    /* ===== commit: decide whether this swipe earns the "why" ask ===== */
+    function commit(name, verdict) {
+        const prior = priorOf(name);
+        remember(name, verdict);
+        if (prior) {
+            // a repeat — this is the moment we ask
+            askWhy(name, verdict, prior);
+        } else {
+            // first encounter: frictionless, just move on
+            nextCard();
+        }
+    }
+
+    /* moment classification */
+    function classify(verdict, prior){
+        if (verdict==='skip' || prior==='skip') return {key:'hesitation', label:'Still unsure'};
+        if (verdict!==prior) return {key:'flip', label:'You flipped'};
+        return {key:'conviction', label:'Same call, again'};
+    }
+    function headline(name, m, verdict, prior){
+        if (m.key==='flip') return 'You switched on ' + name + '. What changed?';
+        if (m.key==='hesitation') return 'Still on the fence about ' + name + '?';
+        return (verdict==='gooey'?'What makes ':'What makes ') + name + (verdict==='gooey'?' so gooey?':' so prickly?');
+    }
+
+    /* ===== the why sheet ===== */
+    let draft = { chips:new Set(), text:'', crowd:null };
+    function askWhy(name, verdict, prior){
+        draft = { chips:new Set(), text:'', crowd:null };
+        const m = classify(verdict, prior);
+        const vClass = verdict==='gooey'?'goo':verdict==='prickly'?'prk':'';
+        const pool = verdict==='skip' ? [] : reasonsFor(name, verdict);
+        let body = '';
+
+        // choose the capture UI for this ask. Adaptive = free text until the
+        // item has THRESHOLD reasons, then switch that item to "agree".
+        let ui;
+        if (verdict==='skip')      ui = 'text';     // a pass can't be chipped
+        else if (mode==='chips')   ui = 'chips';
+        else if (mode==='text')    ui = 'text';
+        else if (mode==='crowd')   ui = 'crowd';
+        else                       ui = pool.length >= THRESHOLD ? 'crowd' : 'text';
+
+        if (ui==='chips') {
+            const list = CHIPS[verdict] || [];
+            body = '<div class="chips">' +
+                list.map(c => '<button class="chip" data-chip="'+c+'">'+c+'</button>').join('') +
+                '<button class="chip add" data-add>+ other</button>' +
+                '</div>';
+        } else if (ui==='crowd') {
+            const sorted = pool.slice().sort((a,b)=>b.v-a.v);
+            body = '<p class="crowd-hd">Others who called ' + name + ' ' + verdict + ' said — tap to agree, or add your own:</p>' +
+                   sorted.map((re,i)=>'<button class="reason" data-i="'+i+'"><span class="up">▲ '+re.v+'</span><span class="txt">'+re.t+'</span></button>').join('') +
+                   '<button class="reason" data-add style="justify-content:center;color:var(--ink-soft)"><span class="txt" style="text-align:center">+ add a new reason</span></button>' +
+                   '<textarea class="why-input" id="whyText" rows="1" maxlength="140" placeholder="A reason others can agree with…" style="margin-top:8px;display:none"></textarea>';
+        } else { // free text — with an adaptive nudge showing how close the pool is to "agree"
+            let seedLine = '';
+            if (mode==='adaptive') {
+                seedLine = pool.length
+                    ? '<p class="crowd-hd">Only ' + pool.length + ' of ' + THRESHOLD + ' reasons so far — one more unlocks agreeing for everyone.</p>'
+                    : '<p class="crowd-hd">No one\'s put this into words yet — you\'d be the first.</p>';
+            }
+            body = seedLine +
+                   '<textarea class="why-input" id="whyText" rows="2" maxlength="140" placeholder="In a few words…"></textarea>' +
+                   '<div class="counter"><span id="cc">0</span>/140</div>';
+        }
+
+        sheet.innerHTML =
+            '<div class="grip"></div>' +
+            '<p class="moment '+m.key+'">'+m.label+'</p>' +
+            '<h2>'+headline(name,m,verdict,prior)+'</h2>' +
+            '<p class="verdict-line">last time <b>'+prior+'</b> · now <span class="'+(verdict==='gooey'?'g':verdict==='prickly'?'p':'')+'">'+verdict+'</span></p>' +
+            body +
+            '<div class="sheet-actions">' +
+              '<button class="btn btn-ghost" id="skipWhy">Skip</button>' +
+              '<button class="btn '+(verdict==='gooey'?'btn-goo':verdict==='prickly'?'btn-prk':'btn-ghost')+'" id="saveWhy">Save reason</button>' +
+            '</div>';
+
+        wireSheet(name, verdict, vClass);
+        openSheet();
+    }
+
+    function wireSheet(name, verdict, vClass){
+        // chips
+        sheet.querySelectorAll('.chip[data-chip]').forEach(ch => ch.onclick = () => {
+            const v = ch.dataset.chip;
+            if (draft.chips.has(v)) { draft.chips.delete(v); ch.classList.remove('sel',vClass); }
+            else { draft.chips.add(v); ch.classList.add('sel'); if(vClass) ch.classList.add(vClass); }
+        });
+        const addChip = sheet.querySelector('.chip[data-add]');
+        if (addChip) addChip.onclick = () => { switchToText(name, verdict); };
+        // text counter
+        const ta = sheet.querySelector('#whyText'); const cc = sheet.querySelector('#cc');
+        if (ta) { ta.oninput = () => { draft.text = ta.value; if (cc) cc.textContent = ta.value.length; }; }
+        // crowd reasons
+        sheet.querySelectorAll('.reason[data-i]').forEach(rb => rb.onclick = () => {
+            sheet.querySelectorAll('.reason').forEach(x=>x.classList.remove('picked'));
+            rb.classList.add('picked'); draft.crowd = parseInt(rb.dataset.i,10);
+        });
+        const addReason = sheet.querySelector('.reason[data-add]');
+        if (addReason) addReason.onclick = () => {
+            const t = sheet.querySelector('#whyText'); t.style.display='block'; t.focus(); draft.crowd=null;
+            sheet.querySelectorAll('.reason').forEach(x=>x.classList.remove('picked'));
+        };
+        sheet.querySelector('#skipWhy').onclick = () => { closeSheet(); nextCard(); };
+        sheet.querySelector('#saveWhy').onclick = () => saveWhy(name, verdict);
+    }
+
+    function switchToText(name, verdict){
+        // turn the chip ask into a free-text ask inline
+        const chips = sheet.querySelector('.chips');
+        const ta = document.createElement('div');
+        ta.innerHTML = '<textarea class="why-input" id="whyText" rows="2" maxlength="140" placeholder="In your own words…"></textarea><div class="counter"><span id="cc">0</span>/140</div>';
+        chips.replaceWith(ta);
+        const t = ta.querySelector('#whyText'), cc = ta.querySelector('#cc');
+        t.focus(); t.oninput = () => { draft.text=t.value; cc.textContent=t.value.length; };
+    }
+
+    function saveWhy(name, verdict){
+        let reason = '';
+        if (draft.chips.size) reason = [...draft.chips].join(', ');
+        else if (draft.crowd !== null && verdict!=='skip') {
+            const sorted = reasonsFor(name,verdict).slice().sort((a,b)=>b.v-a.v);
+            const re = sorted[draft.crowd]; if (re){ re.v += 1; reason = re.t + ' (agreed)'; }
+        }
+        if (draft.text.trim()) {
+            reason = reason ? (reason + ' — ' + draft.text.trim()) : draft.text.trim();
+            // a fresh reason joins the pool, pushing the item toward "agree" mode
+            if ((mode==='crowd' || mode==='adaptive') && verdict!=='skip') reasonsFor(name,verdict).push({t:draft.text.trim(), v:1});
+        }
+        if (reason) captured.unshift({ name, verdict, reason });
+        renderLog();
+        closeSheet(); nextCard();
+    }
+
+    function openSheet(){ scrim.classList.add('show'); requestAnimationFrame(()=>sheet.classList.add('show')); }
+    function closeSheet(){ sheet.classList.remove('show'); scrim.classList.remove('show'); }
+    scrim.addEventListener('click', () => { closeSheet(); nextCard(); });
+
+    function renderLog(){
+        if (!captured.length){ logEl.innerHTML = '<p class="log-empty">Nothing yet — swipe, then swipe a repeat.</p>'; return; }
+        logEl.innerHTML = captured.map(c => {
+            const cls = c.verdict==='gooey'?'goo':c.verdict==='prickly'?'prk':'skip';
+            return '<div class="log-item"><span class="dot '+cls+'"></span>' +
+                   '<span><span class="nm">'+c.name+'</span> <span class="rs">· '+c.verdict+' · <em>'+c.reason+'</em></span></span></div>';
+        }).join('');
+    }
+
+    /* ===== init ===== */
+    seedReasons();
+    updateMemNote();
+    nextCard();
+</script>
+</body>
+</html>

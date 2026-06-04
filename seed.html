@@ -23,7 +23,7 @@
 <body>
 <div class="wrap">
     <h1>Database Seeder</h1>
-    <p class="lead">One-time setup. Writes the category lists into Firestore. Non-destructive: it only sets each item's <code>name</code> (using merge), so existing vote counts are never touched. Safe to run more than once.</p>
+    <p class="lead">One-time setup. Writes the category lists into Firestore. Non-destructive: it only sets each item's <code>name</code> and its <code>wiki</code> page title (for card imagery), using merge — existing vote counts and reasons are never touched. Safe to run more than once.</p>
     <div class="cats" id="cats"></div>
     <div class="warn">This writes to the live <strong>prickles-or-goo</strong> database. Run it once, then you can ignore this page.</div>
     <button id="seedBtn">Seed database</button>
@@ -72,19 +72,38 @@
 
     const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-    // Refreshed Tech Companies list — from Lenny Rachitsky's May 2026
-    // "dream company to work for" poll (top 15, excluding "start my own company").
+    // Tech Companies — the original live set plus the refreshed top 15 from Lenny
+    // Rachitsky's May 2026 "dream company to work for" poll. Listed together so the
+    // seeder writes image metadata (wiki titles) for the whole live category, not
+    // just the new arrivals. Merge is additive; Google/NVIDIA appear once.
     const TECH = [
+        "Apple", "Amazon", "Tesla", "Microsoft", "Meta", "Figma", "Salesforce", "Snapchat", "Adobe",
         "Anthropic", "OpenAI", "Google", "xAI", "SpaceX",
-        "Nvidia", "Vercel", "Linear", "Airbnb", "Every",
+        "NVIDIA", "Vercel", "Linear", "Airbnb", "Every",
         "Palantir", "Lovable", "Anduril", "Cursor", "PostHog"
     ];
 
+    // Wikipedia page titles, used for Wikimedia-unified card imagery. Only the
+    // entries whose title differs from the displayed name need an override; for
+    // everyone else the name IS the title (and Wikimedia follows redirects).
+    const WIKI_OVERRIDES = {
+        // companies
+        "Apple": "Apple Inc.", "Amazon": "Amazon (company)", "Tesla": "Tesla, Inc.", "Adobe": "Adobe Inc.",
+        "Meta": "Meta Platforms", "NVIDIA": "Nvidia", "xAI": "XAI (company)",
+        "Linear": "Linear (company)", "Every": "Every (company)",
+        "Palantir": "Palantir Technologies", "Lovable": "Lovable (company)",
+        "Anduril": "Anduril Industries", "Cursor": "Cursor (code editor)",
+        // people
+        "Pony Ma": "Ma Huateng", "Colin Huang": "Huang Zheng"
+    };
+    function wikiFor(name) { return WIKI_OVERRIDES[name] || name; }
+
     const CATEGORIES = [
-        { id: "tech_companies", label: "Tech Companies", items: TECH },
-        { id: "billionaires", label: "Billionaires", items: BILLIONAIRES },
-        { id: "presidents",   label: "US Presidents", items: PRESIDENTS },
-        { id: "alphabet",     label: "The Alphabet",  items: ALPHABET }
+        // images:false → letters render as a glyph, no wiki title needed
+        { id: "tech_companies", label: "Tech Companies", items: TECH,         images: true },
+        { id: "billionaires", label: "Billionaires",     items: BILLIONAIRES, images: true },
+        { id: "presidents",   label: "US Presidents",    items: PRESIDENTS,   images: true },
+        { id: "alphabet",     label: "The Alphabet",     items: ALPHABET,     images: false }
     ];
 
     /* ---- UI ---- */
@@ -110,7 +129,9 @@
                 let n = 0;
                 for (const name of cat.items) {
                     const id = slug(name) || ("item-" + (++n));
-                    await db.collection('categories').doc(cat.id).collection('items').doc(id).set({ name: name }, { merge: true });
+                    const payload = { name: name };
+                    if (cat.images) payload.wiki = wikiFor(name);   // for Wikimedia card imagery
+                    await db.collection('categories').doc(cat.id).collection('items').doc(id).set(payload, { merge: true });
                     n++;
                 }
                 log("  ✓ " + n + " items written", "ok");
