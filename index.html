@@ -218,6 +218,8 @@
     .category-bar { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 26px; }
     .category-bar .cat { font-size:.85rem; font-weight:600; padding:8px 16px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
     .category-bar .cat.active { color:var(--ink); border-color:var(--gooey); box-shadow:0 0 0 1px var(--gooey); }
+    /* mobile dropdown alternative (shown < 560px, see media query) */
+    .category-select { display:none; width:100%; font:inherit; font-size:1rem; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:13px 42px 13px 16px; margin:0 0 22px; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6259' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; }
 
     /* ---------- About ---------- */
     .about { text-align:left; }
@@ -269,6 +271,8 @@
     @media (max-width:560px) {
         .nav-links a { padding:8px 10px; font-size:.85rem; }
         .swipe-buttons .btn { flex:1; padding:13px 10px; }
+        .category-bar { display:none; }          /* swap pills → dropdown to save vertical space */
+        .category-select { display:block; }
     }
     /* Mobile: no side gutters, so lift the effect layer ABOVE the card and
        shrink the card — the incoming glow/shards spill over its leading edge. */
@@ -306,6 +310,7 @@
             <h1 class="prompt">Prickly or gooey?</h1>
             <p class="sub">Swipe right for gooey, left for prickly, up to skip. Or use the buttons.</p>
             <div class="category-bar" id="vote-category-bar"></div>
+            <select class="category-select" id="vote-category-select" aria-label="Choose a category"></select>
             <div class="arena" id="arena"></div>
             <div class="pass-meter" id="passMeter"></div>
         </section>
@@ -395,6 +400,11 @@
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
     const voteCategoryBar = document.getElementById('vote-category-bar');
+    const voteCategorySelect = document.getElementById('vote-category-select');
+    voteCategorySelect.onchange = () => {
+        const id = voteCategorySelect.value;
+        if (id !== currentCategoryId) (id === RANDOM_ID ? loadRandom() : loadCategory(id));
+    };
     const voteKicker = document.getElementById('vote-kicker');
     const passMeter = document.getElementById('passMeter');
     const root = document.documentElement;
@@ -463,12 +473,18 @@
     function voteCategories() { return CATEGORIES.concat([{ id: RANDOM_ID, label: "Random" }]); }
     function renderVoteCategoryBar() {
         voteCategoryBar.innerHTML = '';
+        voteCategorySelect.innerHTML = '';
         voteCategories().forEach(c => {
             const b = document.createElement('button');
             b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
             b.textContent = c.label;
             b.onclick = () => { if (c.id !== currentCategoryId) (c.id === RANDOM_ID ? loadRandom() : loadCategory(c.id)); };
             voteCategoryBar.appendChild(b);
+
+            const o = document.createElement('option');     // mirror into the mobile dropdown
+            o.value = c.id; o.textContent = c.label;
+            if (c.id === currentCategoryId) o.selected = true;
+            voteCategorySelect.appendChild(o);
         });
     }
     // Fetch every category's items at once, each tagged with its source category.
