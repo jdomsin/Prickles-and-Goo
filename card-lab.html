@@ -39,6 +39,11 @@
     .style-plate .mono{width:var(--box);height:var(--box);border-radius:18px;font-size:2.2rem;}
     /* footprint guide: outlines the identical square every logo is fit into */
     .guides .style-plate .logo, .guides .style-plate .mono{outline:1.5px dashed rgba(220,30,30,.6); outline-offset:2px;}
+    /* curated "fill" — app-icon logos fill the whole tile edge-to-edge */
+    .style-plate .fill{width:calc(var(--box) + var(--pad)*2); height:calc(var(--box) + var(--pad)*2); border-radius:24px; overflow:hidden; display:grid; place-items:center; background:var(--tilebg,#fff); box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.06);}
+    .style-plate .fill .logo{width:100%; height:100%; object-fit:cover;}
+    .style-plate .fill .mono{width:100%; height:100%; border-radius:0; font-size:2.2rem;}
+    .guides .style-plate .fill{outline:1.5px dashed rgba(220,30,30,.6); outline-offset:2px;}
 
     /* 2 · BLEED — full brand-color card, big white name + small logo chip */
     .style-bleed .card{justify-content:flex-end; align-items:flex-start; text-align:left; color:#fff; min-height:230px;}
@@ -97,17 +102,27 @@
         { name:"SpaceX",    domain:"spacex.com",    color:"#0b0f17" }
     ];
 
+    // Curated treatment per company: app-icon logos that carry their own
+    // background fill the tile edge-to-edge; everyone else defaults to a padded
+    // mark on a white plate. (Vercel's circle gets a black tile so corners match.)
+    const CURATED = {
+        "Airbnb":   { treatment:"fill" },
+        "Palantir": { treatment:"fill" },
+        "SpaceX":   { treatment:"fill" },
+        "Vercel":   { treatment:"fill", bg:"#000000" }
+    };
+
     const STYLES  = [ ["plate","Plate"], ["bleed","Brand bleed"], ["bare","Bare logo"], ["wordmark","Wordmark"] ];
-    const SOURCES = [ ["si-ink","Simple Icons · ink"], ["si-brand","Simple Icons · brand"], ["auto","Auto (color)"], ["clearbit","Clearbit"], ["google","Google favicon"] ];
+    const SOURCES = [ ["curated","Curated · color"], ["si-ink","Simple Icons · ink"], ["si-brand","Simple Icons · brand"], ["auto","Auto (color)"], ["google","Google favicon"] ];
     const SOURCE_NOTE = {
+        curated:    "Full-color logos, hand-tuned for consistency: app-icon logos (Airbnb, Palantir, SpaceX, Vercel) fill the tile edge-to-edge; bare marks sit padded on a white plate. Same tile size for all → consistent grid.",
         "si-ink":   "Simple Icons, recolored to your ink tone (adapts to theme). Monochrome SVGs all normalized to one viewBox → identical size & weight. Best consistency; gaps → monogram.",
         "si-brand": "Simple Icons in each brand's official color. Still one normalized shape/size — consistent footprint, but multi-hued. Gaps → monogram.",
         auto:       "Auto tries Clearbit → DuckDuckGo → Google. Full color, but formats are inconsistent (some bare marks, some full-bleed icons with baked backgrounds) — sizes will vary.",
-        clearbit:   "Clearbit Logo API — biggest logos but wildly mixed formats (this is the inconsistency you saw).",
         google:     "Google favicon — reliable but low-res and mixed (often app-icons with backgrounds)."
     };
 
-    let style = "plate", source = "si-ink";
+    let style = "plate", source = "curated";
     const isDark = () => document.documentElement.getAttribute("data-theme") === "dark";
     function siSlug(c){ return c.si || c.name.toLowerCase().replace(/[^a-z0-9]/g,""); }
 
@@ -131,7 +146,9 @@
         const holder=document.createElement("div");
         const mono=monoNode(company.name);
         holder.appendChild(mono);
-        const chain = source==="auto" ? ["clearbit","ddg","google"] : [source];
+        const chain = source==="auto" ? ["clearbit","ddg","google"]
+                    : source==="curated" ? ["clearbit","google"]
+                    : [source];
         let i=0;
         const img=new Image(); img.className="logo"; img.alt=company.name; img.referrerPolicy="no-referrer"; img.style.display="none";
         img.onload=()=>{ if(img.naturalWidth>1){ mono.style.display="none"; img.style.display="block"; } };
@@ -147,7 +164,14 @@
         const { holder } = logoHolder(company);
         const nm=document.createElement("div"); nm.className="nm"; nm.textContent=company.name;
 
-        if (style==="plate"){ holder.className="plate"; card.append(holder, nm); }
+        if (style==="plate"){
+            if (source==="curated"){
+                const m = CURATED[company.name] || { treatment:"plate" };
+                holder.className = m.treatment==="fill" ? "fill" : "plate";
+                if (m.bg) holder.style.setProperty("--tilebg", m.bg);
+            } else { holder.className="plate"; }
+            card.append(holder, nm);
+        }
         else if (style==="bare"){ holder.className="bare"; card.append(holder, nm); }
         else if (style==="wordmark"){ holder.className="mark"; card.append(holder, nm); }
         else if (style==="bleed"){
