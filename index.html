@@ -1015,7 +1015,7 @@
         voteCategories().forEach(c => {
             const b = document.createElement('button');
             b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
-            b.textContent = c.label;
+            b.textContent = c.id === RANDOM_ID ? 'All' : c.label;   // results: "All", not "Random"
             b.onclick = () => { currentCategoryId = c.id; loadResults(); };
             categoryBar.appendChild(b);
         });
