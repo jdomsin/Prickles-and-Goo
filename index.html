@@ -205,6 +205,33 @@
     /* ---------- Error banner ---------- */
     .error-banner { background:var(--prickly-soft); color:var(--prickly); border:1px solid color-mix(in srgb,var(--prickly) 30%,transparent); border-radius:var(--r); padding:14px 18px; margin:20px auto 0; max-width:520px; text-align:center; line-height:1.45; font-size:.92rem; }
 
+    /* ---------- Commentary "why" sheet ---------- */
+    .why-scrim { position:fixed; inset:0; background:rgba(20,14,10,.34); opacity:0; pointer-events:none; transition:opacity .25s; z-index:80; }
+    .why-scrim.show { opacity:1; pointer-events:auto; }
+    .why-sheet { position:fixed; left:50%; bottom:0; transform:translate(-50%,100%); width:min(520px,100%);
+        background:var(--surface); border:1px solid var(--hairline); border-bottom:0; border-radius:22px 22px 0 0;
+        box-shadow:0 -16px 50px rgba(20,14,10,.22); padding:22px clamp(18px,5vw,28px) calc(22px + env(safe-area-inset-bottom));
+        z-index:81; transition:transform .32s cubic-bezier(.2,.8,.2,1); }
+    .why-sheet.show { transform:translate(-50%,0); }
+    .why-grip { width:38px; height:4px; border-radius:99px; background:var(--hairline); margin:0 auto 16px; }
+    .why-moment { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin:0 0 6px; }
+    .why-moment.flip { color:var(--prickly); } .why-moment.conviction { color:var(--gooey); } .why-moment.resolved { color:var(--ink-soft); }
+    .why-title { font-family:var(--serif); font-size:1.4rem; line-height:1.2; margin:0 0 16px; }
+    .why-crowd-hd { font-size:.82rem; color:var(--ink-soft); margin:0 0 12px; line-height:1.45; }
+    .why-input { width:100%; font:inherit; font-size:1rem; border:1px solid var(--hairline); border-radius:14px; background:var(--surface-2); color:var(--ink); padding:13px 15px; resize:none; line-height:1.4; }
+    .why-input:focus { outline:2px solid color-mix(in srgb,var(--gooey) 50%, transparent); border-color:transparent; }
+    .why-counter { font-size:.72rem; color:var(--ink-soft); text-align:right; margin:6px 2px 0; }
+    .why-reason { display:flex; align-items:center; gap:10px; width:100%; text-align:left; font:inherit; cursor:pointer; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); border-radius:12px; padding:11px 13px; margin-bottom:8px; transition:border-color .2s,background .2s; }
+    .why-reason:hover { border-color:color-mix(in srgb,var(--gooey) 50%, transparent); }
+    .why-reason.picked { border-color:var(--gooey); background:var(--gooey-soft); }
+    .why-reason .up { font-size:.78rem; font-weight:700; color:var(--ink-soft); font-variant-numeric:tabular-nums; min-width:34px; }
+    .why-reason .txt { flex:1; font-size:.92rem; }
+    .why-addbtn { justify-content:center; color:var(--ink-soft); border-style:dashed; }
+    .why-actions { display:flex; gap:10px; margin-top:12px; }
+    .why-actions .btn { flex:1; }
+    .reason-quote { font-family:var(--serif); font-style:italic; font-size:.9rem; color:var(--ink-soft); margin-top:8px; padding-left:12px; border-left:2px solid var(--hairline); }
+    .reason-quote.g { border-left-color:var(--gooey); } .reason-quote.p { border-left-color:var(--prickly); }
+
     @media (max-width:560px) {
         .nav-links a { padding:8px 10px; font-size:.85rem; }
         .swipe-buttons .btn { flex:1; padding:13px 10px; }
@@ -272,6 +299,10 @@
         </section>
     </main>
 
+    <!-- Commentary capture sheet (repeat-gated) -->
+    <div class="why-scrim" id="whyScrim"></div>
+    <div class="why-sheet" id="whySheet"></div>
+
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
@@ -298,6 +329,8 @@
     const MAX_PASSES = 5;                // most passes that can be banked
     const START_PASSES = 2;              // passes a new visitor begins with
     const VOTES_PER_PASS = 5;            // real votes needed to earn 1 pass back
+    const REASON_THRESHOLD = 3;          // reasons in a pool before "agree" replaces free text
+    const REASON_MAX = 140;              // longest a written reason can be
     let passes = START_PASSES, votesTowardPass = 0;
     let votesThisSession = 0;
     let currentCategoryId = "tech_companies";
@@ -327,6 +360,7 @@
     const root = document.documentElement;
     const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
     const fxL = document.getElementById('fxL'), fxR = document.getElementById('fxR');
+    const scrim = document.getElementById('whyScrim'), sheet = document.getElementById('whySheet');
 
     /* ===== 4. THEME ===== */
     const themeBtn = document.getElementById('themeToggle');
@@ -591,6 +625,127 @@
         denyPass(); return false;
     }
 
+    /* ===== 8c. COMMENTARY — why prickly or gooey (repeat-gated) ===== */
+    // Reasons live in per-verdict subcollections so they can be ranked with a
+    // single-field orderBy (no composite index): items/{id}/reasons_gooey|prickly.
+    function reasonsCol(cat, id, verdict) {
+        return db.collection('categories').doc(cat).collection('items').doc(id).collection('reasons_' + verdict);
+    }
+    // This visitor's own history, per category, drives the repeat gate.
+    function lsGet(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { return {}; } }
+    function priorVerdict(cat, id) { return lsGet('pg-voted-' + cat)[id] || null; }
+    function rememberVerdict(cat, id, v) { const k = 'pg-voted-' + cat, m = lsGet(k); m[id] = v; localStorage.setItem(k, JSON.stringify(m)); }
+    function hasAsked(cat, id) { return lsGet('pg-asked-' + cat)[id] === true; }
+    function markAsked(cat, id) { const k = 'pg-asked-' + cat, m = lsGet(k); m[id] = true; localStorage.setItem(k, JSON.stringify(m)); }
+
+    // Small client-side profanity guard — basic, not exhaustive; rules also cap length.
+    const BANNED = ['fuck', 'shit', 'bitch', 'cunt', 'nigger', 'faggot', 'retard'];
+    function cleanReason(t) { return (t || '').replace(/\s+/g, ' ').trim().slice(0, REASON_MAX); }
+    function looksAbusive(t) { const s = t.toLowerCase(); return BANNED.some(w => s.includes(w)); }
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+    let activeAsk = null;
+    function classifyMoment(verdict, prior) {
+        if (prior === 'skip') return { key: 'resolved',   label: 'You passed before' };
+        if (prior !== verdict) return { key: 'flip',      label: 'You flipped' };
+        return { key: 'conviction', label: 'Same call, again' };
+    }
+    function whyHeadline(name, m, verdict) {
+        if (m.key === 'flip')     return 'You switched on ' + name + '. What changed?';
+        if (m.key === 'resolved') return 'You passed on ' + name + ' before — what makes it ' + verdict + ' now?';
+        return 'What makes ' + name + ' so ' + verdict + '?';
+    }
+
+    async function askWhy(item, verdict, prior, categoryId) {
+        let reasons = [];
+        try {
+            const snap = await reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(5).get();
+            reasons = snap.docs.map(d => ({ id: d.id, text: d.data().text, votes: d.data().votes || 0 }));
+        } catch (e) { console.error('Could not load reasons:', e); }   // fall back to free text
+        activeAsk = { item, verdict, categoryId, reasons, useCrowd: reasons.length >= REASON_THRESHOLD, picked: null, text: '' };
+        renderSheet(classifyMoment(verdict, prior), verdict);
+        openSheet();
+    }
+
+    function renderSheet(m, verdict) {
+        const a = activeAsk;
+        let body;
+        if (a.useCrowd) {
+            body = '<p class="why-crowd-hd">Others who called ' + escapeHtml(a.item.name) + ' ' + verdict + ' said — tap to agree, or add your own:</p>' +
+                a.reasons.map((r, i) => '<button class="why-reason" data-i="' + i + '"><span class="up">▲ ' + r.votes + '</span><span class="txt">' + escapeHtml(r.text) + '</span></button>').join('') +
+                '<button class="why-reason why-addbtn" data-add><span class="txt">+ add a new reason</span></button>' +
+                '<textarea class="why-input" id="whyText" rows="2" maxlength="' + REASON_MAX + '" placeholder="A reason others can agree with…" style="display:none;margin-top:8px"></textarea>';
+        } else {
+            const seed = a.reasons.length
+                ? 'Only ' + a.reasons.length + ' of ' + REASON_THRESHOLD + ' reasons so far — one more lets people agree.'
+                : 'No one’s put this into words yet — you’d be the first.';
+            body = '<p class="why-crowd-hd">' + seed + '</p>' +
+                '<textarea class="why-input" id="whyText" rows="2" maxlength="' + REASON_MAX + '" placeholder="In a few words, why?"></textarea>' +
+                '<div class="why-counter"><span id="whyCC">0</span>/' + REASON_MAX + '</div>';
+        }
+        sheet.innerHTML =
+            '<div class="why-grip"></div>' +
+            '<p class="why-moment ' + m.key + '">' + m.label + '</p>' +
+            '<h2 class="why-title">' + escapeHtml(whyHeadline(a.item.name, m, verdict)) + '</h2>' +
+            body +
+            '<div class="why-actions">' +
+                '<button class="btn btn-ghost" id="whySkip">Skip</button>' +
+                '<button class="btn ' + (verdict === 'gooey' ? 'btn-goo' : 'btn-prk') + '" id="whySave">Save reason</button>' +
+            '</div>';
+        wireSheet();
+    }
+
+    function wireSheet() {
+        const a = activeAsk;
+        sheet.querySelectorAll('.why-reason[data-i]').forEach(rb => rb.onclick = () => {
+            sheet.querySelectorAll('.why-reason').forEach(x => x.classList.remove('picked'));
+            rb.classList.add('picked'); a.picked = parseInt(rb.dataset.i, 10);
+        });
+        const addBtn = sheet.querySelector('.why-reason[data-add]');
+        if (addBtn) addBtn.onclick = () => {
+            const t = sheet.querySelector('#whyText'); t.style.display = 'block'; t.focus();
+            a.picked = null; sheet.querySelectorAll('.why-reason').forEach(x => x.classList.remove('picked'));
+        };
+        const ta = sheet.querySelector('#whyText'), cc = sheet.querySelector('#whyCC');
+        if (ta) ta.oninput = () => { a.text = ta.value; if (cc) cc.textContent = ta.value.length; };
+        sheet.querySelector('#whySkip').onclick = skipWhy;
+        sheet.querySelector('#whySave').onclick = saveWhy;
+    }
+
+    function saveWhy() {
+        const a = activeAsk; if (!a) return;
+        const text = cleanReason(a.text);
+        if (a.picked !== null && a.reasons[a.picked]) {
+            reasonsCol(a.categoryId, a.item.id, a.verdict).doc(a.reasons[a.picked].id)
+                .update({ votes: inc(1) }).catch(e => console.error('Upvote failed:', e));
+        }
+        if (text && !looksAbusive(text)) {
+            reasonsCol(a.categoryId, a.item.id, a.verdict)
+                .add({ text: text, votes: 1, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+                .catch(e => console.error('Reason write failed:', e));
+        }
+        markAsked(a.categoryId, a.item.id);
+        finishAsk();
+    }
+    function skipWhy() { if (activeAsk) markAsked(activeAsk.categoryId, activeAsk.item.id); finishAsk(); }
+    function finishAsk() { closeSheet(); activeAsk = null; maybeShowResults(); }
+    function openSheet() { scrim.classList.add('show'); requestAnimationFrame(() => sheet.classList.add('show')); }
+    function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
+    scrim.addEventListener('click', () => { if (activeAsk) skipWhy(); });
+
+    // Surface the most-agreed reason for an item on a results row (read-frugal: one query).
+    async function attachTopReason(rowEl, item, categoryId) {
+        const verdict = item.gooey >= item.prickly ? 'gooey' : 'prickly';
+        try {
+            const snap = await reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(1).get();
+            if (snap.empty) return;
+            const q = document.createElement('div');
+            q.className = 'reason-quote ' + (verdict === 'gooey' ? 'g' : 'p');
+            q.innerHTML = '“' + escapeHtml(snap.docs[0].data().text) + '”';
+            rowEl.appendChild(q);
+        } catch (e) { /* quietly skip */ }
+    }
+
     /* ===== 9. RECORD VOTE ===== */
     async function commitVote(item, verdict, categoryId) {
         // optimistic local update keeps selection balanced within the session
@@ -613,7 +768,17 @@
 
         if (verdict !== 'skip') earnTowardPass();   // only real votes earn passes back
         votesThisSession += 1;
-        maybeShowResults();
+
+        // Repeat gate: if this visitor has voted on this item before, ask *why*.
+        // Always re-ask on a flip (the richest signal); otherwise ask once per item.
+        const prior = priorVerdict(categoryId, item.id);
+        rememberVerdict(categoryId, item.id, verdict);
+        const isFlip = prior && prior !== 'skip' && verdict !== 'skip' && prior !== verdict;
+        if (verdict !== 'skip' && prior && (isFlip || !hasAsked(categoryId, item.id))) {
+            askWhy(item, verdict, prior, categoryId);
+        } else {
+            maybeShowResults();
+        }
     }
 
     /* Show the interim top-5 only on the cadence AND once a full top-5 worth
@@ -666,7 +831,7 @@
         legend.className = 'legend';
         legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
         wrap.appendChild(legend);
-        top.forEach(it => wrap.appendChild(resultRow(it)));
+        top.forEach(it => { const r = resultRow(it); wrap.appendChild(r); attachTopReason(r, it, currentCategoryId); });
 
         const nw = document.createElement('div');
         nw.className = 'next-wrap swipe-buttons';
@@ -710,7 +875,7 @@
             legend.className = 'legend';
             legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
             resultsList.appendChild(legend);
-            all.forEach(it => resultsList.appendChild(resultRow(it)));
+            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); if (idx < 12) attachTopReason(r, it, currentCategoryId); });
         } catch (err) {
             console.error("Failed to load results:", err);
             resultsList.innerHTML = '';

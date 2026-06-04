@@ -1,10 +1,15 @@
 rules_version = '2';
 
 // Production rules for Prickles & Goo.
-// Reads are public. The ONLY allowed write is a single valid vote: an item
-// update that bumps `shown` by 1 and exactly one of gooey/prickly/skipped by 1,
-// leaving everything else (including `name`) untouched. This blocks arbitrary
-// writes, value tampering, decrements, and document creation/deletion.
+// Reads are public. Allowed writes are tightly shaped:
+//  1. A single valid vote: an item update that bumps `shown` by 1 and exactly
+//     one of gooey/prickly/skipped by 1, leaving everything else (incl. `name`)
+//     untouched.
+//  2. A commentary reason: create a doc in items/{id}/reasons_gooey|prickly with
+//     exactly {text (1–140 chars), votes==1, createdAt==now}; or agree with an
+//     existing reason by bumping only its `votes` by 1.
+// Everything else — arbitrary writes, value tampering, decrements, item/category
+// creation or deletion — is denied.
 //
 // SEEDING NOTE: seed.html writes item/category `name` fields, which these rules
 // DENY. Seed your categories BEFORE pasting these rules (or temporarily allow
@@ -17,6 +22,20 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isValidReason() {
+      let r = request.resource.data;
+      return r.keys().hasOnly(['text', 'votes', 'createdAt'])
+        && r.text is string && r.text.size() >= 1 && r.text.size() <= 140
+        && r.votes == 1
+        && r.createdAt == request.time;
+    }
+
+    function isReasonUpvote() {
+      let r = request.resource.data;
+      let o = resource.data;
+      return r.diff(o).affectedKeys().hasOnly(['votes']) && r.votes == o.get('votes', 0) + 1;
+    }
 
     function isSingleVote() {
       let r = request.resource.data;
@@ -39,6 +58,20 @@ service cloud.firestore {
         allow read: if true;
         allow create, delete: if false;
         allow update: if isSingleVote();
+
+        // Commentary: written reasons + agree (upvote). One match per verdict pool.
+        match /reasons_gooey/{reason} {
+          allow read: if true;
+          allow create: if isValidReason();
+          allow update: if isReasonUpvote();
+          allow delete: if false;
+        }
+        match /reasons_prickly/{reason} {
+          allow read: if true;
+          allow create: if isValidReason();
+          allow update: if isReasonUpvote();
+          allow delete: if false;
+        }
       }
     }
   }
