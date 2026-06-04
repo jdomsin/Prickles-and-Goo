@@ -261,6 +261,8 @@
     .rx-tease.g { border-left-color:var(--gooey); } .rx-tease.p { border-left-color:var(--prickly); }
     .rx-toggle { margin-top:9px; font:inherit; font-size:.8rem; font-weight:600; cursor:pointer; background:var(--surface-2); border:1px solid var(--hairline); color:var(--ink-soft); padding:7px 13px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; }
     .rx-toggle:hover { color:var(--ink); border-color:var(--gooey); }
+    .rx-add-wrap { margin-top:8px; }
+    .rx-toggle.rx-add { background:transparent; border-style:dashed; }
     .rx-panel { display:none; } .rx-panel.open { display:block; }
     .rx-sub { font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin:11px 0 3px; }
     .rx-sub.g { color:var(--gooey); } .rx-sub.p { color:var(--prickly); }
@@ -941,10 +943,44 @@
         finishAsk();
     }
     function skipWhy() { if (activeAsk) markAsked(activeAsk.categoryId, activeAsk.item.id); finishAsk(); }
-    function finishAsk() { closeSheet(); activeAsk = null; maybeShowResults(); }
+    function finishAsk() {
+        const fromResults = activeAsk && activeAsk.fromResults;
+        closeSheet(); activeAsk = null;
+        // refresh the results list so a just-added reason shows; otherwise resume the vote flow
+        if (fromResults) { if (!views.results.classList.contains('hidden')) loadResults(); }
+        else { maybeShowResults(); }
+    }
     function openSheet() { scrim.classList.add('show'); requestAnimationFrame(() => sheet.classList.add('show')); }
     function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
     scrim.addEventListener('click', () => { if (activeAsk) skipWhy(); });
+
+    // Add a reason from the results page (no vote): pick a side, then write/agree.
+    function addReason(item, categoryId) {
+        activeAsk = { item, categoryId, fromResults: true, verdict: null, reasons: [], useCrowd: false, picked: null, text: '' };
+        sheet.innerHTML =
+            '<div class="why-grip"></div>' +
+            '<p class="why-moment first">Your take</p>' +
+            '<h2 class="why-title">How do you see ' + escapeHtml(item.name) + '?</h2>' +
+            '<div class="why-actions">' +
+                '<button class="btn btn-prk" id="sidePrk">Prickly</button>' +
+                '<button class="btn btn-goo" id="sideGoo">Gooey</button>' +
+            '</div>' +
+            '<div class="why-actions" style="margin-top:8px"><button class="btn btn-ghost" id="whySkip">Cancel</button></div>';
+        sheet.querySelector('#sideGoo').onclick = () => chooseSide('gooey');
+        sheet.querySelector('#sidePrk').onclick = () => chooseSide('prickly');
+        sheet.querySelector('#whySkip').onclick = () => { closeSheet(); activeAsk = null; };
+        openSheet();
+    }
+    async function chooseSide(verdict) {
+        const a = activeAsk; if (!a) return;
+        a.verdict = verdict;
+        try {
+            const snap = await reasonsCol(a.categoryId, a.item.id, verdict).orderBy('votes', 'desc').limit(5).get();
+            a.reasons = snap.docs.map(d => ({ id: d.id, text: d.data().text, votes: d.data().votes || 0 }));
+        } catch (e) { a.reasons = []; }
+        a.useCrowd = a.reasons.length >= REASON_THRESHOLD; a.picked = null; a.text = '';
+        renderSheet({ key: 'first', label: 'Your take' }, verdict);
+    }
 
     // Surface comments on a results row: a top-reason tease + a tap-to-expand panel
     // with the full gooey/prickly breakdown and upvote counts.
@@ -982,7 +1018,17 @@
             '<div class="rx-panel">' + panel + '</div>';
         const btn = wrap.querySelector('.rx-toggle'), pn = wrap.querySelector('.rx-panel');
         btn.onclick = () => { const open = pn.classList.toggle('open'); btn.textContent = '💬 ' + label(total) + (open ? ' ▾' : ' ▸'); };
-        rowEl.appendChild(wrap);
+        rowEl.insertBefore(wrap, rowEl.querySelector('.rx-add-wrap'));   // keep comments above the "add" button
+    }
+    // An always-available "add a reason" button on a results row.
+    function addReasonButton(rowEl, item, categoryId) {
+        const w = document.createElement('div');
+        w.className = 'rx rx-add-wrap';
+        const b = document.createElement('button');
+        b.className = 'rx-toggle rx-add'; b.type = 'button'; b.textContent = '✏️ add a reason';
+        b.onclick = () => addReason(item, categoryId);
+        w.appendChild(b);
+        rowEl.appendChild(w);
     }
 
     /* ===== 9. RECORD VOTE ===== */
@@ -1140,7 +1186,7 @@
             legend.className = 'legend';
             legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
             resultsList.appendChild(legend);
-            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); if (idx < 12) attachReasons(r, it, it.categoryId || currentCategoryId); });
+            all.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat); if (idx < 12) attachReasons(r, it, cat); });
         } catch (err) {
             console.error("Failed to load results:", err);
             resultsList.innerHTML = '';
