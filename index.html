@@ -1017,8 +1017,7 @@
     function stats(item) {
         const total = item.gooey + item.prickly;
         const gp = total > 0 ? Math.round((item.gooey / total) * 100) : 0;
-        const margin = total > 0 ? Math.round(100 / Math.sqrt(total)) : 0;
-        return { total, gp, pp: 100 - gp, margin, low: total < 5 };
+        return { total, gp, pp: 100 - gp, low: total < 5 };
     }
     function resultRow(item) {
         const s = stats(item);
@@ -1031,8 +1030,9 @@
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
         const tag = currentCategoryId === RANDOM_ID ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
+        const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
-                          : '<span class="pct">' + s.gp + '% gooey · ±' + s.margin + '% · ' + s.total + ' votes' + lowTag + '</span>';
+                          : '<span class="pct">' + s.gp + '% gooey · ' + votes + lowTag + '</span>';
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + tag + '</span>' +
             pct + '</div>' +
@@ -1095,7 +1095,7 @@
                 return pb - pa;
             });
             const sub = random ? 'Every list, mixed together — ranked by the share of voters who called each one gooey.'
-                               : 'Ranked by the share of voters who called each one gooey. ± shows how settled the number is.';
+                               : 'Ranked by the share of voters who called each one gooey.';
             resultsList.innerHTML = '<p class="results-head">Most gooey to most prickly</p><p class="results-sub">' + sub + '</p>';
             const legend = document.createElement('div');
             legend.className = 'legend';
