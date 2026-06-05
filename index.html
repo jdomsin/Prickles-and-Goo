@@ -108,6 +108,17 @@
     .stamp { position:absolute; top:20px; font-family:var(--serif); font-weight:700; font-size:1.7rem; letter-spacing:.02em; padding:5px 16px; border:3px solid currentColor; border-radius:12px; opacity:0; z-index:3; pointer-events:none; }
     .stamp.goo { right:18px; color:var(--gooey); transform:rotate(13deg); }
     .stamp.prk { left:18px; color:var(--prickly); transform:rotate(-13deg); }
+    /* halftone commit burst — precise ben-day ring, single colour, no words */
+    .pop-burst { position:absolute; left:50%; top:50%; width:150px; height:150px; z-index:9; pointer-events:none;
+        transform:translate(-50%,-50%) scale(.32); opacity:0;
+        background:radial-gradient(circle, currentColor 1.3px, transparent 1.7px) 0 0 / 11px 11px;
+        -webkit-mask-image:radial-gradient(circle, transparent 33%, #000 44%, #000 52%, transparent 64%);
+                mask-image:radial-gradient(circle, transparent 33%, #000 44%, #000 52%, transparent 64%);
+        animation:popBurst .52s cubic-bezier(.22,.7,.2,1) forwards; }
+    .pop-burst.goo { color:var(--gooey); } .pop-burst.prk { color:var(--prickly); }
+    @keyframes popBurst { 0%{ opacity:0; transform:translate(-50%,-50%) scale(.32); }
+        14%{ opacity:.8; } 100%{ opacity:0; transform:translate(-50%,-50%) scale(2.5); } }
+    @media (prefers-reduced-motion: reduce) { .pop-burst { display:none; } }
     .swipe-card::before, .swipe-card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
     .swipe-card::before { background:linear-gradient(270deg, color-mix(in srgb,var(--gooey) 50%, transparent), transparent 56%); opacity:var(--goo); }
     .swipe-card::after  { background:linear-gradient(90deg,  color-mix(in srgb,var(--prickly) 50%, transparent), transparent 56%); opacity:var(--prk); }
@@ -258,6 +269,26 @@
     .reveal-sub { font-size:.74rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; }
     .reveal-head { font-family:var(--serif); font-style:italic; font-size:1.1rem; margin-top:10px; }
     .reveal-quote { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:.95rem; margin-top:4px; min-height:1.3em; max-width:380px; }
+    /* ---------- Predict the crowd ---------- */
+    .predict-panel { width:min(360px,84vw); margin:18px auto 0; text-align:center; }
+    .predict-val { font-family:var(--serif); font-weight:700; font-size:2.6rem; line-height:1; font-variant-numeric:tabular-nums; color:var(--gooey); }
+    .predict-val .u { font-size:1rem; font-weight:400; color:var(--ink-soft); margin-left:4px; }
+    .predict-slider { -webkit-appearance:none; appearance:none; width:100%; height:10px; border-radius:999px; margin:16px 0 18px; outline:none;
+        background:linear-gradient(90deg, var(--gooey) var(--fill,50%), var(--prickly-soft) var(--fill,50%)); }
+    .predict-slider::-webkit-slider-thumb { -webkit-appearance:none; width:30px; height:30px; border-radius:50%; background:var(--surface); border:2px solid var(--gooey); box-shadow:var(--shadow-lift); cursor:grab; }
+    .predict-slider::-moz-range-thumb { width:28px; height:28px; border-radius:50%; background:var(--surface); border:2px solid var(--gooey); cursor:grab; }
+    .predict-panel .btn { width:100%; }
+    .predict-reveal { max-width:440px; margin:0 auto; text-align:center; animation:revealIn .3s cubic-bezier(.2,.9,.3,1.2); }
+    .predict-bar { position:relative; height:18px; border-radius:999px; overflow:hidden; display:flex; background:var(--hairline); margin:14px 0 8px; }
+    .predict-bar .g { background:var(--gooey); transition:width .6s cubic-bezier(.2,.7,.2,1); }
+    .predict-bar .p { background:var(--prickly); transition:width .6s cubic-bezier(.2,.7,.2,1); }
+    .predict-bar .guess-mark { position:absolute; top:-5px; bottom:-5px; width:3px; background:var(--ink); transform:translateX(-1.5px); border-radius:2px; }
+    .predict-legend { display:flex; justify-content:space-between; font-size:.85rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+    .predict-legend b { color:var(--ink); }
+    .predict-grade { font-family:var(--serif); font-size:1.4rem; margin:14px 0 2px; }
+    .predict-grade .pts { color:var(--gooey); font-weight:700; }
+    .predict-streak { color:var(--ink-soft); font-size:.9rem; }
+    .predict-next { margin-top:16px; }
     .reveal-actions { display:flex; gap:10px; margin-top:14px; }
     .reveal-next, .reveal-share { margin-top:0; }
     /* deep-linked row flash */
@@ -489,8 +520,11 @@
     const RANDOM_ID = "random";
     const DAILY_ID = "daily";
     const DAILY_SIZE = 10;                 // cards in a bounded daily ballot
+    const PREDICT_ID = "predict";
+    const MIN_PREDICT_VOTES = 5;           // an item needs this many votes to be guessable
     const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter" };
     let dailyMode = false, dailyDeck = [], dailyResults = [];
+    let predictMode = false, predictDeck = [], predictPos = 0, predictScore = 0, predictStreak = 0, predictBest = 0;
     let items = [];                       // in-memory view of the category
     let lastShownId = null;
     let currentItem = null;
@@ -590,8 +624,8 @@
             skipped: d.skipped || 0
         };
     }
-    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
-    function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
+    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
+    function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
     function renderVoteCategoryBar() {
         voteCategoryBar.innerHTML = '';
         voteCategorySelect.innerHTML = '';
@@ -619,7 +653,7 @@
     }
     async function loadCategory(categoryId) {
         currentCategoryId = categoryId;
-        votesThisSession = 0; dailyMode = false;
+        votesThisSession = 0; dailyMode = false; predictMode = false;
         clearError(views.vote);
         const cat = CATEGORIES.find(c => c.id === categoryId);
         voteKicker.textContent = cat ? cat.label : categoryId;
@@ -640,7 +674,7 @@
     }
     async function loadRandom() {
         currentCategoryId = RANDOM_ID;
-        votesThisSession = 0; dailyMode = false;
+        votesThisSession = 0; dailyMode = false; predictMode = false;
         clearError(views.vote);
         voteKicker.textContent = "Random — every list";
         renderVoteCategoryBar(); syncUrl();
@@ -671,7 +705,7 @@
     function loadDailyResults() { try { return JSON.parse(localStorage.getItem(dailyKey()) || '[]'); } catch (e) { return []; } }
     function saveDailyResults() { try { localStorage.setItem(dailyKey(), JSON.stringify(dailyResults)); } catch (e) {} }
     async function loadDaily() {
-        currentCategoryId = DAILY_ID; dailyMode = true; votesThisSession = 0;
+        currentCategoryId = DAILY_ID; dailyMode = true; predictMode = false; votesThisSession = 0;
         clearError(views.vote);
         voteKicker.textContent = "Today's Ballot · No. " + editionNo();
         renderVoteCategoryBar(); syncUrl();
@@ -735,6 +769,108 @@
         const url = location.origin + location.pathname;
         if (navigator.share) navigator.share({ title: 'Prickles & Goo', text: txt, url }).catch(() => {});
         else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey'));
+    }
+
+    /* ===== 8a2. PREDICT THE CROWD (guess the gooey %) ===== */
+    function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
+    async function loadPredict() {
+        currentCategoryId = PREDICT_ID; predictMode = true; dailyMode = false; votesThisSession = 0;
+        clearError(views.vote);
+        voteKicker.textContent = "Predict the crowd";
+        renderVoteCategoryBar(); syncUrl();
+        arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
+        try {
+            const all = await fetchAllItems();
+            predictDeck = shuffle(all.filter(it => (it.gooey + it.prickly) >= MIN_PREDICT_VOTES));
+            predictPos = 0; predictScore = 0; predictStreak = 0;
+            predictBest = parseInt(localStorage.getItem('pg-predict-best') || '0', 10) || 0;
+            if (!predictDeck.length) { showError(views.vote, "Not enough voted items to guess yet — go vote a few up first."); return; }
+            renderPassMeter();
+            predictNext();
+        } catch (err) {
+            console.error("Failed to load predict mode:", err);
+            arena.innerHTML = '';
+            showError(views.vote, describeError(err));
+        }
+    }
+    function renderPredictMeter() {
+        passMeter.innerHTML = '<span class="lbl">Predict</span><span class="prog">score ' + predictScore + ' · streak ' + predictStreak +
+            (predictBest ? ' · best ' + predictBest : '') + '</span>';
+    }
+    function predictNext() {
+        setSide('none', 0);
+        if (predictPos >= predictDeck.length) { showPredictDone(); return; }
+        renderPredictCard(predictDeck[predictPos]);
+    }
+    function renderPredictCard(item) {
+        setSide('none', 0);
+        arena.innerHTML = '';
+        const itemCat = item.categoryId || currentCategoryId;
+        const isGlyph = IMAGE_KIND[itemCat] === 'glyph';
+        const wrap = document.createElement('div');
+        wrap.className = 'swipe-wrap';
+        wrap.innerHTML =
+            '<div class="swipe-card predict-card">' +
+                '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' +
+                '<div class="card-media" id="cardMedia"></div>' +
+                (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
+                '<span class="meta">how gooey did the crowd find it?</span>' +
+            '</div>';
+        arena.appendChild(wrap);
+        buildCardMedia(wrap.querySelector('#cardMedia'), item);
+
+        const panel = document.createElement('div');
+        panel.className = 'predict-panel';
+        panel.innerHTML =
+            '<div class="predict-val"><span id="pVal">50</span><span class="u">% gooey</span></div>' +
+            '<input type="range" min="0" max="100" value="50" class="predict-slider" id="pSlider" aria-label="Your guess">' +
+            '<button class="btn btn-primary" id="pLock">Lock in</button>';
+        arena.appendChild(panel);
+        const slider = panel.querySelector('#pSlider'), val = panel.querySelector('#pVal');
+        const paint = () => { val.textContent = slider.value; slider.style.setProperty('--fill', slider.value + '%'); };
+        slider.oninput = paint; paint();
+        panel.querySelector('#pLock').onclick = () => lockPredict(item, parseInt(slider.value, 10));
+    }
+    function lockPredict(item, guess) {
+        const total = item.gooey + item.prickly;
+        const actual = Math.round((item.gooey / total) * 100);
+        const delta = Math.abs(guess - actual);
+        const pts = delta <= 3 ? 100 : delta <= 7 ? 75 : delta <= 12 ? 50 : delta <= 20 ? 25 : Math.max(0, 12 - (delta - 20));
+        predictScore += pts;
+        if (delta <= 10) predictStreak++; else predictStreak = 0;
+        if (predictStreak > predictBest) { predictBest = predictStreak; try { localStorage.setItem('pg-predict-best', predictBest); } catch (e) {} }
+        predictPos++; renderPassMeter();
+        showPredictReveal(item, guess, actual, delta, pts);
+    }
+    function showPredictReveal(item, guess, actual, delta, pts) {
+        arena.innerHTML = '';
+        const grade = delta <= 3 ? 'Nailed it.' : delta <= 7 ? 'Sharp read.' : delta <= 12 ? 'Close.' : delta <= 20 ? 'In the area.' : 'Way off.';
+        const wrap = document.createElement('div');
+        wrap.className = 'predict-reveal';
+        wrap.innerHTML =
+            '<div class="reveal-nm">' + escapeHtml(item.name) + '</div>' +
+            '<div class="predict-bar"><span class="g" style="width:0%"></span><span class="p" style="width:0%"></span>' +
+                '<span class="guess-mark" style="left:' + guess + '%"></span></div>' +
+            '<div class="predict-legend"><span>you <b>' + guess + '%</b></span><span>crowd <b>' + actual + '%</b></span></div>' +
+            '<div class="predict-grade">' + grade + ' <span class="pts">+' + pts + '</span></div>' +
+            (predictStreak >= 2 ? '<div class="predict-streak">🔥 ' + predictStreak + ' in a row</div>' : '') +
+            '<button class="btn btn-primary predict-next" id="pNext">Next →</button>';
+        arena.appendChild(wrap);
+        const g = wrap.querySelector('.g'), p = wrap.querySelector('.p');
+        requestAnimationFrame(() => { g.style.width = actual + '%'; p.style.width = (100 - actual) + '%'; });
+        wrap.querySelector('#pNext').onclick = predictNext;
+    }
+    function showPredictDone() {
+        setSide('none', 0); arena.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'result recap';
+        wrap.innerHTML = '<p class="kicker">Predict the crowd</p><h3>Round over.</h3>' +
+            '<p class="recap-line">Score <b>' + predictScore + '</b> · best streak <b>' + predictBest + '</b>.</p>';
+        const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
+        const again = document.createElement('button'); again.className = 'btn btn-primary'; again.textContent = 'Play again'; again.onclick = loadPredict;
+        const free = document.createElement('button'); free.className = 'btn btn-ghost'; free.textContent = 'Free play →'; free.onclick = () => loadCategory('tech_companies');
+        nw.append(again, free); wrap.appendChild(nw);
+        arena.appendChild(wrap);
     }
 
     /* ----- least-shown selection with bottom-20% softening ----- */
@@ -991,12 +1127,19 @@
         else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly');
         else bounceBack();
     }
+    function popBurst(card, verdict) {                 // clean halftone radiate on commit (no comic words)
+        if (reduceMotion || !card.parentElement) return;
+        const d = document.createElement('div');
+        d.className = 'pop-burst ' + (verdict === 'gooey' ? 'goo' : 'prk');
+        card.parentElement.appendChild(d);
+        setTimeout(() => d.remove(), 560);
+    }
     function flySwipe(verdict, dir) {
         if (!swipe || swipe.done) return;
         swipe.done = true; swipe.dragging = false;
         const item = swipe.item, card = swipe.card, categoryId = swipe.categoryId;
-        if (verdict === 'gooey') setSide('goo', 1);
-        else if (verdict === 'prickly') setSide('prk', 1);
+        if (verdict === 'gooey') { setSide('goo', 1); popBurst(card, 'gooey'); }
+        else if (verdict === 'prickly') { setSide('prk', 1); popBurst(card, 'prickly'); }
         else setSide('none', 0);
         card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
@@ -1011,7 +1154,7 @@
 
     /* ----- keyboard voting (matches the printed ← Prickly / Gooey → hints) ----- */
     window.keyboardVote = function (e) {
-        if (activeAsk) return;
+        if (activeAsk || predictMode) return;              // predict uses a slider, not swipe keys
         if (views.vote.classList.contains('hidden')) return;
         if (e.target && /^(input|textarea|select)$/i.test(e.target.tagName)) return;
         if (window.advanceReveal && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp')) {
@@ -1035,6 +1178,7 @@
         localStorage.setItem('pg-passprog', votesTowardPass);
     }
     function renderPassMeter() {
+        if (predictMode) return renderPredictMeter();      // score/streak replaces passes in predict mode
         if (dailyMode) return renderDailyMeter();          // ballot progress replaces passes in daily mode
         let pips = '';
         for (let i = 0; i < MAX_PASSES; i++) pips += '<span class="pip' + (i < passes ? ' on' : '') + '"></span>';
@@ -1468,8 +1612,8 @@
         categoryBar.innerHTML = '';
         resultsCategorySelect.innerHTML = '';
         // Daily Ballot is a play mode, not a results category — show it only in the vote bar.
-        if (currentCategoryId === DAILY_ID) currentCategoryId = RANDOM_ID;
-        voteCategories().filter(c => c.id !== DAILY_ID).forEach(c => {
+        if (currentCategoryId === DAILY_ID || currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;
+        voteCategories().filter(c => c.id !== DAILY_ID && c.id !== PREDICT_ID).forEach(c => {
             const label = c.id === RANDOM_ID ? 'All' : c.label;    // results: "All", not "Random"
             const b = document.createElement('button');
             b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
