@@ -248,7 +248,12 @@
     .reveal-sub { font-size:.74rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; }
     .reveal-head { font-family:var(--serif); font-style:italic; font-size:1.1rem; margin-top:10px; }
     .reveal-quote { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:.95rem; margin-top:4px; min-height:1.3em; max-width:380px; }
-    .reveal-next { margin-top:14px; }
+    .reveal-actions { display:flex; gap:10px; margin-top:14px; }
+    .reveal-next, .reveal-share { margin-top:0; }
+    /* deep-linked row flash */
+    .row.flash { animation:rowflash 1.6s ease; }
+    @keyframes rowflash { 0%,100% { background:transparent; } 15% { background:var(--gooey-soft); } }
+    @media (prefers-reduced-motion: reduce) { .row.flash { animation:none; } }
     /* results loading skeleton */
     .sk-row { border-top:1px solid var(--hairline); padding:16px 2px; }
     .sk-line { height:13px; border-radius:6px; background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sk 1.3s ease infinite; }
@@ -520,9 +525,11 @@
         views[name].classList.remove('hidden');
         if (navLinks[name]) navLinks[name].classList.add('active');
         setSide('none', 0);
+        if (window.syncUrl) syncUrl();
     }
-    document.getElementById('nav-home').addEventListener('click', () => { showView('vote'); });
-    navLinks.vote.addEventListener('click', () => { showView('vote'); });
+    function goVote() { showView('vote'); if (!items.length && !dailyMode) openCategory(knownCat(currentCategoryId) ? currentCategoryId : 'tech_companies'); }
+    document.getElementById('nav-home').addEventListener('click', goVote);
+    navLinks.vote.addEventListener('click', goVote);
     navLinks.results.addEventListener('click', () => { showView('results'); loadResults(); });
     navLinks.about.addEventListener('click', () => showView('about'));
 
@@ -596,7 +603,7 @@
         clearError(views.vote);
         const cat = CATEGORIES.find(c => c.id === categoryId);
         voteKicker.textContent = cat ? cat.label : categoryId;
-        renderVoteCategoryBar();
+        renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
             const snap = await db.collection('categories').doc(categoryId).collection('items').get();
@@ -616,7 +623,7 @@
         votesThisSession = 0; dailyMode = false;
         clearError(views.vote);
         voteKicker.textContent = "Random — every list";
-        renderVoteCategoryBar();
+        renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
             items = await fetchAllItems();
@@ -647,7 +654,7 @@
         currentCategoryId = DAILY_ID; dailyMode = true; votesThisSession = 0;
         clearError(views.vote);
         voteKicker.textContent = "Today's Ballot · No. " + editionNo();
-        renderVoteCategoryBar();
+        renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
             const all = await fetchAllItems();
@@ -1336,8 +1343,10 @@
                            '<div class="reveal-sub">also said ' + verdict + ' · ' + total + ' votes</div>') +
             '<div class="reveal-head">' + head + '</div>' +
             '<div class="reveal-quote" id="revQuote"></div>' +
-            '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button>';
+            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">Share</button>' +
+            '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button></div>';
         arena.appendChild(wrap);
+        document.getElementById('revShare').onclick = (e) => { e.stopPropagation(); shareItem(item, verdict, categoryId); };
         if (!lonely) countUp(document.getElementById('revNum'), pct, 650);
 
         reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(1).get()
@@ -1383,6 +1392,7 @@
         const s = stats(item);
         const row = document.createElement('div');
         row.className = 'row';
+        row.dataset.id = item.id;
         const lowTag = s.low ? ' · <span class="low">few votes</span>' : '';
         const itemCat = item.categoryId || currentCategoryId;
         const kind = IMAGE_KIND[itemCat];
@@ -1460,9 +1470,10 @@
         if (mode === 'divisive') return arr.filter(i => (i.gooey + i.prickly) >= 4).sort((a, b) => Math.abs(share(a) - .5) - Math.abs(share(b) - .5));
         return arr.slice().sort((a, b) => share(b) - share(a));
     }
-    async function loadResults() {
+    async function loadResults(highlight) {
         clearError(views.results);
         renderCategoryBar();
+        syncUrl(highlight);
         resultsList.innerHTML = Array.from({ length: 6 }, () =>
             '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         try {
@@ -1506,6 +1517,10 @@
             }
             rows.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat); if (idx < 12) attachReasons(r, it, cat); });
 
+            if (highlight) {     // deep-linked item: scroll to it and flash
+                const target = resultsList.querySelector('.row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(highlight) : highlight) + '"]');
+                if (target) { if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.classList.add('flash'); }
+            }
             if (unvoted.length) {     // cold start becomes an invitation, not an empty scoreboard
                 const cta = document.createElement('button');
                 cta.className = 'cold-cta';
@@ -1520,11 +1535,45 @@
         }
     }
 
+    /* ===== 11b. ROUTING + SHARE (deep links) ===== */
+    function currentView() {
+        if (!views.results.classList.contains('hidden')) return 'results';
+        if (!views.about.classList.contains('hidden')) return 'about';
+        return 'vote';
+    }
+    function syncUrl(itemId) {
+        const v = currentView();
+        const p = new URLSearchParams();
+        if (v !== 'vote') p.set('v', v);
+        if (currentCategoryId && currentCategoryId !== 'tech_companies') p.set('c', currentCategoryId);
+        if (itemId) p.set('i', itemId);
+        const qs = p.toString();
+        try { history.replaceState(null, '', qs ? ('?' + qs) : location.pathname); } catch (e) {}
+    }
+    function knownCat(c) { return c && (c === RANDOM_ID || c === DAILY_ID || CATEGORIES.some(x => x.id === c)); }
+    function applyInitialRoute() {
+        const p = new URLSearchParams(location.search);
+        let cat = p.get('c'); const view = p.get('v'); let item = p.get('i');
+        const seg = location.pathname.replace(/^\/+|\/+$/g, '').split('/');   // pretty: /c/<cat>, /i/<cat>/<item>
+        if (seg[0] === 'c' && seg[1]) cat = seg[1];
+        if (seg[0] === 'i' && seg[1]) { cat = seg[1]; if (seg[2]) item = seg[2]; }
+        if (view === 'results' || (seg[0] === 'i')) { currentCategoryId = knownCat(cat) ? cat : 'tech_companies'; showView('results'); loadResults(item || null); return true; }
+        if (knownCat(cat)) { openCategory(cat); return true; }
+        return false;
+    }
+    function shareItem(item, verdict, categoryId) {
+        const t = item.gooey + item.prickly, gp = t ? Math.round(item.gooey / t * 100) : 100;
+        const url = location.origin + location.pathname + '?v=results&c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id);
+        const txt = gp + '% say ' + item.name + ' is gooey — I said ' + verdict + '. Prickles & Goo:';
+        if (navigator.share) navigator.share({ title: 'Prickles & Goo', text: txt, url }).catch(() => {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey')).catch(() => {});
+    }
+
     /* ===== 12. INIT ===== */
     buildEffects();
     loadPassState();
     renderPassMeter();
-    loadCategory(currentCategoryId);
+    if (!applyInitialRoute()) loadCategory(currentCategoryId);
     </script>
 </body>
 </html>
