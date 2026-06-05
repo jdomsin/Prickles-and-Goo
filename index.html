@@ -2,8 +2,16 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Prickles &amp; Goo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prickles &amp; Goo — vote what's prickly, what's gooey</title>
+<meta name="description" content="Alan Watts said everything is either prickly or gooey. Swipe to vote on tech, money apps, trading terminals, billionaires, presidents — and see where the crowd lands.">
+<meta name="theme-color" content="#FFF1E5">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFF1E5'/%3E%3Cpath d='M16 4 a12 12 0 0 1 0 24 Z' fill='%230D7680'/%3E%3Cpath d='M16 4 a12 12 0 0 0 0 24 Z' fill='%23990F3D'/%3E%3C/svg%3E">
+<meta property="og:title" content="Prickles &amp; Goo">
+<meta property="og:description" content="Vote what's prickly, what's gooey — and see where the crowd lands.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Prickles &amp; Goo">
+<meta name="twitter:card" content="summary">
 <style>
     /* ============================================================
        DESIGN TOKENS — "FT × Apple": FT paper + claret/teal,
@@ -26,9 +34,10 @@
     }
     [data-theme="dark"] {
         --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
-        --ink:#F3EBE2; --ink-soft:#A89C90; --hairline:#3A322C;
-        --gooey:#34B3BD; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
-        --prickly:#E5577E; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
+        /* dark is its own ramp, not dimmed light: secondary text + accents lifted to clear WCAG AA (4.5:1) on the dark bg */
+        --ink:#F3EBE2; --ink-soft:#BEB3A6; --hairline:#3A322C;
+        --gooey:#5BC8CF; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
+        --prickly:#F0809A; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
         --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
         --shadow-lift:0 16px 48px rgba(0,0,0,.6);
     }
@@ -93,6 +102,12 @@
             0 0 calc(var(--prk) * 70px) color-mix(in srgb,var(--prickly) 60%, transparent);
     }
     .swipe-card:active { cursor:grabbing; }
+    /* next-card peek (deck-as-object) */
+    .peek-card { position:absolute; left:50%; top:50%; width:min(360px,80vw); height:300px; transform:translate(-50%,-46%) scale(.94); background:var(--surface); border:1px solid var(--hairline); border-radius:22px; box-shadow:var(--shadow); z-index:5; opacity:.65; pointer-events:none; }
+    /* during-drag verdict stamp (legible before release) */
+    .stamp { position:absolute; top:20px; font-family:var(--serif); font-weight:700; font-size:1.7rem; letter-spacing:.02em; padding:5px 16px; border:3px solid currentColor; border-radius:12px; opacity:0; z-index:3; pointer-events:none; }
+    .stamp.goo { right:18px; color:var(--gooey); transform:rotate(13deg); }
+    .stamp.prk { left:18px; color:var(--prickly); transform:rotate(-13deg); }
     .swipe-card::before, .swipe-card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
     .swipe-card::before { background:linear-gradient(270deg, color-mix(in srgb,var(--gooey) 50%, transparent), transparent 56%); opacity:var(--goo); }
     .swipe-card::after  { background:linear-gradient(90deg,  color-mix(in srgb,var(--prickly) 50%, transparent), transparent 56%); opacity:var(--prk); }
@@ -188,7 +203,7 @@
     @keyframes denyshake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} 80%{transform:translateX(-3px)} }
 
     /* ---------- Buttons ---------- */
-    .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
+    .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; min-height:44px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
     .btn:active { transform:scale(.97); }
     .btn-primary { background:var(--ink); color:var(--paper); }
     .btn-ghost { background:var(--surface); color:var(--ink); border:1px solid var(--hairline); }
@@ -206,7 +221,27 @@
     .row .nm-wrap { display:flex; align-items:center; gap:10px; min-width:0; }
     .row .nm { font-family:var(--serif); font-size:1.2rem; }
     .row .pct { font-variant-numeric:tabular-nums; font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
-    .row .pct .low { color:var(--prickly); font-weight:600; }
+    .row .pct .low { color:var(--ink-soft); font-style:italic; font-weight:400; }
+    /* ---------- Crowd reveal (post-vote payoff) ---------- */
+    .reveal { max-width:440px; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 14px; cursor:pointer; animation:revealIn .32s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes revealIn { from { opacity:0; transform:scale(.92) translateY(8px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion: reduce) { .reveal { animation:none; } }
+    .reveal-verdict { font-weight:800; letter-spacing:.16em; font-size:.78rem; text-transform:uppercase; }
+    .reveal.goo .reveal-verdict, .reveal.goo .reveal-pct { color:var(--gooey); }
+    .reveal.prk .reveal-verdict, .reveal.prk .reveal-pct { color:var(--prickly); }
+    .reveal-nm { font-family:var(--serif); font-size:1.4rem; margin-bottom:8px; }
+    .reveal-pct { font-family:var(--serif); font-weight:700; font-size:4.2rem; line-height:.95; font-variant-numeric:tabular-nums; }
+    .reveal-sub { font-size:.74rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; }
+    .reveal-head { font-family:var(--serif); font-style:italic; font-size:1.1rem; margin-top:10px; }
+    .reveal-quote { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:.95rem; margin-top:4px; min-height:1.3em; max-width:380px; }
+    .reveal-next { margin-top:14px; }
+    /* results loading skeleton */
+    .sk-row { border-top:1px solid var(--hairline); padding:16px 2px; }
+    .sk-line { height:13px; border-radius:6px; background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sk 1.3s ease infinite; }
+    .sk-row .sk-name { width:38%; margin-bottom:10px; }
+    .sk-row .sk-bar { height:12px; border-radius:999px; }
+    @keyframes sk { 0%{background-position:100% 0} 100%{background-position:0 0} }
+    @media (prefers-reduced-motion: reduce) { .sk-line { animation:none; } }
     .row .pct.muted { font-style:italic; opacity:.75; }
     .bar { display:flex; height:12px; border-radius:999px; overflow:hidden; background:var(--hairline); }
     .bar .g { background:var(--gooey); } .bar .p { background:var(--prickly); }
@@ -309,6 +344,7 @@
         .word { z-index:19; font-size:clamp(2rem,13vw,4rem); }
         .swipe-card { width:min(300px,66vw); min-height:228px; }
         .swipe-card .name { font-size:1.7rem; }
+        .peek-card { width:min(300px,66vw); height:228px; }
     }
 </style>
 </head>
@@ -461,6 +497,7 @@
 
     /* ===== 5. NAVIGATION ===== */
     function showView(name) {
+        if (window.dismissSheet) window.dismissSheet();     // tear down any open sheet on nav
         Object.values(views).forEach(v => v.classList.add('hidden'));
         Object.values(navLinks).forEach(l => l.classList.remove('active'));
         views[name].classList.remove('hidden');
@@ -471,6 +508,12 @@
     navLinks.vote.addEventListener('click', () => { showView('vote'); });
     navLinks.results.addEventListener('click', () => { showView('results'); loadResults(); });
     navLinks.about.addEventListener('click', () => showView('about'));
+
+    /* ----- keyboard: Escape closes the sheet; arrows/space vote (Phase 2) ----- */
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { if (window.dismissSheet) window.dismissSheet(); return; }
+        if (window.keyboardVote) window.keyboardVote(e);
+    });
 
     /* ===== 6. ERRORS ===== */
     function describeError(err) {
@@ -738,8 +781,10 @@
         const isGlyph = IMAGE_KIND[itemCat] === 'glyph';   // letter lives on the plate
         const badge = currentCategoryId === RANDOM_ID ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         wrap.innerHTML =
+            '<div class="peek-card"></div>' +
             '<div class="swipe-card" id="sc">' +
                 badge +
+                '<span class="stamp goo">Gooey</span><span class="stamp prk">Prickly</span>' +
                 '<div class="card-media" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
                 '<span class="meta">swipe, or tap below</span>' +
@@ -766,7 +811,8 @@
     /* ----- pointer-driven swipe (one shared window handler set) ----- */
     let swipe = null;
     function beginCard(card, item) {
-        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0 };
+        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0,
+                  vx: 0, lastX: 0, lastT: 0, stampG: card.querySelector('.stamp.goo'), stampP: card.querySelector('.stamp.prk') };
         card.addEventListener('mousedown', onDown);
         card.addEventListener('touchstart', onDown, { passive: true });
     }
@@ -774,6 +820,7 @@
         if (!swipe || swipe.done) return;
         const t = e.touches ? e.touches[0] : e;
         swipe.sx = t.clientX; swipe.sy = t.clientY; swipe.dragging = true;
+        swipe.lastX = t.clientX; swipe.lastT = performance.now(); swipe.vx = 0;
         swipe.card.style.transition = 'none';
     }
     function paintSwipe() {
@@ -781,21 +828,31 @@
         const dx = swipe.dx, dy = swipe.dy;
         swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
         const ax = Math.abs(dx), ay = Math.abs(dy);
-        if (ay > ax && ay > 28) setSide('none', 0);             // leaning to pass (up/down): lift only
+        const verticalLean = ay > ax && ay > 28;
+        if (verticalLean) setSide('none', 0);                   // leaning to pass (up/down): lift only
         else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
+        // verdict stamp fades in past ~a third of the way, so the call is legible before release
+        const sp = clamp01((ax - SWIPE_THRESHOLD * 0.32) / (SWIPE_THRESHOLD * 0.5));
+        if (swipe.stampG) swipe.stampG.style.opacity = (!verticalLean && dx > 0) ? sp : 0;
+        if (swipe.stampP) swipe.stampP.style.opacity = (!verticalLean && dx < 0) ? sp : 0;
     }
     function onMove(e) {
         if (!swipe || !swipe.dragging) return;
         const t = e.touches ? e.touches[0] : e;
         swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        const now = performance.now(), ndt = now - swipe.lastT;
+        if (ndt > 0) { swipe.vx = (t.clientX - swipe.lastX) / ndt; swipe.lastX = t.clientX; swipe.lastT = now; }
         if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
     }
     function bounceBack() {
         if (!swipe) return;
         swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
         swipe.card.style.transform = 'translate(0,0)';
+        if (swipe.stampG) swipe.stampG.style.opacity = 0;
+        if (swipe.stampP) swipe.stampP.style.opacity = 0;
         setSide('none', 0);
     }
+    const FLICK = 0.6;                                          // px/ms — a fast flick commits below the distance threshold
     function onUp() {
         if (!swipe || !swipe.dragging) return;
         swipe.dragging = false;
@@ -803,8 +860,8 @@
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
             if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
         }
-        else if (dx > SWIPE_COMMIT) flySwipe('gooey');
-        else if (dx < -SWIPE_COMMIT) flySwipe('prickly');
+        else if (dx > SWIPE_COMMIT || swipe.vx > FLICK) flySwipe('gooey');
+        else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly');
         else bounceBack();
     }
     function flySwipe(verdict, dir) {
@@ -824,6 +881,20 @@
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('touchend', onUp);
+
+    /* ----- keyboard voting (matches the printed ← Prickly / Gooey → hints) ----- */
+    window.keyboardVote = function (e) {
+        if (activeAsk) return;
+        if (views.vote.classList.contains('hidden')) return;
+        if (e.target && /^(input|textarea|select)$/i.test(e.target.tagName)) return;
+        if (window.advanceReveal && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp')) {
+            e.preventDefault(); window.advanceReveal(); return;
+        }
+        if (!swipe || swipe.done) return;
+        if (e.key === 'ArrowLeft') { e.preventDefault(); flySwipe('prickly'); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); flySwipe('gooey'); }
+        else if (e.key === 'ArrowUp' || e.key === ' ') { e.preventDefault(); attemptPass('up'); }
+    };
 
     /* ===== 8b. PASSES ===== */
     function loadPassState() {
@@ -972,6 +1043,8 @@
     }
     function openSheet() { scrim.classList.add('show'); requestAnimationFrame(() => sheet.classList.add('show')); }
     function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
+    // Escape / route-change teardown: close the sheet without committing or advancing.
+    window.dismissSheet = function () { if (!activeAsk && !scrim.classList.contains('show')) return; closeSheet(); activeAsk = null; };
     scrim.addEventListener('click', () => { if (activeAsk) skipWhy(); });
 
     // Add a reason from the results page (no vote): pick a side, then write/agree.
@@ -1116,10 +1189,59 @@
         const eligible = verdict !== 'skip' && (isFlip || !hasAsked(categoryId, item.id));
         if (eligible && votesSinceAsk >= COMMENTARY_MIN_GAP) {
             votesSinceAsk = 0;
-            askWhy(item, verdict, prior, categoryId);
+            askWhy(item, verdict, prior, categoryId);     // the sheet IS the payoff this round
+        } else if (verdict !== 'skip') {
+            showReveal(item, verdict, categoryId);         // the heartbeat: you vs. the crowd
         } else {
-            maybeShowResults();
+            maybeShowResults();                            // a pass earns no reveal
         }
+    }
+
+    /* ===== 9b. CROWD REVEAL — the post-vote payoff ===== */
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function countUp(el, to, ms) {
+        if (!el) return;
+        if (reduceMotion) { el.textContent = to; return; }
+        const start = performance.now();
+        (function tick(now) {
+            const p = Math.min(1, (now - start) / ms);
+            el.textContent = Math.round(p * to);
+            if (p < 1) requestAnimationFrame(tick);
+        })(performance.now());
+    }
+    function showReveal(item, verdict, categoryId) {
+        setSide('none', 0);
+        const goo = verdict === 'gooey';
+        const total = item.gooey + item.prickly;
+        const mine = goo ? item.gooey : item.prickly;
+        const pct = total > 0 ? Math.round((mine / total) * 100) : 100;
+        const lonely = total <= 1;                         // your vote is the only one
+        const head = lonely ? 'You called it first.' : (pct >= 50 ? "You're with the crowd." : 'Against the grain.');
+
+        arena.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'reveal ' + (goo ? 'goo' : 'prk');
+        wrap.innerHTML =
+            '<div class="reveal-verdict">' + (goo ? 'GOOEY' : 'PRICKLY') + '</div>' +
+            '<div class="reveal-nm">' + escapeHtml(item.name) + '</div>' +
+            (lonely ? '' : '<div class="reveal-pct"><span class="num" id="revNum">0</span>%</div>' +
+                           '<div class="reveal-sub">also said ' + verdict + ' · ' + total + ' votes</div>') +
+            '<div class="reveal-head">' + head + '</div>' +
+            '<div class="reveal-quote" id="revQuote"></div>' +
+            '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button>';
+        arena.appendChild(wrap);
+        if (!lonely) countUp(document.getElementById('revNum'), pct, 650);
+
+        reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(1).get()
+            .then(s => { const q = document.getElementById('revQuote'); if (q && !s.empty) q.textContent = '“' + s.docs[0].data().text + '”'; })
+            .catch(() => {});
+
+        let advanced = false;
+        const go = () => { if (advanced) return; advanced = true; clearTimeout(timer); window.advanceReveal = null; maybeShowResults(); };
+        window.advanceReveal = go;                          // Enter/Space/arrow advances via keyboard
+        document.getElementById('revNext').onclick = (e) => { e.stopPropagation(); go(); };
+        wrap.addEventListener('click', go);                // tap anywhere to continue
+        const timer = setTimeout(go, 2600);                // or auto-advance
     }
 
     /* Show the interim top-5 only on the cadence AND once a full top-5 worth
@@ -1219,7 +1341,8 @@
     async function loadResults() {
         clearError(views.results);
         renderCategoryBar();
-        resultsList.innerHTML = '<p class="results-sub">Loading…</p>';
+        resultsList.innerHTML = Array.from({ length: 6 }, () =>
+            '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         try {
             const random = currentCategoryId === RANDOM_ID;
             const all = random ? await fetchAllItems()
