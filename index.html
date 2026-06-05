@@ -228,6 +228,21 @@
     .video { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:var(--r); background:#000; margin:26px 0; box-shadow:var(--shadow); }
     .video iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
 
+    /* ---------- Fleeting vote reaction ---------- */
+    .reaction { position:fixed; left:50%; bottom:22%; transform:translate(-50%,8px); z-index:70; pointer-events:none;
+        font-family:var(--serif); font-size:1.1rem; font-weight:700; color:var(--ink); background:var(--surface);
+        border:1px solid var(--hairline); border-radius:999px; padding:8px 18px; box-shadow:0 8px 24px rgba(20,14,10,.16);
+        opacity:0; transition:opacity .18s, transform .18s; }
+    .reaction.show { opacity:1; transform:translate(-50%,0); }
+    .reaction.goo { color:var(--gooey); } .reaction.prk { color:var(--prickly); }
+
+    /* ---------- First-visit intro card ---------- */
+    .intro { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r); padding:28px 26px; max-width:440px; margin:0 auto; box-shadow:0 16px 40px rgba(20,14,10,.12); text-align:left; }
+    .intro h3 { font-family:var(--serif); font-size:1.55rem; line-height:1.15; margin:0 0 14px; }
+    .intro p { color:var(--ink-soft); line-height:1.55; margin:0 0 12px; }
+    .intro .intro-task { color:var(--ink); font-weight:600; }
+    .intro .btn { margin-top:8px; }
+
     /* ---------- Error banner ---------- */
     .error-banner { background:var(--prickly-soft); color:var(--prickly); border:1px solid color-mix(in srgb,var(--prickly) 30%,transparent); border-radius:var(--r); padding:14px 18px; margin:20px auto 0; max-width:520px; text-align:center; line-height:1.45; font-size:.92rem; }
 
@@ -278,7 +293,8 @@
         /* fit header + card + controls without scrolling */
         .kicker { margin-bottom:5px; }
         h1.prompt { font-size:1.9rem; margin-bottom:5px; }
-        .sub { display:none; }                   /* the hint row under the card already says this */
+        .sub { font-size:.92rem; margin-bottom:16px; }
+        .sub .instr { display:none; }            /* keep the definition; the hint row covers the swipe */
         .swipe-wrap { height:248px; }
         .swipe-hint { margin-top:12px; }
         .swipe-buttons { margin-top:16px; }
@@ -318,7 +334,7 @@
         <section id="vote-view">
             <p class="kicker" id="vote-kicker">Tech Companies</p>
             <h1 class="prompt">Prickly or gooey?</h1>
-            <p class="sub">Swipe right for gooey, left for prickly, up to skip. Or use the buttons.</p>
+            <p class="sub"><b>Gooey</b> is soft and warm. <b>Prickly</b> is sharp and exact.<span class="instr"> Swipe right or left — flick up to pass.</span></p>
             <div class="category-bar" id="vote-category-bar"></div>
             <select class="category-select" id="vote-category-select" aria-label="Choose a category"></select>
             <div class="arena" id="arena"></div>
@@ -328,7 +344,7 @@
         <!-- VIEW: RESULTS -->
         <section id="results-view" class="hidden">
             <p class="kicker">The standings</p>
-            <h1 class="prompt">Results</h1>
+            <h1 class="prompt">The Gooey Index</h1>
             <div class="category-bar" id="category-bar"></div>
             <select class="category-select" id="results-category-select" aria-label="Choose a category"></select>
             <div id="results-list"></div>
@@ -339,7 +355,7 @@
             <p class="kicker">About</p>
             <h1 class="prompt">Prickles &amp; Goo</h1>
             <div class="about">
-                <p class="lead">An experiment in discovering what feels more prickly or more gooey, through collective voting.</p>
+                <p class="lead">A collective gut-check: what feels prickly, what feels gooey?</p>
                 <p>I'm John, a UX and design researcher continually exploring new ways to build. I'm drawn to implicit ways of knowing — and to Alan Watts, who spoke of "prickles" and "goo" as a way to relate to almost anything. This site puts that idea to a vote.</p>
                 <div class="video">
                     <iframe src="https://www.youtube.com/embed/D4vHnM8WPvU?si=pCPgMFs2tDe6tUCp" title="Alan Watts — Prickles and Goo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -352,6 +368,9 @@
     <!-- Commentary capture sheet (repeat-gated) -->
     <div class="why-scrim" id="whyScrim"></div>
     <div class="why-sheet" id="whySheet"></div>
+
+    <!-- Fleeting reaction line after a vote -->
+    <div class="reaction" id="reaction" aria-hidden="true"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -524,7 +543,7 @@
             items.forEach(i => i.categoryId = categoryId);
             lastShownId = null;
             if (items.length < 1) { showError(views.vote, "This category has no items yet. Add some in Firebase Console → Firestore."); return; }
-            nextCard();
+            if (introSeen()) nextCard(); else showIntro();   // first-ever visit gets the intro
         } catch (err) {
             console.error("Failed to load category:", err);
             arena.innerHTML = '';
@@ -723,7 +742,7 @@
                 badge +
                 '<div class="card-media" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
-                '<span class="meta">swipe or tap a button</span>' +
+                '<span class="meta">swipe, or tap below</span>' +
             '</div>';
         arena.appendChild(wrap);
         buildCardMedia(wrap.querySelector('#cardMedia'), item);
@@ -820,7 +839,8 @@
     function renderPassMeter() {
         let pips = '';
         for (let i = 0; i < MAX_PASSES; i++) pips += '<span class="pip' + (i < passes ? ' on' : '') + '"></span>';
-        const prog = passes < MAX_PASSES ? '<span class="prog">+1 in ' + (VOTES_PER_PASS - votesTowardPass) + '</span>' : '';
+        const left = VOTES_PER_PASS - votesTowardPass;
+        const prog = passes < MAX_PASSES ? '<span class="prog">+1 in ' + left + (left === 1 ? ' vote' : ' votes') + '</span>' : '';
         passMeter.innerHTML = '<span class="lbl">Passes</span><span class="pips">' + pips + '</span>' + prog;
     }
     function earnTowardPass() {                 // called once per real (gooey/prickly) vote
@@ -1031,8 +1051,40 @@
         rowEl.appendChild(w);
     }
 
+    /* ===== 8e. REACTIONS + FIRST-VISIT INTRO ===== */
+    const reactionEl = document.getElementById('reaction');
+    const REACTIONS = {
+        gooey:   ['Gooey, noted.', 'Soft call.', 'Duly softened.', 'Mmm, gooey.'],
+        prickly: ['Sharp call.', 'Prickly, noted.', 'Point taken.', 'Noted — ouch.'],
+        skip:    ['Passed.', 'We’ll circle back.', 'Skipped.']
+    };
+    let reactionTimer = 0;
+    function showReaction(verdict) {
+        const pool = REACTIONS[verdict] || REACTIONS.skip;
+        reactionEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+        reactionEl.className = 'reaction show' + (verdict === 'gooey' ? ' goo' : verdict === 'prickly' ? ' prk' : '');
+        clearTimeout(reactionTimer);
+        reactionTimer = setTimeout(() => reactionEl.classList.remove('show'), 1000);
+    }
+    function introSeen() { try { return localStorage.getItem('pg-intro') === '1'; } catch (e) { return false; } }
+    function markIntroSeen() { try { localStorage.setItem('pg-intro', '1'); } catch (e) {} }
+    function showIntro() {
+        setSide('none', 0);
+        arena.innerHTML = '';
+        const w = document.createElement('div');
+        w.className = 'intro';
+        w.innerHTML =
+            '<h3>Two ways of seeing</h3>' +
+            '<p>Alan Watts liked to sort the world into two moods: the <b>prickly</b> — sharp, precise, rigid — and the <b>gooey</b> — soft, warm, flowing. Most things are a little of both.</p>' +
+            '<p class="intro-task">Your job: trust your gut and sort them.</p>' +
+            '<button class="btn btn-primary" id="introStart">Start sorting →</button>';
+        arena.appendChild(w);
+        w.querySelector('#introStart').onclick = () => { markIntroSeen(); nextCard(); };
+    }
+
     /* ===== 9. RECORD VOTE ===== */
     async function commitVote(item, verdict, categoryId) {
+        showReaction(verdict);
         // optimistic local update keeps selection balanced within the session
         item.shown += 1;
         if (verdict === 'gooey') item.gooey += 1;
@@ -1179,8 +1231,8 @@
                 const tb = b.gooey + b.prickly, pb = tb ? b.gooey / tb : 0;
                 return pb - pa;
             });
-            const sub = random ? 'Every list, mixed together — ranked by the share of voters who called each one gooey.'
-                               : 'Ranked by the share of voters who called each one gooey.';
+            const sub = (random ? 'Every list, mixed together — ranked by how gooey the crowd finds each one.'
+                                : 'Ranked by how gooey the crowd finds each one.') + ' Tap a row to read the why.';
             resultsList.innerHTML = '<p class="results-head">Most gooey to most prickly</p><p class="results-sub">' + sub + '</p>';
             const legend = document.createElement('div');
             legend.className = 'legend';
