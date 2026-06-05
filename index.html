@@ -884,7 +884,8 @@
         wrap.className = 'swipe-wrap';
         const itemCat = item.categoryId || currentCategoryId;
         const isGlyph = IMAGE_KIND[itemCat] === 'glyph';   // letter lives on the plate
-        const badge = currentCategoryId === RANDOM_ID ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
+        const mixed = currentCategoryId === RANDOM_ID || dailyMode;   // cross-category decks show each card's category
+        const badge = mixed ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         wrap.innerHTML =
             '<div class="peek-card"></div>' +
             '<div class="swipe-card" id="sc">' +
