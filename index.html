@@ -2,8 +2,16 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Prickles &amp; Goo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prickles &amp; Goo — vote what's prickly, what's gooey</title>
+<meta name="description" content="Alan Watts said everything is either prickly or gooey. Swipe to vote on tech, money apps, trading terminals, billionaires, presidents — and see where the crowd lands.">
+<meta name="theme-color" content="#FFF1E5">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFF1E5'/%3E%3Cpath d='M16 4 a12 12 0 0 1 0 24 Z' fill='%230D7680'/%3E%3Cpath d='M16 4 a12 12 0 0 0 0 24 Z' fill='%23990F3D'/%3E%3C/svg%3E">
+<meta property="og:title" content="Prickles &amp; Goo">
+<meta property="og:description" content="Vote what's prickly, what's gooey — and see where the crowd lands.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Prickles &amp; Goo">
+<meta name="twitter:card" content="summary">
 <style>
     /* ============================================================
        DESIGN TOKENS — "FT × Apple": FT paper + claret/teal,
@@ -26,9 +34,10 @@
     }
     [data-theme="dark"] {
         --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
-        --ink:#F3EBE2; --ink-soft:#A89C90; --hairline:#3A322C;
-        --gooey:#34B3BD; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
-        --prickly:#E5577E; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
+        /* dark is its own ramp, not dimmed light: secondary text + accents lifted to clear WCAG AA (4.5:1) on the dark bg */
+        --ink:#F3EBE2; --ink-soft:#BEB3A6; --hairline:#3A322C;
+        --gooey:#5BC8CF; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
+        --prickly:#F0809A; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
         --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
         --shadow-lift:0 16px 48px rgba(0,0,0,.6);
     }
@@ -188,7 +197,7 @@
     @keyframes denyshake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} 80%{transform:translateX(-3px)} }
 
     /* ---------- Buttons ---------- */
-    .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
+    .btn { font-family:var(--sans); font-size:.95rem; font-weight:600; cursor:pointer; border-radius:999px; padding:13px 24px; min-height:44px; border:1px solid transparent; transition:transform .15s,background .2s,box-shadow .2s; }
     .btn:active { transform:scale(.97); }
     .btn-primary { background:var(--ink); color:var(--paper); }
     .btn-ghost { background:var(--surface); color:var(--ink); border:1px solid var(--hairline); }
@@ -206,7 +215,14 @@
     .row .nm-wrap { display:flex; align-items:center; gap:10px; min-width:0; }
     .row .nm { font-family:var(--serif); font-size:1.2rem; }
     .row .pct { font-variant-numeric:tabular-nums; font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
-    .row .pct .low { color:var(--prickly); font-weight:600; }
+    .row .pct .low { color:var(--ink-soft); font-style:italic; font-weight:400; }
+    /* results loading skeleton */
+    .sk-row { border-top:1px solid var(--hairline); padding:16px 2px; }
+    .sk-line { height:13px; border-radius:6px; background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sk 1.3s ease infinite; }
+    .sk-row .sk-name { width:38%; margin-bottom:10px; }
+    .sk-row .sk-bar { height:12px; border-radius:999px; }
+    @keyframes sk { 0%{background-position:100% 0} 100%{background-position:0 0} }
+    @media (prefers-reduced-motion: reduce) { .sk-line { animation:none; } }
     .row .pct.muted { font-style:italic; opacity:.75; }
     .bar { display:flex; height:12px; border-radius:999px; overflow:hidden; background:var(--hairline); }
     .bar .g { background:var(--gooey); } .bar .p { background:var(--prickly); }
@@ -461,6 +477,7 @@
 
     /* ===== 5. NAVIGATION ===== */
     function showView(name) {
+        if (window.dismissSheet) window.dismissSheet();     // tear down any open sheet on nav
         Object.values(views).forEach(v => v.classList.add('hidden'));
         Object.values(navLinks).forEach(l => l.classList.remove('active'));
         views[name].classList.remove('hidden');
@@ -471,6 +488,12 @@
     navLinks.vote.addEventListener('click', () => { showView('vote'); });
     navLinks.results.addEventListener('click', () => { showView('results'); loadResults(); });
     navLinks.about.addEventListener('click', () => showView('about'));
+
+    /* ----- keyboard: Escape closes the sheet; arrows/space vote (Phase 2) ----- */
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { if (window.dismissSheet) window.dismissSheet(); return; }
+        if (window.keyboardVote) window.keyboardVote(e);
+    });
 
     /* ===== 6. ERRORS ===== */
     function describeError(err) {
@@ -972,6 +995,8 @@
     }
     function openSheet() { scrim.classList.add('show'); requestAnimationFrame(() => sheet.classList.add('show')); }
     function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
+    // Escape / route-change teardown: close the sheet without committing or advancing.
+    window.dismissSheet = function () { if (!activeAsk && !scrim.classList.contains('show')) return; closeSheet(); activeAsk = null; };
     scrim.addEventListener('click', () => { if (activeAsk) skipWhy(); });
 
     // Add a reason from the results page (no vote): pick a side, then write/agree.
@@ -1219,7 +1244,8 @@
     async function loadResults() {
         clearError(views.results);
         renderCategoryBar();
-        resultsList.innerHTML = '<p class="results-sub">Loading…</p>';
+        resultsList.innerHTML = Array.from({ length: 6 }, () =>
+            '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         try {
             const random = currentCategoryId === RANDOM_ID;
             const all = random ? await fetchAllItems()
