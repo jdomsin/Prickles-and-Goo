@@ -102,6 +102,12 @@
             0 0 calc(var(--prk) * 70px) color-mix(in srgb,var(--prickly) 60%, transparent);
     }
     .swipe-card:active { cursor:grabbing; }
+    /* next-card peek (deck-as-object) */
+    .peek-card { position:absolute; left:50%; top:50%; width:min(360px,80vw); height:300px; transform:translate(-50%,-46%) scale(.94); background:var(--surface); border:1px solid var(--hairline); border-radius:22px; box-shadow:var(--shadow); z-index:5; opacity:.65; pointer-events:none; }
+    /* during-drag verdict stamp (legible before release) */
+    .stamp { position:absolute; top:20px; font-family:var(--serif); font-weight:700; font-size:1.7rem; letter-spacing:.02em; padding:5px 16px; border:3px solid currentColor; border-radius:12px; opacity:0; z-index:3; pointer-events:none; }
+    .stamp.goo { right:18px; color:var(--gooey); transform:rotate(13deg); }
+    .stamp.prk { left:18px; color:var(--prickly); transform:rotate(-13deg); }
     .swipe-card::before, .swipe-card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
     .swipe-card::before { background:linear-gradient(270deg, color-mix(in srgb,var(--gooey) 50%, transparent), transparent 56%); opacity:var(--goo); }
     .swipe-card::after  { background:linear-gradient(90deg,  color-mix(in srgb,var(--prickly) 50%, transparent), transparent 56%); opacity:var(--prk); }
@@ -338,6 +344,7 @@
         .word { z-index:19; font-size:clamp(2rem,13vw,4rem); }
         .swipe-card { width:min(300px,66vw); min-height:228px; }
         .swipe-card .name { font-size:1.7rem; }
+        .peek-card { width:min(300px,66vw); height:228px; }
     }
 </style>
 </head>
@@ -774,8 +781,10 @@
         const isGlyph = IMAGE_KIND[itemCat] === 'glyph';   // letter lives on the plate
         const badge = currentCategoryId === RANDOM_ID ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         wrap.innerHTML =
+            '<div class="peek-card"></div>' +
             '<div class="swipe-card" id="sc">' +
                 badge +
+                '<span class="stamp goo">Gooey</span><span class="stamp prk">Prickly</span>' +
                 '<div class="card-media" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
                 '<span class="meta">swipe, or tap below</span>' +
@@ -802,7 +811,8 @@
     /* ----- pointer-driven swipe (one shared window handler set) ----- */
     let swipe = null;
     function beginCard(card, item) {
-        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0 };
+        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0,
+                  vx: 0, lastX: 0, lastT: 0, stampG: card.querySelector('.stamp.goo'), stampP: card.querySelector('.stamp.prk') };
         card.addEventListener('mousedown', onDown);
         card.addEventListener('touchstart', onDown, { passive: true });
     }
@@ -810,6 +820,7 @@
         if (!swipe || swipe.done) return;
         const t = e.touches ? e.touches[0] : e;
         swipe.sx = t.clientX; swipe.sy = t.clientY; swipe.dragging = true;
+        swipe.lastX = t.clientX; swipe.lastT = performance.now(); swipe.vx = 0;
         swipe.card.style.transition = 'none';
     }
     function paintSwipe() {
@@ -817,21 +828,31 @@
         const dx = swipe.dx, dy = swipe.dy;
         swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
         const ax = Math.abs(dx), ay = Math.abs(dy);
-        if (ay > ax && ay > 28) setSide('none', 0);             // leaning to pass (up/down): lift only
+        const verticalLean = ay > ax && ay > 28;
+        if (verticalLean) setSide('none', 0);                   // leaning to pass (up/down): lift only
         else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
+        // verdict stamp fades in past ~a third of the way, so the call is legible before release
+        const sp = clamp01((ax - SWIPE_THRESHOLD * 0.32) / (SWIPE_THRESHOLD * 0.5));
+        if (swipe.stampG) swipe.stampG.style.opacity = (!verticalLean && dx > 0) ? sp : 0;
+        if (swipe.stampP) swipe.stampP.style.opacity = (!verticalLean && dx < 0) ? sp : 0;
     }
     function onMove(e) {
         if (!swipe || !swipe.dragging) return;
         const t = e.touches ? e.touches[0] : e;
         swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        const now = performance.now(), ndt = now - swipe.lastT;
+        if (ndt > 0) { swipe.vx = (t.clientX - swipe.lastX) / ndt; swipe.lastX = t.clientX; swipe.lastT = now; }
         if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
     }
     function bounceBack() {
         if (!swipe) return;
         swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
         swipe.card.style.transform = 'translate(0,0)';
+        if (swipe.stampG) swipe.stampG.style.opacity = 0;
+        if (swipe.stampP) swipe.stampP.style.opacity = 0;
         setSide('none', 0);
     }
+    const FLICK = 0.6;                                          // px/ms — a fast flick commits below the distance threshold
     function onUp() {
         if (!swipe || !swipe.dragging) return;
         swipe.dragging = false;
@@ -839,8 +860,8 @@
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
             if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
         }
-        else if (dx > SWIPE_COMMIT) flySwipe('gooey');
-        else if (dx < -SWIPE_COMMIT) flySwipe('prickly');
+        else if (dx > SWIPE_COMMIT || swipe.vx > FLICK) flySwipe('gooey');
+        else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly');
         else bounceBack();
     }
     function flySwipe(verdict, dir) {
@@ -860,6 +881,20 @@
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('touchend', onUp);
+
+    /* ----- keyboard voting (matches the printed ← Prickly / Gooey → hints) ----- */
+    window.keyboardVote = function (e) {
+        if (activeAsk) return;
+        if (views.vote.classList.contains('hidden')) return;
+        if (e.target && /^(input|textarea|select)$/i.test(e.target.tagName)) return;
+        if (window.advanceReveal && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp')) {
+            e.preventDefault(); window.advanceReveal(); return;
+        }
+        if (!swipe || swipe.done) return;
+        if (e.key === 'ArrowLeft') { e.preventDefault(); flySwipe('prickly'); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); flySwipe('gooey'); }
+        else if (e.key === 'ArrowUp' || e.key === ' ') { e.preventDefault(); attemptPass('up'); }
+    };
 
     /* ===== 8b. PASSES ===== */
     function loadPassState() {
@@ -1202,7 +1237,8 @@
             .catch(() => {});
 
         let advanced = false;
-        const go = () => { if (advanced) return; advanced = true; clearTimeout(timer); maybeShowResults(); };
+        const go = () => { if (advanced) return; advanced = true; clearTimeout(timer); window.advanceReveal = null; maybeShowResults(); };
+        window.advanceReveal = go;                          // Enter/Space/arrow advances via keyboard
         document.getElementById('revNext').onclick = (e) => { e.stopPropagation(); go(); };
         wrap.addEventListener('click', go);                // tap anywhere to continue
         const timer = setTimeout(go, 2600);                // or auto-advance
