@@ -1,0 +1,34 @@
+# Netlify config for Prickles & Goo.
+# Static site (index.html) + two edge functions for shareability:
+#   • og-meta  — injects per-item OpenGraph title/description/image into the page
+#                so a shared link unfurls with "78% say Apple is gooey".
+#   • og-image — generates the share image at /og.
+# Pretty links /c/<category> and /i/<category>/<item> rewrite to the SPA, which
+# reads the path on load (see applyInitialRoute in index.html).
+
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/c/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/i/*"
+  to = "/index.html"
+  status = 200
+
+# og-meta runs on the page routes and rewrites <head> for crawlers.
+[[edge_functions]]
+  path = "/"
+  function = "og-meta"
+
+[[edge_functions]]
+  path = "/i/*"
+  function = "og-meta"
+
+# og-image serves the share picture.
+[[edge_functions]]
+  path = "/og"
+  function = "og-image"
