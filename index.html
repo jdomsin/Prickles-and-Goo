@@ -216,6 +216,19 @@
     .row .nm { font-family:var(--serif); font-size:1.2rem; }
     .row .pct { font-variant-numeric:tabular-nums; font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
     .row .pct .low { color:var(--ink-soft); font-style:italic; font-weight:400; }
+    /* ---------- Crowd reveal (post-vote payoff) ---------- */
+    .reveal { max-width:440px; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 14px; cursor:pointer; animation:revealIn .32s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes revealIn { from { opacity:0; transform:scale(.92) translateY(8px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion: reduce) { .reveal { animation:none; } }
+    .reveal-verdict { font-weight:800; letter-spacing:.16em; font-size:.78rem; text-transform:uppercase; }
+    .reveal.goo .reveal-verdict, .reveal.goo .reveal-pct { color:var(--gooey); }
+    .reveal.prk .reveal-verdict, .reveal.prk .reveal-pct { color:var(--prickly); }
+    .reveal-nm { font-family:var(--serif); font-size:1.4rem; margin-bottom:8px; }
+    .reveal-pct { font-family:var(--serif); font-weight:700; font-size:4.2rem; line-height:.95; font-variant-numeric:tabular-nums; }
+    .reveal-sub { font-size:.74rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; }
+    .reveal-head { font-family:var(--serif); font-style:italic; font-size:1.1rem; margin-top:10px; }
+    .reveal-quote { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:.95rem; margin-top:4px; min-height:1.3em; max-width:380px; }
+    .reveal-next { margin-top:14px; }
     /* results loading skeleton */
     .sk-row { border-top:1px solid var(--hairline); padding:16px 2px; }
     .sk-line { height:13px; border-radius:6px; background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sk 1.3s ease infinite; }
@@ -1141,10 +1154,58 @@
         const eligible = verdict !== 'skip' && (isFlip || !hasAsked(categoryId, item.id));
         if (eligible && votesSinceAsk >= COMMENTARY_MIN_GAP) {
             votesSinceAsk = 0;
-            askWhy(item, verdict, prior, categoryId);
+            askWhy(item, verdict, prior, categoryId);     // the sheet IS the payoff this round
+        } else if (verdict !== 'skip') {
+            showReveal(item, verdict, categoryId);         // the heartbeat: you vs. the crowd
         } else {
-            maybeShowResults();
+            maybeShowResults();                            // a pass earns no reveal
         }
+    }
+
+    /* ===== 9b. CROWD REVEAL — the post-vote payoff ===== */
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function countUp(el, to, ms) {
+        if (!el) return;
+        if (reduceMotion) { el.textContent = to; return; }
+        const start = performance.now();
+        (function tick(now) {
+            const p = Math.min(1, (now - start) / ms);
+            el.textContent = Math.round(p * to);
+            if (p < 1) requestAnimationFrame(tick);
+        })(performance.now());
+    }
+    function showReveal(item, verdict, categoryId) {
+        setSide('none', 0);
+        const goo = verdict === 'gooey';
+        const total = item.gooey + item.prickly;
+        const mine = goo ? item.gooey : item.prickly;
+        const pct = total > 0 ? Math.round((mine / total) * 100) : 100;
+        const lonely = total <= 1;                         // your vote is the only one
+        const head = lonely ? 'You called it first.' : (pct >= 50 ? "You're with the crowd." : 'Against the grain.');
+
+        arena.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'reveal ' + (goo ? 'goo' : 'prk');
+        wrap.innerHTML =
+            '<div class="reveal-verdict">' + (goo ? 'GOOEY' : 'PRICKLY') + '</div>' +
+            '<div class="reveal-nm">' + escapeHtml(item.name) + '</div>' +
+            (lonely ? '' : '<div class="reveal-pct"><span class="num" id="revNum">0</span>%</div>' +
+                           '<div class="reveal-sub">also said ' + verdict + ' · ' + total + ' votes</div>') +
+            '<div class="reveal-head">' + head + '</div>' +
+            '<div class="reveal-quote" id="revQuote"></div>' +
+            '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button>';
+        arena.appendChild(wrap);
+        if (!lonely) countUp(document.getElementById('revNum'), pct, 650);
+
+        reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(1).get()
+            .then(s => { const q = document.getElementById('revQuote'); if (q && !s.empty) q.textContent = '“' + s.docs[0].data().text + '”'; })
+            .catch(() => {});
+
+        let advanced = false;
+        const go = () => { if (advanced) return; advanced = true; clearTimeout(timer); maybeShowResults(); };
+        document.getElementById('revNext').onclick = (e) => { e.stopPropagation(); go(); };
+        wrap.addEventListener('click', go);                // tap anywhere to continue
+        const timer = setTimeout(go, 2600);                // or auto-advance
     }
 
     /* Show the interim top-5 only on the cadence AND once a full top-5 worth
