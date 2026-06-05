@@ -231,6 +231,16 @@
     .cold-cta { display:block; width:100%; text-align:left; margin-top:18px; font:inherit; font-size:.92rem; color:var(--ink); background:var(--surface-2); border:1px dashed var(--hairline); border-radius:14px; padding:14px 16px; cursor:pointer; transition:border-color .2s; }
     .cold-cta:hover { border-color:var(--gooey); }
     .cold-cta b { font-variant-numeric:tabular-nums; }
+    /* taste profile (You) */
+    .taste-hero { text-align:center; margin:6px 0 18px; }
+    .taste-pct { font-family:var(--serif); font-weight:700; font-size:5rem; line-height:.9; font-variant-numeric:tabular-nums; }
+    .taste-pct.goo { color:var(--gooey); } .taste-pct.prk { color:var(--prickly); }
+    .taste-cap { font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin-top:6px; }
+    .taste-line { font-family:var(--serif); font-size:1.1rem; line-height:1.45; margin:0 0 10px; }
+    .taste-cats { margin-top:18px; }
+    .taste-cat { margin-bottom:14px; }
+    .taste-cat-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; font-size:.95rem; }
+    .taste-cat-top .pct { font-size:.8rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
     /* daily ballot recap */
     .recap .kicker { color:var(--prickly); margin-bottom:8px; }
     .recap-line { font-family:var(--serif); font-size:1.15rem; margin:10px 0 6px; }
@@ -373,6 +383,7 @@
         <div class="nav-links">
             <a id="link-vote" class="active">Vote</a>
             <a id="link-results">Results</a>
+            <a id="link-you">You</a>
             <a id="link-about">About</a>
             <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌙</button>
         </div>
@@ -403,6 +414,13 @@
             <div class="category-bar" id="category-bar"></div>
             <select class="category-select" id="results-category-select" aria-label="Choose a category"></select>
             <div id="results-list"></div>
+        </section>
+
+        <!-- VIEW: YOU (local taste profile) -->
+        <section id="you-view" class="hidden">
+            <p class="kicker">Your taste</p>
+            <h1 class="prompt">You, sorted</h1>
+            <div id="taste-body"></div>
         </section>
 
         <!-- VIEW: ABOUT -->
@@ -481,9 +499,10 @@
     const views = {
         vote:    document.getElementById('vote-view'),
         results: document.getElementById('results-view'),
+        you:     document.getElementById('you-view'),
         about:   document.getElementById('about-view')
     };
-    const navLinks = { vote: document.getElementById('link-vote'), results: document.getElementById('link-results'), about: document.getElementById('link-about') };
+    const navLinks = { vote: document.getElementById('link-vote'), results: document.getElementById('link-results'), you: document.getElementById('link-you'), about: document.getElementById('link-about') };
     const arena = document.getElementById('arena');
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
@@ -531,6 +550,7 @@
     document.getElementById('nav-home').addEventListener('click', goVote);
     navLinks.vote.addEventListener('click', goVote);
     navLinks.results.addEventListener('click', () => { showView('results'); loadResults(); });
+    navLinks.you.addEventListener('click', () => { showView('you'); loadTaste(); });
     navLinks.about.addEventListener('click', () => showView('about'));
 
     /* ----- keyboard: Escape closes the sheet; arrows/space vote (Phase 2) ----- */
@@ -664,7 +684,8 @@
             lastShownId = null;
             renderPassMeter();                             // daily progress meter
             if (dailyResults.length >= dailyDeck.length) showRecap();   // already finished today
-            else nextCard();
+            else if (introSeen()) nextCard();
+            else showIntro();                              // first-ever visit still gets the intro
         } catch (err) {
             console.error("Failed to load daily ballot:", err);
             arena.innerHTML = '';
@@ -1570,11 +1591,73 @@
         else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey')).catch(() => {});
     }
 
+    /* ===== 11c. TASTE PROFILE (local, no account) ===== */
+    async function loadTaste() {
+        const body = document.getElementById('taste-body');
+        body.innerHTML = Array.from({ length: 3 }, () => '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
+        let total = 0, gooey = 0;
+        const per = CATEGORIES.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
+        const byId = {}; per.forEach(p => byId[p.id] = p);
+        CATEGORIES.forEach(c => {
+            const voted = lsGet('pg-voted-' + c.id);
+            Object.keys(voted).forEach(id => { const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return; total++; byId[c.id].t++; if (v === 'gooey') { gooey++; byId[c.id].g++; } });
+        });
+        if (!total) { body.innerHTML = '<p class="results-sub">Vote on a few things and your taste takes shape here — how gooey you run, where you lean soft, and where you go against the grain.</p>'; return; }
+        try {                                          // best-effort crowd comparison
+            const all = await fetchAllItems();
+            const key = {}; all.forEach(it => key[it.categoryId + '/' + it.id] = it);
+            CATEGORIES.forEach(c => {
+                const voted = lsGet('pg-voted-' + c.id);
+                Object.keys(voted).forEach(id => {
+                    const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return;
+                    const it = key[c.id + '/' + id]; if (!it) return; const ct = it.gooey + it.prickly; if (!ct) return;
+                    const p = byId[c.id]; p.compared++; p.diverg += ((v === 'gooey' ? 1 : 0) - it.gooey / ct);
+                });
+            });
+        } catch (e) { /* local-only fallback */ }
+        renderTaste({ total, gooey, per });
+    }
+    function renderTaste(d) {
+        const pct = Math.round(d.gooey / d.total * 100);
+        const voted = d.per.filter(p => p.t > 0);
+        const ranked = voted.slice().sort((a, b) => (b.g / b.t) - (a.g / a.t));
+        const gooiest = ranked[0], prickliest = ranked[ranked.length - 1];
+        const contrarian = voted.filter(p => p.compared >= 2).sort((a, b) => (b.diverg / b.compared) - (a.diverg / a.compared))[0];
+        const body = document.getElementById('taste-body');
+        let html = '<div class="taste-hero"><div class="taste-pct ' + (pct >= 50 ? 'goo' : 'prk') + '">' + pct + '%</div><div class="taste-cap">gooey · ' + d.total + ' vote' + (d.total === 1 ? '' : 's') + '</div></div>';
+        html += '<p class="taste-line">You lean <b>' + (pct >= 50 ? 'gooey' : 'prickly') + '</b>.';
+        if (gooiest) html += ' Softest on <b>' + escapeHtml(gooiest.label) + '</b>';
+        if (prickliest && prickliest !== gooiest) html += ', sharpest on <b>' + escapeHtml(prickliest.label) + '</b>';
+        html += '.</p>';
+        if (contrarian) {
+            const avg = contrarian.diverg / contrarian.compared;
+            if (avg > 0.12) html += '<p class="taste-line">You see goo where the crowd sees prickle in <b>' + escapeHtml(contrarian.label) + '</b>.</p>';
+            else if (avg < -0.12) html += '<p class="taste-line">You run pricklier than the crowd on <b>' + escapeHtml(contrarian.label) + '</b>.</p>';
+        }
+        html += '<div class="taste-cats">';
+        ranked.forEach(p => {
+            const cp = Math.round(p.g / p.t * 100);
+            html += '<div class="taste-cat"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span><span class="pct">' + cp + '% gooey · ' + p.t + '</span></div>' +
+                '<div class="bar"><span class="g" style="width:' + cp + '%"></span><span class="p" style="width:' + (100 - cp) + '%"></span></div></div>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+        const sh = document.createElement('button'); sh.className = 'btn btn-primary'; sh.style.marginTop = '18px';
+        sh.textContent = 'Share my taste'; sh.onclick = () => shareTaste(pct, d.total);
+        body.appendChild(sh);
+    }
+    function shareTaste(pct, total) {
+        const txt = "I'm " + pct + "% gooey on Prickles & Goo (" + total + " votes). What are you?";
+        const url = location.origin + location.pathname;
+        if (navigator.share) navigator.share({ title: 'Prickles & Goo', text: txt, url }).catch(() => {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey')).catch(() => {});
+    }
+
     /* ===== 12. INIT ===== */
     buildEffects();
     loadPassState();
     renderPassMeter();
-    if (!applyInitialRoute()) loadCategory(currentCategoryId);
+    if (!applyInitialRoute()) loadDaily();          // default to the Daily Ballot
     </script>
 </body>
 </html>
