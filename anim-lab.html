@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prickles &amp; Goo — Comic FX Lab</title>
+<style>
+    :root{
+        --paper:#FFF1E5; --surface:#fff; --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
+        --serif:Georgia,"Times New Roman",serif;
+        --goo:#0D7680; --goo-pop:#16E0C8; --prk:#990F3D; --prk-pop:#FF2D6B;
+        --comic:"Arial Black",Impact,system-ui,sans-serif;
+    }
+    [data-theme="dark"]{ --paper:#16130F; --surface:#211C16; --ink:#F3E9DD; --ink-soft:#B3A595; --hairline:#3A322A; }
+    *{box-sizing:border-box;}
+    body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:24px clamp(14px,4vw,36px) 60px; overflow-x:hidden;}
+    h1{font-family:var(--serif); font-size:1.7rem; margin:0 0 4px;}
+    p.lead{color:var(--ink-soft); margin:0 0 16px; max-width:640px; line-height:1.5;}
+    .bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;}
+    .lbl{font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin-right:4px;}
+    .chip{font:inherit; font-size:.85rem; cursor:pointer; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); border-radius:999px; padding:7px 13px;}
+    .chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+    .note{font-size:.82rem; color:var(--ink-soft); margin:10px 0 18px; max-width:640px; min-height:2.4em; line-height:1.45;}
+
+    /* stage */
+    .stage{position:relative; height:440px; display:grid; place-items:center; overflow:hidden; border:1px dashed var(--hairline); border-radius:20px;}
+    .fx{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+    .card{position:relative; width:240px; height:300px; background:var(--surface); border-radius:22px; border:1px solid var(--hairline);
+        box-shadow:0 18px 50px rgba(20,14,10,.16); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:5; will-change:transform;}
+    .card .plate{width:104px; height:104px; border-radius:22px; display:grid; place-items:center; color:#fff; font-family:var(--serif); font-weight:700; font-size:2.4rem; background:linear-gradient(135deg,#7a5cff,#4a2fd8);}
+    .card .nm{font-family:var(--serif); font-size:1.5rem;}
+
+    .buttons{display:flex; gap:14px; justify-content:center; margin-top:18px;}
+    .btn{font:inherit; font-weight:800; letter-spacing:.02em; cursor:pointer; border:0; border-radius:14px; padding:14px 30px; color:#fff; box-shadow:0 6px 0 rgba(0,0,0,.18); transition:transform .06s;}
+    .btn:active{transform:translateY(3px); box-shadow:0 3px 0 rgba(0,0,0,.18);}
+    .btn.prk{background:var(--prk-pop);} .btn.goo{background:var(--goo);}
+
+    /* ── shared comic bits ── */
+    .word{position:absolute; left:50%; top:46%; transform:translate(-50%,-50%) rotate(var(--rot,-8deg)) scale(.2);
+        font-family:var(--comic); font-style:italic; font-weight:900; font-size:clamp(3rem,12vw,6rem); letter-spacing:-.02em;
+        color:#fff; text-transform:uppercase; z-index:9; opacity:0;
+        -webkit-text-stroke:3px #111; paint-order:stroke fill;
+        text-shadow:5px 5px 0 var(--sh,#111); animation:wordPop .7s cubic-bezier(.2,1.5,.4,1) forwards;}
+    @keyframes wordPop{ 0%{opacity:0; transform:translate(-50%,-50%) rotate(var(--rot,-8deg)) scale(.2);}
+        18%{opacity:1; transform:translate(-50%,-50%) rotate(var(--rot,-8deg)) scale(1.18);}
+        34%{transform:translate(-50%,-50%) rotate(var(--rot,-8deg)) scale(1);}
+        78%{opacity:1;} 100%{opacity:0; transform:translate(-50%,-58%) rotate(var(--rot,-8deg)) scale(1.05);}}
+
+    /* halftone burst */
+    .halftone{position:absolute; left:50%; top:50%; width:120px; height:120px; transform:translate(-50%,-50%) scale(.2); border-radius:50%;
+        background:radial-gradient(circle, var(--c) 1.6px, transparent 2px) 0 0/12px 12px; opacity:.0; z-index:7;
+        -webkit-mask-image:radial-gradient(circle, #000 38%, transparent 70%); mask-image:radial-gradient(circle,#000 38%,transparent 70%);
+        animation:halftone .6s ease-out forwards;}
+    @keyframes halftone{0%{opacity:.95; transform:translate(-50%,-50%) scale(.2);} 100%{opacity:0; transform:translate(-50%,-50%) scale(4.2);}}
+
+    /* speed / action lines */
+    .speed{position:absolute; left:50%; top:50%; width:680px; height:680px; transform:translate(-50%,-50%) scale(.4); z-index:6; opacity:0;
+        background:repeating-conic-gradient(from 0deg, var(--c) 0deg 1.4deg, transparent 1.4deg 8deg);
+        -webkit-mask-image:radial-gradient(circle, transparent 26%, #000 33%, #000 50%, transparent 62%);
+        mask-image:radial-gradient(circle, transparent 26%, #000 33%, #000 50%, transparent 62%);
+        animation:speed .5s ease-out forwards;}
+    @keyframes speed{0%{opacity:.9; transform:translate(-50%,-50%) scale(.4) rotate(0);} 100%{opacity:0; transform:translate(-50%,-50%) scale(1.15) rotate(12deg);}}
+
+    /* chromatic glitch on the card */
+    .card.glitch{animation:shake .42s steps(2) 1;}
+    @keyframes shake{0%,100%{transform:translate(0,0)} 20%{transform:translate(-7px,3px)} 40%{transform:translate(6px,-4px)} 60%{transform:translate(-5px,-3px)} 80%{transform:translate(5px,4px)}}
+    .ghost{position:absolute; inset:0; z-index:4; border-radius:22px; mix-blend-mode:screen; opacity:.0; animation:ghost .42s ease-out 1;}
+    .ghost.r{background:#ff1f4b;} .ghost.c{background:#12e6ff;}
+    @keyframes ghost{0%{opacity:.55} 100%{opacity:0}}
+
+    /* shards (prickly shatter) */
+    .shard{position:absolute; left:50%; top:50%; width:0; height:0; z-index:8;
+        border-left:14px solid transparent; border-right:14px solid transparent; border-bottom:30px solid var(--c);
+        transform:translate(-50%,-50%); animation:shard .6s ease-out forwards;}
+    @keyframes shard{0%{opacity:1; transform:translate(-50%,-50%) rotate(0) scale(1);} 100%{opacity:0;
+        transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)) scale(.6);}}
+
+    /* drips (gooey ooze) */
+    .drip{position:absolute; top:-30px; width:var(--w); height:var(--h); background:var(--c); border-radius:0 0 50% 50%; z-index:8; opacity:.92;
+        box-shadow:0 0 0 2px rgba(0,0,0,.15) inset; animation:drip .8s cubic-bezier(.5,0,.7,1) forwards;}
+    .drip::after{content:""; position:absolute; left:50%; bottom:-9px; width:var(--w); height:14px; transform:translateX(-50%); border-radius:50%; background:var(--c);}
+    @keyframes drip{0%{transform:translateY(0) scaleY(.4);} 70%{opacity:.92;} 100%{transform:translateY(var(--fall)) scaleY(1.1); opacity:0;}}
+</style>
+</head>
+<body>
+    <h1>Comic FX Lab <span style="font-family:var(--comic);color:var(--prk-pop);-webkit-text-stroke:1px #111">— prickly / gooey</span></h1>
+    <p class="lead">A side experiment: comic-book reactions when you vote, in the spirit of animated-comic films — halftone dots, chromatic-aberration glitch, bold onomatopoeia, action lines, splatter vs. shatter. Pick a style, then hit <b>Prickly</b> or <b>Gooey</b>. (Original comic words; not affiliated with any franchise.)</p>
+
+    <div class="bar">
+        <span class="lbl">Style</span>
+        <button class="chip active" data-s="halftone">A · Halftone POP</button>
+        <button class="chip" data-s="glitch">B · Chromatic glitch</button>
+        <button class="chip" data-s="slam">C · Onomatopoeia slam</button>
+        <button class="chip" data-s="matter">D · Splat vs Shatter</button>
+        <span class="lbl" style="margin-left:12px">Theme</span>
+        <button class="chip" data-t="light">Light</button>
+        <button class="chip" data-t="dark">Dark</button>
+    </div>
+    <p class="note" id="note"></p>
+
+    <div class="stage" id="stage">
+        <div class="fx" id="fx"></div>
+        <div class="card" id="card"><div class="plate">Fg</div><div class="nm">Figma</div></div>
+    </div>
+    <div class="buttons">
+        <button class="btn prk" id="bp">◀ Prickly</button>
+        <button class="btn goo" id="bg">Gooey ▶</button>
+    </div>
+
+<script>
+    const stage=document.getElementById('stage'), fx=document.getElementById('fx'), card=document.getElementById('card');
+    let style='halftone';
+    const NOTES={
+        halftone:"A · A ben-day halftone ring bursts out in the verdict's colour with a popped comic word — the classic printed-comic feel.",
+        glitch:"B · The card splits into red/cyan layers and judders (chromatic aberration), with radiating action lines — the animated multiverse 'glitch' look.",
+        slam:"C · A big outlined onomatopoeia panel slams in over a halftone field — maximum punch, minimal motion on the card.",
+        matter:"D · Physical reaction: gooey oozes drips down the card; prickly shatters it into flying angular shards."
+    };
+    const WORDS={ gooey:['GLOOP!','SPLORP!','SQUISH!','GOO!'], prickly:['ZAP!','SNKT!','SPIKE!','PRIK!'] };
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    const pick=a=>a[Math.floor(Math.random()*a.length)];
+    const col=v=>v==='gooey'?getComputedStyle(document.documentElement).getPropertyValue('--goo-pop'):getComputedStyle(document.documentElement).getPropertyValue('--prk-pop');
+
+    function spawn(html, life){ const d=document.createElement('div'); d.innerHTML=html; const el=d.firstElementChild; fx.appendChild(el); setTimeout(()=>el.remove(), life); return el; }
+    function word(v){ const c=col(v); const sh=v==='gooey'?'#0a5a52':'#5e0a26';
+        spawn('<div class="word" style="--rot:'+rnd(-12,8).toFixed(0)+'deg; color:'+(v==='gooey'?'#9af7ec':'#ffd0e0')+'; --sh:'+sh+'">'+pick(WORDS[v])+'</div>', 750); }
+
+    function fxHalftone(v){ const c=col(v); spawn('<div class="halftone" style="--c:'+c+'"></div>',650); spawn('<div class="speed" style="--c:'+c+'"></div>',520); word(v); }
+    function fxGlitch(v){ const c=col(v);
+        const r=spawn('<div class="ghost r"></div>',440), cy=spawn('<div class="ghost c"></div>',440);
+        // mirror the card label into the colored ghosts
+        [r,cy].forEach((g,i)=>{ g.innerHTML='<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transform:translate('+(i?6:-6)+'px,0)"><div style="width:104px;height:104px;border-radius:22px;background:#7a5cff"></div><div style="font-family:var(--serif);font-size:1.5rem;color:#fff">Figma</div></div>'; });
+        card.classList.remove('glitch'); void card.offsetWidth; card.classList.add('glitch');
+        spawn('<div class="speed" style="--c:'+c+'"></div>',520); word(v); }
+    function fxSlam(v){ const c=col(v); spawn('<div class="halftone" style="--c:'+c+'; width:220px; height:220px"></div>',650); word(v); }
+    function fxMatter(v){ const c=col(v);
+        if(v==='gooey'){ for(let i=0;i<7;i++){ const w=rnd(14,30); spawn('<div class="drip" style="--c:'+c+'; --w:'+w+'px; --h:'+rnd(30,70)+'px; --fall:'+rnd(160,300)+'px; left:'+rnd(20,210)+'px; animation-delay:'+rnd(0,.12).toFixed(2)+'s"></div>',950); } }
+        else { for(let i=0;i<16;i++){ const a=rnd(0,6.28); spawn('<div class="shard" style="--c:'+c+'; --dx:'+(Math.cos(a)*rnd(120,260)).toFixed(0)+'px; --dy:'+(Math.sin(a)*rnd(120,260)).toFixed(0)+'px; --r:'+rnd(-220,220).toFixed(0)+'deg"></div>',650); }
+            card.classList.remove('glitch'); void card.offsetWidth; card.classList.add('glitch'); }
+        word(v); }
+
+    const RUN={ halftone:fxHalftone, glitch:fxGlitch, slam:fxSlam, matter:fxMatter };
+    function trigger(v){ (RUN[style]||fxHalftone)(v); }
+
+    document.getElementById('bp').onclick=()=>trigger('prickly');
+    document.getElementById('bg').onclick=()=>trigger('gooey');
+    document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{ style=b.dataset.s;
+        document.querySelectorAll('[data-s]').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+        document.getElementById('note').textContent=NOTES[style]; });
+    document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>document.documentElement.setAttribute('data-theme', b.dataset.t==='dark'?'dark':''));
+    document.getElementById('note').textContent=NOTES[style];
+</script>
+</body>
+</html>
