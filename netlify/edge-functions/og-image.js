@@ -100,27 +100,29 @@ function buildSvg(params) {
 }
 
 // ---- PNG rasterization (best-effort, cached across invocations) ----
-let _wasm = null, _fonts = null;
-async function ensurePng() {
-    const mod = await import("https://esm.sh/@resvg/resvg-wasm@2.6.2");
-    if (!_wasm) {
-        _wasm = mod.initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm"));
+// The PT Serif files in google/fonts are named PT_Serif-Web-*.ttf (not PTSerif-*).
+const FONT_BASE = "https://raw.githubusercontent.com/google/fonts/main/ofl/ptserif/";
+const FONT_FILES = ["PT_Serif-Web-Bold.ttf", "PT_Serif-Web-Regular.ttf", "PT_Serif-Web-Italic.ttf"];
+let _ready = null;
+function ensurePng() {
+    if (!_ready) {
+        _ready = (async () => {
+            const mod = await import("https://esm.sh/@resvg/resvg-wasm@2.6.2");
+            try { await mod.initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm")); }
+            catch (e) { if (!/already/i.test(String(e && e.message))) throw e; }   // tolerate re-init across isolates
+            const fonts = (await Promise.all(
+                FONT_FILES.map((f) => fetch(FONT_BASE + f).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null))
+            )).filter(Boolean).map((b) => new Uint8Array(b));
+            if (!fonts.length) throw new Error("no fonts loaded");
+            return { Resvg: mod.Resvg, fonts };
+        })().catch((e) => { _ready = null; throw e; });   // failed init shouldn't poison later requests
     }
-    await _wasm;
-    if (!_fonts) {
-        const base = "https://raw.githubusercontent.com/google/fonts/main/ofl/ptserif/";
-        _fonts = await Promise.all(
-            ["PTSerif-Bold.ttf", "PTSerif-Regular.ttf", "PTSerif-Italic.ttf"].map((f) =>
-                fetch(base + f).then((r) => (r.ok ? r.arrayBuffer() : null)))
-        ).then((bufs) => bufs.filter(Boolean).map((b) => new Uint8Array(b)));
-        if (!_fonts.length) throw new Error("no fonts");
-    }
-    return mod.Resvg;
+    return _ready;
 }
 async function toPng(svg) {
-    const Resvg = await ensurePng();
+    const { Resvg, fonts } = await ensurePng();
     const r = new Resvg(svg, {
-        font: { fontBuffers: _fonts, defaultFontFamily: FONT, loadSystemFonts: false },
+        font: { fontBuffers: fonts, defaultFontFamily: FONT, loadSystemFonts: false },
         fitTo: { mode: "width", value: 1200 },
     });
     return r.render().asPng();
