@@ -11,7 +11,10 @@
 <meta property="og:description" content="Vote what's prickly, what's gooey — and see where the crowd lands.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Prickles &amp; Goo">
-<meta name="twitter:card" content="summary">
+<meta property="og:url" content="https://prickles-and-goo.netlify.app/">
+<meta property="og:image" content="https://prickles-and-goo.netlify.app/og">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://prickles-and-goo.netlify.app/og">
 <style>
     /* ============================================================
        DESIGN TOKENS — "FT × Apple": FT paper + claret/teal,
@@ -331,6 +334,13 @@
     .reaction.show { opacity:1; transform:translate(-50%,0); }
     .reaction.goo { color:var(--gooey); } .reaction.prk { color:var(--prickly); }
 
+    /* ---------- Share toast (confirmation; never a silent no-op) ---------- */
+    .toast { position:fixed; left:50%; bottom:34px; transform:translate(-50%,12px); z-index:80; pointer-events:none;
+        font-family:var(--sans); font-size:.95rem; font-weight:600; color:var(--surface); background:var(--ink);
+        border-radius:999px; padding:10px 20px; box-shadow:0 10px 30px rgba(20,14,10,.28); max-width:86vw; text-align:center;
+        opacity:0; transition:opacity .2s, transform .2s; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+
     /* ---------- First-visit intro card ---------- */
     .intro { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r); padding:28px 26px; max-width:440px; margin:0 auto; box-shadow:0 16px 40px rgba(20,14,10,.12); text-align:left; }
     .intro h3 { font-family:var(--serif); font-size:1.55rem; line-height:1.15; margin:0 0 14px; }
@@ -475,6 +485,7 @@
 
     <!-- Fleeting reaction line after a vote -->
     <div class="reaction" id="reaction" aria-hidden="true"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -764,11 +775,13 @@
         arena.appendChild(wrap);
     }
     function shareDaily(aligned, total, bold) {
-        let txt = 'Prickles & Goo — Ballot No. ' + editionNo() + ': I sided with the crowd on ' + aligned + '/' + total + ' calls.';
+        const n = editionNo();
+        let txt = 'Prickles & Goo — Ballot No. ' + n + ': I sided with the crowd on ' + aligned + '/' + total + ' calls.';
         if (bold) txt += ' Boldest: ' + bold.verdict + ' on ' + bold.name + '.';
-        const url = location.origin + location.pathname;
-        if (navigator.share) navigator.share({ title: 'Prickles & Goo', text: txt, url }).catch(() => {});
-        else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey'));
+        const b = bold ? '&b=' + encodeURIComponent(bold.verdict + ' on ' + bold.name) : '';
+        const url = location.origin + '/ballot/' + n + '?a=' + aligned + '&t=' + total + b;
+        const imgUrl = location.origin + '/og?v=daily&n=' + n + '&a=' + aligned + '&t=' + total + b;
+        smartShare({ text: txt, url, imgUrl });
     }
 
     /* ===== 8a2. PREDICT THE CROWD (guess the gooey %) ===== */
@@ -1411,6 +1424,37 @@
         clearTimeout(reactionTimer);
         reactionTimer = setTimeout(() => reactionEl.classList.remove('show'), 1000);
     }
+    const toastEl = document.getElementById('toast');
+    let toastTimer;
+    function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+    }
+    /* One share path for every moment. Tries native share (with the generated card
+       image where the platform allows), falls back to clipboard — and ALWAYS gives
+       feedback, so the button can never read as dead. */
+    async function smartShare({ text, url, imgUrl }) {
+        try {
+            if (navigator.canShare && imgUrl) {
+                const blob = await fetch(imgUrl).then(r => r.ok ? r.blob() : null).catch(() => null);
+                if (blob) {
+                    const file = new File([blob], 'prickles-and-goo.png', { type: blob.type || 'image/png' });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ title: 'Prickles & Goo', text, url, files: [file] });
+                        return;
+                    }
+                }
+            }
+            if (navigator.share) { await navigator.share({ title: 'Prickles & Goo', text, url }); return; }
+        } catch (e) {
+            if (e && e.name === 'AbortError') return;          // user dismissed the sheet — not a failure
+            /* otherwise fall through to clipboard */
+        }
+        try { await navigator.clipboard.writeText(text + ' ' + url); showToast('Link copied'); }
+        catch (e2) { showToast(url); }                          // last resort: surface the link to copy
+    }
     function introSeen() { try { return localStorage.getItem('pg-intro') === '1'; } catch (e) { return false; } }
     function markIntroSeen() { try { localStorage.setItem('pg-intro', '1'); } catch (e) {} }
     function showIntro() {
@@ -1720,19 +1764,21 @@
     function applyInitialRoute() {
         const p = new URLSearchParams(location.search);
         let cat = p.get('c'); const view = p.get('v'); let item = p.get('i');
-        const seg = location.pathname.replace(/^\/+|\/+$/g, '').split('/');   // pretty: /c/<cat>, /i/<cat>/<item>
+        const seg = location.pathname.replace(/^\/+|\/+$/g, '').split('/');   // pretty: /c/<cat>, /i/<cat>/<item>, /ballot/<n>, /you
         if (seg[0] === 'c' && seg[1]) cat = seg[1];
         if (seg[0] === 'i' && seg[1]) { cat = seg[1]; if (seg[2]) item = seg[2]; }
+        if (seg[0] === 'you') { showView('you'); loadTaste(); return true; }   // shared taste badge → your own profile
+        if (seg[0] === 'ballot') { showView('vote'); loadDaily(); return true; } // shared scorecard → play today's ballot
         if (view === 'results' || (seg[0] === 'i')) { currentCategoryId = knownCat(cat) ? cat : 'tech_companies'; showView('results'); loadResults(item || null); return true; }
         if (knownCat(cat)) { openCategory(cat); return true; }
         return false;
     }
     function shareItem(item, verdict, categoryId) {
         const t = item.gooey + item.prickly, gp = t ? Math.round(item.gooey / t * 100) : 100;
-        const url = location.origin + location.pathname + '?v=results&c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id);
+        const url = location.origin + '/i/' + encodeURIComponent(categoryId) + '/' + encodeURIComponent(item.id);
+        const imgUrl = location.origin + '/og?c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id);
         const txt = gp + '% say ' + item.name + ' is gooey — I said ' + verdict + '. Prickles & Goo:';
-        if (navigator.share) navigator.share({ title: 'Prickles & Goo', text: txt, url }).catch(() => {});
-        else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey')).catch(() => {});
+        smartShare({ text: txt, url, imgUrl });
     }
 
     /* ===== 11c. TASTE PROFILE (local, no account) ===== */
@@ -1792,9 +1838,9 @@
     }
     function shareTaste(pct, total) {
         const txt = "I'm " + pct + "% gooey on Prickles & Goo (" + total + " votes). What are you?";
-        const url = location.origin + location.pathname;
-        if (navigator.share) navigator.share({ title: 'Prickles & Goo', text: txt, url }).catch(() => {});
-        else if (navigator.clipboard) navigator.clipboard.writeText(txt + ' ' + url).then(() => showReaction('gooey')).catch(() => {});
+        const url = location.origin + '/you?g=' + pct + '&n=' + total;
+        const imgUrl = location.origin + '/og?v=taste&g=' + pct + '&n=' + total;
+        smartShare({ text: txt, url, imgUrl });
     }
 
     /* ===== 12. INIT ===== */
