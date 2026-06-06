@@ -3,8 +3,8 @@
 #   • og-meta  — injects per-item OpenGraph title/description/image into the page
 #                so a shared link unfurls with "78% say Apple is gooey".
 #   • og-image — generates the share image at /og.
-# Pretty links /c/<category> and /i/<category>/<item> rewrite to the SPA, which
-# reads the path on load (see applyInitialRoute in index.html).
+# Pretty links rewrite to the SPA, which reads the path on load (applyInitialRoute):
+#   /c/<category>, /i/<category>/<item>, /ballot/<n>, /you
 
 [build]
   publish = "."
@@ -19,6 +19,16 @@
   to = "/index.html"
   status = 200
 
+[[redirects]]
+  from = "/ballot/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/you"
+  to = "/index.html"
+  status = 200
+
 # og-meta runs on the page routes and rewrites <head> for crawlers.
 [[edge_functions]]
   path = "/"
@@ -26,6 +36,14 @@
 
 [[edge_functions]]
   path = "/i/*"
+  function = "og-meta"
+
+[[edge_functions]]
+  path = "/ballot/*"
+  function = "og-meta"
+
+[[edge_functions]]
+  path = "/you"
   function = "og-meta"
 
 # og-image serves the share picture.
