@@ -263,6 +263,7 @@
     .recap-line { font-family:var(--serif); font-size:1.15rem; margin:10px 0 6px; }
     .recap-line b, .recap-bold b { font-variant-numeric:tabular-nums; }
     .recap-bold { color:var(--ink-soft); font-style:italic; margin:0 0 4px; }
+    .recap-glyphs { font-size:1.5rem; letter-spacing:.12em; line-height:1.2; margin:12px 0 2px; word-break:break-word; }
     /* ---------- Crowd reveal (post-vote payoff) ---------- */
     .reveal { max-width:440px; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 14px; cursor:pointer; animation:revealIn .32s cubic-bezier(.2,.9,.3,1.2); }
     @keyframes revealIn { from { opacity:0; transform:scale(.92) translateY(8px); } to { opacity:1; transform:none; } }
@@ -769,13 +770,16 @@
             ? '<p class="recap-line">You sided with the crowd on <b>' + aligned + ' of ' + real.length + '</b> calls.</p>'
             : '<p class="recap-line">No calls logged today.</p>';
         if (bold) html += '<p class="recap-bold">Boldest call: you said <b>' + bold.verdict + '</b> on <b>' + escapeHtml(bold.name) + '</b> — ' + bold.crowd + '% went gooey.</p>';
+        html += '<div class="recap-glyphs" title="🟩 with the crowd · 🟧 against the grain · ⬜ skipped">' + dailyGlyphRow() + '</div>';
         wrap.innerHTML = html;
         const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
         const share = document.createElement('button'); share.className = 'btn btn-primary'; share.textContent = 'Share my ballot';
         share.onclick = () => shareDaily(aligned, real.length, bold);
+        const copy = document.createElement('button'); copy.className = 'btn btn-ghost'; copy.textContent = 'Copy result';
+        copy.onclick = () => copyText(dailyResultString(), 'Result copied');
         const free = document.createElement('button'); free.className = 'btn btn-ghost'; free.textContent = 'Free play →';
         free.onclick = () => loadCategory('tech_companies');
-        nw.append(share, free); wrap.appendChild(nw);
+        nw.append(share, copy, free); wrap.appendChild(nw);
         const tip = document.createElement('p'); tip.className = 'results-sub'; tip.style.marginTop = '12px';
         tip.textContent = 'Come back tomorrow for No. ' + (editionNo() + 1) + '.';
         wrap.appendChild(tip);
@@ -1480,6 +1484,28 @@
         }
         try { await navigator.clipboard.writeText(text + ' ' + url); showToast('Link copied'); }
         catch (e2) { showToast(url); }                          // last resort: surface the link to copy
+    }
+    async function copyText(s, okMsg) {                         // pure-text copy (the Wordle-style result)
+        try { await navigator.clipboard.writeText(s); showToast(okMsg || 'Copied'); }
+        catch (e) {
+            try { if (navigator.share) { await navigator.share({ text: s }); return; } } catch (e2) { if (e2 && e2.name === 'AbortError') return; }
+            showToast('Press and hold to copy');
+        }
+    }
+    /* Wordle-style, spoiler-free: a glyph row encoding the SHAPE of your calls
+       (with the crowd / against it / skipped) — never which way you voted or on what. */
+    function dailyGlyphRow() {
+        return dailyResults.map(r =>
+            (r.verdict === 'skip' || r.crowd == null) ? '⬜'
+                : (((r.crowd >= 50) === (r.verdict === 'gooey')) ? '🟩' : '🟧')
+        ).join('');
+    }
+    function dailyResultString() {
+        const n = editionNo();
+        const real = dailyResults.filter(r => r.verdict !== 'skip' && r.crowd != null);
+        const aligned = real.filter(r => (r.crowd >= 50) === (r.verdict === 'gooey')).length;
+        const score = real.length ? aligned + '/' + real.length + ' with the crowd' : 'no calls logged';
+        return 'Prickles & Goo · No. ' + n + '\n' + dailyGlyphRow() + '\n' + score + '\n' + location.origin + '/ballot/' + n;
     }
     function introSeen() { try { return localStorage.getItem('pg-intro') === '1'; } catch (e) { return false; } }
     function markIntroSeen() { try { localStorage.setItem('pg-intro', '1'); } catch (e) {} }
