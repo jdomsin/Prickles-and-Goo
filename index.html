@@ -1646,7 +1646,7 @@
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
             pct + '</div>' +
-            '<div class="bar"><span class="g" style="width:0%"></span><span class="p" style="width:0%"></span></div>';
+            '<div class="bar"><span class="p" style="width:0%"></span><span class="g" style="width:0%"></span></div>';
         const g = row.querySelector('.g'), p = row.querySelector('.p');
         requestAnimationFrame(() => { g.style.width = (empty ? 0 : s.gp) + '%'; p.style.width = (empty ? 0 : s.pp) + '%'; });
         if (hasAvatar) buildMedia(row.querySelector('.row-avatar'), item, kind, 'sm');
@@ -1660,7 +1660,7 @@
         wrap.innerHTML = '<h3>Gooiest so far — top ' + top.length + '</h3>';
         const legend = document.createElement('div');
         legend.className = 'legend';
-        legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
+        legend.innerHTML = '<span><i style="background:var(--prickly)"></i>Prickly</span><span><i style="background:var(--gooey)"></i>Gooey</span>';
         wrap.appendChild(legend);
         top.forEach(it => { const r = resultRow(it); wrap.appendChild(r); attachReasons(r, it, it.categoryId || currentCategoryId); });
 
@@ -1744,7 +1744,7 @@
 
             const legend = document.createElement('div');
             legend.className = 'legend';
-            legend.innerHTML = '<span><i style="background:var(--gooey)"></i>Gooey</span><span><i style="background:var(--prickly)"></i>Prickly</span>';
+            legend.innerHTML = '<span><i style="background:var(--prickly)"></i>Prickly</span><span><i style="background:var(--gooey)"></i>Gooey</span>';
             resultsList.appendChild(legend);
 
             if (!rows.length) {
@@ -1876,7 +1876,7 @@
         ranked.forEach(p => {
             const cp = Math.round(p.g / p.t * 100);
             html += '<div class="taste-cat"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span><span class="pct">' + cp + '% gooey · ' + p.t + '</span></div>' +
-                '<div class="bar"><span class="g" style="width:' + cp + '%"></span><span class="p" style="width:' + (100 - cp) + '%"></span></div></div>';
+                '<div class="bar"><span class="p" style="width:' + (100 - cp) + '%"></span><span class="g" style="width:' + cp + '%"></span></div></div>';
         });
         html += '</div>';
         body.innerHTML = html;
