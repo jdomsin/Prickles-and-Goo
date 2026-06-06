@@ -41,8 +41,14 @@ function splitBar(gp) {
   <text x="100" y="470" font-family="${FONT}, Georgia, serif" font-size="24" fill="${GOOEY}" font-weight="bold">GOOEY</text>
   <text x="1100" y="470" text-anchor="end" font-family="${FONT}, Georgia, serif" font-size="24" fill="${PRICKLY}" font-weight="bold">PRICKLY</text>`;
 }
-function headline(text, size) {
-    return `<text x="100" y="300" font-family="${FONT}, Georgia, serif" font-size="${size || 80}" font-weight="bold" fill="${INK}">${esc(text)}</text>`;
+// SVG text doesn't wrap, so shrink the headline to fit the 1000px column.
+// `max` caps the size for short strings; long strings step down from there.
+function autosize(text, max) {
+    const len = String(text).length || 1;
+    return Math.max(38, Math.min(max || 80, Math.floor(1000 / (len * 0.56))));
+}
+function headline(text, max) {
+    return `<text x="100" y="300" font-family="${FONT}, Georgia, serif" font-size="${autosize(text, max)}" font-weight="bold" fill="${INK}">${esc(text)}</text>`;
 }
 
 function buildSvg(params) {
@@ -50,9 +56,14 @@ function buildSvg(params) {
     if (v === "taste") {
         const g = Math.max(0, Math.min(100, num(params.get("g"), 50)));
         const n = num(params.get("n"), 0);
-        const lean = g >= 50 ? "gooey" : "prickly";
+        const arch = params.get("a");
         const foot = n ? `${n} vote${n === 1 ? "" : "s"} · what are you? · prickles-and-goo` : "what are you? · prickles-and-goo";
-        return frame(headline(`I'm ${g}% ${lean}.`) + splitBar(g), foot);
+        const inner = arch
+            ? headline(fit(arch, 30), 60) +
+              `<text x="100" y="350" font-family="${FONT}, Georgia, serif" font-size="40" fill="${SOFT}">I'm ${g}% gooey.</text>` +
+              splitBar(g)
+            : headline(`I'm ${g}% ${g >= 50 ? "gooey" : "prickly"}.`) + splitBar(g);
+        return frame(inner, foot);
     }
     if (v === "daily") {
         const n = num(params.get("n"), 0);
@@ -66,6 +77,16 @@ function buildSvg(params) {
     // item card (c/i) or brand default
     if (params.item && params.name != null) {
         const has = params.tot > 0;
+        const me = params.get("me");
+        if (has && params.get("hot") && (me === "gooey" || me === "prickly")) {     // contrarian "hot take" card
+            const crowd = params.gp >= 50 ? "gooey" : "prickly";
+            return frame(
+                headline(`${params.gp}% say ${fit(params.name, 18)} is ${crowd}.`, 60) +
+                `<text x="100" y="352" font-family="${FONT}, Georgia, serif" font-size="42" font-weight="bold" fill="${me === "gooey" ? GOOEY : PRICKLY}">I'm with the ${me === "gooey" ? "goo" : "prickles"}.</text>` +
+                splitBar(params.gp),
+                "against the grain · vote at prickles-and-goo"
+            );
+        }
         const head = has ? `${params.gp}% say ${fit(params.name, 20)} is gooey` : `Is ${fit(params.name, 22)} prickly or gooey?`;
         const foot = has ? `${params.tot} vote${params.tot === 1 ? "" : "s"} · vote at prickles-and-goo` : "be the first to judge · prickles-and-goo";
         return frame(headline(head) + splitBar(has ? params.gp : 50), foot);

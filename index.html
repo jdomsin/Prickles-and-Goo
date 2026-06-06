@@ -247,9 +247,12 @@
     .cold-cta b { font-variant-numeric:tabular-nums; }
     /* taste profile (You) */
     .taste-hero { text-align:center; margin:6px 0 18px; }
-    .taste-pct { font-family:var(--serif); font-weight:700; font-size:5rem; line-height:.9; font-variant-numeric:tabular-nums; }
+    .taste-badge { font-size:2.6rem; line-height:1; margin-bottom:4px; }
+    .taste-arch { font-family:var(--serif); font-weight:700; font-size:1.7rem; line-height:1.1; letter-spacing:-.01em; margin-bottom:10px; }
+    .taste-pct { font-family:var(--serif); font-weight:700; font-size:3.4rem; line-height:.9; font-variant-numeric:tabular-nums; }
     .taste-pct.goo { color:var(--gooey); } .taste-pct.prk { color:var(--prickly); }
     .taste-cap { font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin-top:6px; }
+    .taste-blurb { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:1.02rem; margin-top:10px; }
     .taste-line { font-family:var(--serif); font-size:1.1rem; line-height:1.45; margin:0 0 10px; }
     .taste-cats { margin-top:18px; }
     .taste-cat { margin-bottom:14px; }
@@ -1541,6 +1544,7 @@
         const mine = goo ? item.gooey : item.prickly;
         const pct = total > 0 ? Math.round((mine / total) * 100) : 100;
         const lonely = total <= 1;                         // your vote is the only one
+        const hot = !lonely && total >= 5 && pct <= 40;    // a clear minority (not a near-tie) — a real "hot take"
         const head = lonely ? 'You called it first.' : (pct >= 50 ? "You're with the crowd." : 'Against the grain.');
 
         arena.innerHTML = '';
@@ -1553,10 +1557,10 @@
                            '<div class="reveal-sub">also said ' + verdict + ' · ' + total + ' votes</div>') +
             '<div class="reveal-head">' + head + '</div>' +
             '<div class="reveal-quote" id="revQuote"></div>' +
-            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">Share</button>' +
+            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">' + (hot ? 'Share the hot take 🌶' : 'Share') + '</button>' +
             '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button></div>';
         arena.appendChild(wrap);
-        document.getElementById('revShare').onclick = (e) => { e.stopPropagation(); shareItem(item, verdict, categoryId); };
+        document.getElementById('revShare').onclick = (e) => { e.stopPropagation(); shareItem(item, verdict, categoryId, hot); };
         if (!lonely) countUp(document.getElementById('revNum'), pct, 650);
 
         reasonsCol(categoryId, item.id, verdict).orderBy('votes', 'desc').limit(1).get()
@@ -1773,11 +1777,17 @@
         if (knownCat(cat)) { openCategory(cat); return true; }
         return false;
     }
-    function shareItem(item, verdict, categoryId) {
+    function shareItem(item, verdict, categoryId, hot) {
         const t = item.gooey + item.prickly, gp = t ? Math.round(item.gooey / t * 100) : 100;
-        const url = location.origin + '/i/' + encodeURIComponent(categoryId) + '/' + encodeURIComponent(item.id);
-        const imgUrl = location.origin + '/og?c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id);
-        const txt = gp + '% say ' + item.name + ' is gooey — I said ' + verdict + '. Prickles & Goo:';
+        const crowd = gp >= 50 ? 'gooey' : 'prickly';
+        const path = '/i/' + encodeURIComponent(categoryId) + '/' + encodeURIComponent(item.id);
+        const extra = hot ? '?me=' + verdict + '&hot=1' : '';
+        const imgExtra = hot ? '&me=' + verdict + '&hot=1' : '';
+        const url = location.origin + path + extra;
+        const imgUrl = location.origin + '/og?c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id) + imgExtra;
+        const txt = hot
+            ? 'The internet says ' + item.name + ' is ' + crowd + ' (' + gp + '% gooey). I said ' + verdict + '. I’m not on the internet’s side.'
+            : gp + '% say ' + item.name + ' is gooey — I said ' + verdict + '. Prickles & Goo:';
         smartShare({ text: txt, url, imgUrl });
     }
 
@@ -1807,14 +1817,28 @@
         } catch (e) { /* local-only fallback */ }
         renderTaste({ total, gooey, per });
     }
+    /* A name beats a number: map a gooey-lean into a shareable archetype. */
+    function archetypeFor(pct) {
+        if (pct >= 80) return { name: 'The Marshmallow', glyph: '🫧', blurb: 'You see softness in almost everything.' };
+        if (pct >= 60) return { name: 'The Crème Brûlée', glyph: '🍮', blurb: 'Crisp on top, gooey underneath.' };
+        if (pct >= 40) return { name: 'The Porcupine-in-a-Cardigan', glyph: '🦔', blurb: 'Spikes out, soft within — hard to call.' };
+        if (pct >= 20) return { name: 'The Bramble', glyph: '🌿', blurb: 'Mostly thorns, the occasional berry.' };
+        return { name: 'The Cactus', glyph: '🌵', blurb: 'Sharp, dry, and proud of it.' };
+    }
     function renderTaste(d) {
         const pct = Math.round(d.gooey / d.total * 100);
         const voted = d.per.filter(p => p.t > 0);
         const ranked = voted.slice().sort((a, b) => (b.g / b.t) - (a.g / a.t));
         const gooiest = ranked[0], prickliest = ranked[ranked.length - 1];
         const contrarian = voted.filter(p => p.compared >= 2).sort((a, b) => (b.diverg / b.compared) - (a.diverg / a.compared))[0];
+        const arch = archetypeFor(pct);
         const body = document.getElementById('taste-body');
-        let html = '<div class="taste-hero"><div class="taste-pct ' + (pct >= 50 ? 'goo' : 'prk') + '">' + pct + '%</div><div class="taste-cap">gooey · ' + d.total + ' vote' + (d.total === 1 ? '' : 's') + '</div></div>';
+        let html = '<div class="taste-hero">' +
+            '<div class="taste-badge">' + arch.glyph + '</div>' +
+            '<div class="taste-arch">' + escapeHtml(arch.name) + '</div>' +
+            '<div class="taste-pct ' + (pct >= 50 ? 'goo' : 'prk') + '">' + pct + '%</div>' +
+            '<div class="taste-cap">gooey · ' + d.total + ' vote' + (d.total === 1 ? '' : 's') + '</div>' +
+            '<div class="taste-blurb">' + escapeHtml(arch.blurb) + '</div></div>';
         html += '<p class="taste-line">You lean <b>' + (pct >= 50 ? 'gooey' : 'prickly') + '</b>.';
         if (gooiest) html += ' Softest on <b>' + escapeHtml(gooiest.label) + '</b>';
         if (prickliest && prickliest !== gooiest) html += ', sharpest on <b>' + escapeHtml(prickliest.label) + '</b>';
@@ -1837,9 +1861,11 @@
         body.appendChild(sh);
     }
     function shareTaste(pct, total) {
-        const txt = "I'm " + pct + "% gooey on Prickles & Goo (" + total + " votes). What are you?";
-        const url = location.origin + '/you?g=' + pct + '&n=' + total;
-        const imgUrl = location.origin + '/og?v=taste&g=' + pct + '&n=' + total;
+        const arch = archetypeFor(pct);
+        const a = '&a=' + encodeURIComponent(arch.name);
+        const txt = "I'm " + arch.name + " on Prickles & Goo — " + pct + "% gooey (" + total + " votes). What are you?";
+        const url = location.origin + '/you?g=' + pct + '&n=' + total + a;
+        const imgUrl = location.origin + '/og?v=taste&g=' + pct + '&n=' + total + a;
         smartShare({ text: txt, url, imgUrl });
     }
 

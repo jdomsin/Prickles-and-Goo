@@ -35,9 +35,10 @@ async function resolve(url, origin) {
     if (seg[0] === "you") {
         const g = Math.max(0, Math.min(100, num(q.get("g"), 50)));
         const n = num(q.get("n"), 0);
-        const title = `I'm ${g}% gooey on Prickles & Goo`;
+        const a = q.get("a");
+        const title = a ? `I'm ${a} on Prickles & Goo (${g}% gooey)` : `I'm ${g}% gooey on Prickles & Goo`;
         const desc = n ? `${n} votes in. What are you — prickly or gooey?` : `What are you — prickly or gooey?`;
-        const img = `${origin}/og?v=taste&g=${g}&n=${n}`;
+        const img = `${origin}/og?v=taste&g=${g}&n=${n}${a ? `&a=${encodeURIComponent(a)}` : ""}`;
         return { title, desc, img };
     }
 
@@ -54,6 +55,15 @@ async function resolve(url, origin) {
     const g = num((f.gooey && f.gooey.integerValue) || "0", 0);
     const p = num((f.prickly && f.prickly.integerValue) || "0", 0);
     const tot = g + p, gp = tot ? Math.round((g / tot) * 100) : 0;
+    const me = q.get("me"), hot = q.get("hot");
+    if (tot && hot && (me === "gooey" || me === "prickly")) {
+        const crowd = gp >= 50 ? "gooey" : "prickly";
+        return {
+            title: `${gp}% say ${name} is ${crowd} — I said ${me}`,
+            desc: `One against the grain on Prickles & Goo. Cast yours.`,
+            img: `${origin}/og?c=${encodeURIComponent(cat)}&i=${encodeURIComponent(item)}&me=${me}&hot=1`,
+        };
+    }
     return {
         title: tot ? `${gp}% say ${name} is gooey` : `Is ${name} prickly or gooey?`,
         desc: tot ? `${tot} votes so far on Prickles & Goo. Cast yours.` : `No votes yet — be the first to judge ${name}.`,
