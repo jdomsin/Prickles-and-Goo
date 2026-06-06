@@ -80,7 +80,9 @@
         "Apple", "Amazon", "Tesla", "Microsoft", "Meta", "Figma", "Salesforce", "Snapchat", "Adobe",
         "Anthropic", "OpenAI", "Google", "xAI", "SpaceX",
         "NVIDIA", "Vercel", "Linear", "Airbnb", "Every",
-        "Palantir", "Lovable", "Anduril", "Cursor", "PostHog"
+        "Palantir", "Lovable", "Anduril", "Cursor", "PostHog",
+        // 2026 refresh — AI-era names conspicuously absent above
+        "Stripe", "Databricks", "Ramp", "Scale AI"
     ];
 
     // Wikipedia page titles, used for Wikimedia-unified card imagery. Only the
@@ -93,6 +95,7 @@
         "Linear": "Linear (company)", "Every": "Every (company)",
         "Palantir": "Palantir Technologies", "Lovable": "Lovable (company)",
         "Anduril": "Anduril Industries", "Cursor": "Cursor (code editor)",
+        "Stripe": "Stripe, Inc.", "Ramp": "Ramp (company)", "Scale AI": "Scale AI",
         // people
         "Pony Ma": "Ma Huateng", "Colin Huang": "Huang Zheng"
     };
@@ -112,6 +115,27 @@
         "Kalshi", "Polymarket", "Manifold"
     ];
 
+    // AI models & chatbots — brand-level (no version numbers, so the deck doesn't
+    // go stale every release). Current as of mid-2026.
+    const AI_MODELS = [
+        "ChatGPT", "Claude", "Gemini", "Grok", "DeepSeek", "Copilot", "Perplexity",
+        "Llama", "Mistral", "Midjourney", "Sora", "Meta AI"
+    ];
+
+    // Programming languages — the cleanest case that prickly ≠ bad: Rust is the most
+    // *admired* language and is unmistakably prickly. Mix of staples + 2026 risers.
+    const LANGUAGES = [
+        "Rust", "Python", "Go", "TypeScript", "JavaScript", "C", "C++", "C#", "Java",
+        "Swift", "Kotlin", "Ruby", "Haskell", "Zig", "Mojo", "Gleam", "Elixir", "Scala", "PHP", "Lua"
+    ];
+
+    // Social platforms — the big giants plus the 2026 microblogging shift (Threads
+    // overtook X) and the values-driven niche (Bluesky, Mastodon).
+    const SOCIAL = [
+        "X", "Instagram", "TikTok", "Threads", "Bluesky", "Reddit", "Discord", "YouTube",
+        "LinkedIn", "Substack", "Snapchat", "WhatsApp", "Telegram", "Pinterest", "Facebook", "Mastodon"
+    ];
+
     const CATEGORIES = [
         // images:false → app logos come from the live app's domain map (or letters render
         // as a glyph), so no wiki title is needed for these.
@@ -120,6 +144,9 @@
         { id: "trading_terminals", label: "Trading Terminals", items: TERMINALS,    images: false },
         { id: "billionaires",      label: "Billionaires",      items: BILLIONAIRES, images: true },
         { id: "presidents",        label: "US Presidents",     items: PRESIDENTS,   images: true },
+        { id: "ai_models",         label: "AI Models",         items: AI_MODELS,    images: false },
+        { id: "languages",         label: "Programming Languages", items: LANGUAGES, images: false },
+        { id: "social",            label: "Social Platforms",  items: SOCIAL,       images: false },
         { id: "alphabet",          label: "The Alphabet",      items: ALPHABET,     images: false }
     ];
 
@@ -134,7 +161,7 @@
 
     const logEl = document.getElementById('log');
     function log(msg, cls) { logEl.hidden = false; const line = document.createElement('div'); if (cls) line.className = cls; line.textContent = msg; logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight; }
-    function slug(name) { return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+    function slug(name) { return name.toLowerCase().replace(/\+/g, ' plus').replace(/#/g, ' sharp').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 
     document.getElementById('seedBtn').addEventListener('click', async (e) => {
         e.target.disabled = true;

@@ -473,6 +473,7 @@
             <h1 class="prompt">Prickles &amp; Goo</h1>
             <div class="about">
                 <p class="lead">A collective gut-check: what feels prickly, what feels gooey?</p>
+                <p>Prickly isn't a knock and gooey isn't a compliment — they're textures, not a scorecard. A thing can be prickly and brilliant (precise, rigorous, sharp) or gooey and a mess. We're mapping how things <em>feel</em>, not whether they're good.</p>
                 <p>I'm John, a UX and design researcher continually exploring new ways to build. I'm drawn to implicit ways of knowing — and to Alan Watts, who spoke of "prickles" and "goo" as a way to relate to almost anything. This site puts that idea to a vote.</p>
                 <div class="video">
                     <iframe src="https://www.youtube.com/embed/D4vHnM8WPvU?si=pCPgMFs2tDe6tUCp" title="Alan Watts — Prickles and Goo" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -529,6 +530,9 @@
         { id: "trading_terminals", label: "Trading Terminals" },
         { id: "billionaires",      label: "Billionaires" },
         { id: "presidents",        label: "US Presidents" },
+        { id: "ai_models",         label: "AI Models" },
+        { id: "languages",         label: "Programming Languages" },
+        { id: "social",            label: "Social Platforms" },
         { id: "alphabet",          label: "The Alphabet" }
     ];
     const RANDOM_ID = "random";
@@ -937,7 +941,7 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', alphabet: 'glyph' };
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph' };
     // Curated app logos: domain + tile treatment, keyed by item id (the seeded slug).
     // fill = app-icon that carries its own background, render edge-to-edge; otherwise a
     // padded mark on a white plate. Clearbit supplies the art (Google favicon fallback).
@@ -967,7 +971,26 @@
         'robinhood-legend':{d:'robinhood.com',fill:1}, deribit:{d:'deribit.com'}, greekslive:{d:'greeks.live'},
         hyperliquid:{d:'hyperliquid.xyz'}, binance:{d:'binance.com',fill:1}, bybit:{d:'bybit.com',fill:1},
         okx:{d:'okx.com',fill:1}, dydx:{d:'dydx.exchange'}, bitget:{d:'bitget.com',fill:1},
-        kalshi:{d:'kalshi.com',fill:1}, polymarket:{d:'polymarket.com',fill:1}, manifold:{d:'manifold.markets'}
+        kalshi:{d:'kalshi.com',fill:1}, polymarket:{d:'polymarket.com',fill:1}, manifold:{d:'manifold.markets'},
+        // tech 2026 refresh
+        stripe:{d:'stripe.com',fill:1}, databricks:{d:'databricks.com'}, ramp:{d:'ramp.com'}, 'scale-ai':{d:'scale.com'},
+        // AI models & chatbots
+        chatgpt:{d:'openai.com'}, claude:{d:'claude.ai',fill:1}, gemini:{d:'gemini.google.com'}, grok:{d:'x.ai'},
+        deepseek:{d:'deepseek.com',fill:1}, copilot:{d:'github.com'}, perplexity:{d:'perplexity.ai',fill:1},
+        llama:{d:'llama.com'}, mistral:{d:'mistral.ai',fill:1}, midjourney:{d:'midjourney.com',fill:1},
+        sora:{d:'openai.com'}, 'meta-ai':{d:'meta.ai'},
+        // social platforms
+        x:{d:'x.com',fill:1}, instagram:{d:'instagram.com',fill:1}, tiktok:{d:'tiktok.com',fill:1},
+        threads:{d:'threads.com',fill:1}, bluesky:{d:'bsky.app',fill:1}, reddit:{d:'reddit.com',fill:1},
+        discord:{d:'discord.com',fill:1}, youtube:{d:'youtube.com',fill:1}, linkedin:{d:'linkedin.com',fill:1},
+        substack:{d:'substack.com',fill:1}, snapchat:{d:'snapchat.com',fill:1}, whatsapp:{d:'whatsapp.com',fill:1},
+        telegram:{d:'telegram.org',fill:1}, pinterest:{d:'pinterest.com',fill:1}, facebook:{d:'facebook.com',fill:1},
+        mastodon:{d:'joinmastodon.org'},
+        // programming languages (curated; the rest fall back to a clean monogram)
+        rust:{d:'rust-lang.org'}, python:{d:'python.org'}, go:{d:'go.dev'}, typescript:{d:'typescriptlang.org'},
+        java:{d:'java.com'}, swift:{d:'swift.org'}, kotlin:{d:'kotlinlang.org'}, ruby:{d:'ruby-lang.org'},
+        haskell:{d:'haskell.org'}, zig:{d:'ziglang.org'}, gleam:{d:'gleam.run'}, elixir:{d:'elixir-lang.org'},
+        scala:{d:'scala-lang.org'}, php:{d:'php.net'}, lua:{d:'lua.org'}, mojo:{d:'modular.com'}
     };
     function logoUrl(domain, which) {
         return which === 'g' ? 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128'
@@ -1416,7 +1439,7 @@
     const reactionEl = document.getElementById('reaction');
     const REACTIONS = {
         gooey:   ['Gooey, noted.', 'Soft call.', 'Duly softened.', 'Mmm, gooey.'],
-        prickly: ['Sharp call.', 'Prickly, noted.', 'Point taken.', 'Noted — ouch.'],
+        prickly: ['Sharp call.', 'Prickly, noted.', 'Point taken.', 'Crisp and clear.'],
         skip:    ['Passed.', 'We’ll circle back.', 'Skipped.']
     };
     let reactionTimer = 0;
@@ -1467,7 +1490,8 @@
         w.className = 'intro';
         w.innerHTML =
             '<h3>Two ways of seeing</h3>' +
-            '<p>Alan Watts liked to sort the world into two moods: the <b>prickly</b> — sharp, precise, rigid — and the <b>gooey</b> — soft, warm, flowing. Most things are a little of both.</p>' +
+            '<p>Alan Watts liked to sort the world into two textures: the <b>prickly</b> — sharp, precise, defined — and the <b>gooey</b> — soft, warm, flowing. Most things are a little of both.</p>' +
+            '<p>Neither is better. Prickly isn’t bad and gooey isn’t good — they’re textures, not a verdict.</p>' +
             '<p class="intro-task">Your job: trust your gut and sort them.</p>' +
             '<button class="btn btn-primary" id="introStart">Start sorting →</button>';
         arena.appendChild(w);
