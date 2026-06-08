@@ -2242,18 +2242,24 @@
         const body = document.getElementById('taste-body');
         body.innerHTML = Array.from({ length: 3 }, () => '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         let total = 0, gooey = 0;
-        const per = CATEGORIES.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
+        // standing sets + any weekly theme you've actually played, so weekly coverage shows up here too
+        const hasVotes = id => { const v = lsGet('pg-voted-' + id); return Object.keys(v).some(k => v[k] === 'gooey' || v[k] === 'prickly'); };
+        const cats = CATEGORIES.concat(WEEKLY.filter(t => hasVotes(t.id)));
+        const per = cats.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
         const byId = {}; per.forEach(p => byId[p.id] = p);
-        CATEGORIES.forEach(c => {
+        cats.forEach(c => {
             const voted = lsGet('pg-voted-' + c.id);
             Object.keys(voted).forEach(id => { const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return; total++; byId[c.id].t++; if (v === 'gooey') { gooey++; byId[c.id].g++; } });
         });
         if (!total) { body.innerHTML = '<p class="results-sub">Vote on a few things and your taste takes shape here — how gooey you run, where you lean soft, and where you go against the grain.</p>'; return; }
         try {                                          // best-effort crowd comparison
             const all = await fetchAllItems();
+            const weeklyPlayed = WEEKLY.filter(t => hasVotes(t.id));   // pull their items too, for totals + comparison
+            const wsnaps = await Promise.all(weeklyPlayed.map(t => db.collection('categories').doc(t.id).collection('items').get()));
+            wsnaps.forEach((snap, i) => snap.docs.map(normalize).filter(x => x.named).forEach(x => { x.categoryId = weeklyPlayed[i].id; all.push(x); }));
             const key = {}; all.forEach(it => key[it.categoryId + '/' + it.id] = it);
             all.forEach(it => { const p = byId[it.categoryId]; if (p) p.itemsTotal = (p.itemsTotal || 0) + 1; });   // total items per category, for coverage
-            CATEGORIES.forEach(c => {
+            cats.forEach(c => {
                 const voted = lsGet('pg-voted-' + c.id);
                 Object.keys(voted).forEach(id => {
                     const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return;
