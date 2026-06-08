@@ -368,17 +368,13 @@
     .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
     .next-wrap { margin-top:28px; }
 
-    .category-bar { display:flex; flex-wrap:nowrap; gap:6px; margin:0 0 22px; overflow-x:auto; padding:2px 0 4px;
-        scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch;
-        -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 26px, #000 calc(100% - 30px), transparent 100%);
-                mask-image:linear-gradient(90deg, transparent 0, #000 26px, #000 calc(100% - 30px), transparent 100%); }
-    .category-bar::-webkit-scrollbar { display:none; }
-    .category-bar .cat { flex:0 0 auto; white-space:nowrap; font-size:.82rem; font-weight:600; padding:7px 14px; border-radius:999px;
+    .category-bar { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 22px; }      /* all visible — no scroll, no hidden pills */
+    .category-bar .cat { white-space:nowrap; font-size:.82rem; font-weight:600; padding:7px 14px; border-radius:999px;
         border:1px solid transparent; background:color-mix(in srgb, var(--surface-2) 72%, transparent); color:var(--ink-soft); cursor:pointer;
         transition:background .15s ease, color .15s ease; }
     .category-bar .cat:hover { color:var(--ink); }
-    .category-bar .cat.active { background:var(--ink); color:var(--paper); }     /* clean solid fill, neutral (not a teal ring) */
-    .category-bar .cat-sep { flex:0 0 auto; width:9px; }                          /* a breathing gap between Play and Categories */
+    .category-bar .cat.active { background:var(--ink); color:var(--paper); }       /* clean solid fill, neutral (not a teal ring) */
+    .category-bar .cat-sep { flex-basis:100%; height:0; margin:1px 0; }            /* line break: Play row, then categories below */
     /* mobile dropdown alternative (shown < 560px, see media query) */
     .category-select { display:none; width:100%; font:inherit; font-size:1rem; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:13px 42px 13px 16px; margin:0 0 22px; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6259' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; }
 
@@ -726,7 +722,7 @@
             iSumSq: d.iSumSq || 0       // Σ intensity² → variance/divisiveness
         };
     }
-    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: WEEKLY_ID, label: "This Week" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
+    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: WEEKLY_ID, label: "This Week" }, { id: PREDICT_ID, label: "Predict" }, { id: RANDOM_ID, label: "Random" }].concat(CATEGORIES); }
     function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === WEEKLY_ID) loadWeekly(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
     const MODE_IDS = new Set([DAILY_ID, WEEKLY_ID, PREDICT_ID, RANDOM_ID]);
     function renderVoteCategoryBar() {
@@ -734,7 +730,7 @@
         voteCategorySelect.innerHTML = '';
         const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
         const ogCats = document.createElement('optgroup'); ogCats.label = 'Categories';
-        let prevMode = null, activeBtn = null;
+        let prevMode = null;
         voteCategories().forEach(c => {
             const isMode = MODE_IDS.has(c.id);
             const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
@@ -747,14 +743,12 @@
             b.textContent = c.label;
             b.onclick = () => { if (!active || c.id === DAILY_ID) openCategory(c.id); };
             voteCategoryBar.appendChild(b);
-            if (active) activeBtn = b;
 
             const o = document.createElement('option');         // mobile dropdown, grouped
             o.value = c.id; o.textContent = c.label; if (active) o.selected = true;
             (isMode ? ogPlay : ogCats).appendChild(o);
         });
         voteCategorySelect.append(ogPlay, ogCats);
-        if (activeBtn) activeBtn.scrollIntoView({ inline: 'center', block: 'nearest' });
     }
     // Fetch every category's items at once, each tagged with its source category.
     async function fetchAllItems() {
