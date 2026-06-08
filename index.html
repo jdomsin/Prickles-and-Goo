@@ -374,8 +374,15 @@
         transition:background .15s ease, color .15s ease; }
     .category-bar .cat:hover { color:var(--ink); }
     .category-bar .cat.active { background:var(--ink); color:var(--paper); }       /* clean solid fill, neutral (not a teal ring) */
-    .category-bar .cat-grouplabel { flex-basis:100%; margin:10px 0 1px; font-size:.66rem; font-weight:700;
-        letter-spacing:.09em; text-transform:uppercase; color:var(--ink-soft); opacity:.7; }   /* "Other Sets" header over the categories */
+    .category-bar .cat-dropdown { width:9.6em; font-family:inherit; font-size:.82rem; font-weight:600; padding:7px 32px 7px 14px; border-radius:999px;
+        border:1px solid transparent; background-color:color-mix(in srgb, var(--surface-2) 72%, transparent); color:var(--ink-soft); cursor:pointer;
+        -webkit-appearance:none; appearance:none; transition:background .15s ease, color .15s ease;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%236B6259' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.8 6 6.2 11 1.8'/%3E%3C/svg%3E");
+        background-repeat:no-repeat; background-position:right 13px center; background-size:10px; }
+    .category-bar .cat-dropdown:hover { color:var(--ink); }
+    .category-bar .cat-dropdown.chosen { background-color:var(--ink); color:var(--paper);
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23FFF1E5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.8 6 6.2 11 1.8'/%3E%3C/svg%3E"); }
+    .category-bar .cat-dropdown option { color:var(--ink); background:var(--paper); font-weight:600; }
     /* mobile dropdown alternative (shown < 560px, see media query) */
     .category-select { display:none; width:100%; font:inherit; font-size:1rem; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:13px 42px 13px 16px; margin:0 0 22px; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6259' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; }
 
@@ -731,24 +738,32 @@
         voteCategorySelect.innerHTML = '';
         const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
         const ogCats = document.createElement('optgroup'); ogCats.label = 'Other Sets';
-        let prevMode = null;
+        // Play modes stay as visible pills; the standing topic sets collapse into one "Other Sets" dropdown.
+        const dd = document.createElement('select'); dd.className = 'cat-dropdown'; dd.setAttribute('aria-label', 'Other Sets');
+        const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'Other Sets'; dd.appendChild(ph);
+        let topicActive = false;
         voteCategories().forEach(c => {
             const isMode = MODE_IDS.has(c.id);
             const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
-            if (prevMode === true && isMode === false) {        // label the topic group below the Play row
-                const lbl = document.createElement('span'); lbl.className = 'cat-grouplabel'; lbl.textContent = 'Other Sets'; voteCategoryBar.appendChild(lbl);
+            if (isMode) {
+                const b = document.createElement('button');
+                b.className = 'cat' + (active ? ' active' : '');
+                b.textContent = c.label;
+                b.onclick = () => { if (!active || c.id === DAILY_ID) openCategory(c.id); };
+                voteCategoryBar.appendChild(b);
+            } else {
+                const o = document.createElement('option'); o.value = c.id; o.textContent = c.label;
+                if (active) topicActive = true;             // reflected by the kicker + solid-ink pill, not the closed label
+                dd.appendChild(o);
             }
-            prevMode = isMode;
-            const b = document.createElement('button');
-            b.className = 'cat' + (active ? ' active' : '');
-            b.textContent = c.label;
-            b.onclick = () => { if (!active || c.id === DAILY_ID) openCategory(c.id); };
-            voteCategoryBar.appendChild(b);
-
-            const o = document.createElement('option');         // mobile dropdown, grouped
-            o.value = c.id; o.textContent = c.label; if (active) o.selected = true;
-            (isMode ? ogPlay : ogCats).appendChild(o);
+            const o2 = document.createElement('option');        // mobile full dropdown, grouped
+            o2.value = c.id; o2.textContent = c.label; if (active) o2.selected = true;
+            (isMode ? ogPlay : ogCats).appendChild(o2);
         });
+        ph.selected = true;                                     // closed label always reads "Other Sets" (compact, fixed width)
+        dd.classList.toggle('chosen', topicActive);             // solid-ink when a topic set is the active deck
+        dd.onchange = () => { if (dd.value) openCategory(dd.value); };
+        voteCategoryBar.appendChild(dd);
         voteCategorySelect.append(ogPlay, ogCats);
     }
     // Fetch every category's items at once, each tagged with its source category.
@@ -1312,7 +1327,7 @@
     const PRK_WASH = 'radial-gradient(130% 120% at 0% 50%, color-mix(in srgb,var(--prickly) 60%, transparent), color-mix(in srgb,var(--prickly) 14%, transparent) 46%, transparent 74%)';
     function setWash(dir, amt) { if (!bgwash) return; bgwash.style.background = dir < 0 ? PRK_WASH : GOO_WASH; bgwash.style.opacity = clamp01(amt); }
     function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
-    const DEAD = 30, HOLD_MS = 120, CHARGE_MS = 540;   // dead zone · settle before charging · hold-to-claim
+    const DEAD = 14, HOLD_MS = 120, CHARGE_MS = 540;   // dead zone · settle before charging · hold-to-claim — short, so a slight lean commits
     function stopCharge() {
         if (!swipe) return;
         if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
