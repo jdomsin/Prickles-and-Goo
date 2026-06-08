@@ -142,9 +142,14 @@
     .card-face img { width:100%; height:100%; object-fit:cover; display:block; }
     .card-mono { width:96px; height:96px; border-radius:50%; display:grid; place-items:center; color:#fff; font-family:var(--serif); font-weight:700; font-size:2rem; letter-spacing:.02em; }
     .card-mono.plate { border-radius:20px; }
+    /* square art tile (album covers) — full image, not circle-cropped */
+    .card-art { width:96px; height:96px; border-radius:14px; overflow:hidden; box-shadow:inset 0 0 0 1px var(--hairline); background:var(--surface-2); }
+    .card-art img { width:100%; height:100%; object-fit:cover; display:block; }
+    .card-mono.art { border-radius:14px; }
+    .card-art.sm { border-radius:9px; }
     /* small variants for results-row avatars */
     .row-avatar { display:inline-grid; place-items:center; flex:0 0 auto; }
-    .card-plate.sm, .card-face.sm, .card-mono.sm, .logo-fill.sm { width:34px; height:34px; }
+    .card-plate.sm, .card-face.sm, .card-art.sm, .card-mono.sm, .logo-fill.sm { width:34px; height:34px; }
     .card-plate.sm { border-radius:9px; padding:5px; }
     .logo-fill.sm { border-radius:9px; }
     .card-mono.sm { font-size:.8rem; }
@@ -996,7 +1001,7 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'face', albums_radiohead: 'face' };
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'art', albums_radiohead: 'art' };
     // Comic Sans needs its real family name; the rest match by display name (fallback if not installed).
     const TYPEFACE_FONT = { 'Comic Sans': '"Comic Sans MS"', 'Times New Roman': '"Times New Roman"' };
     // Curated app logos: domain + tile treatment, keyed by item id (the seeded slug).
@@ -1066,7 +1071,7 @@
     function monoHue(name) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
     function monoNode(name, kind, sizeClass) {
         const d = document.createElement('div');
-        d.className = 'card-mono' + (kind === 'logo' ? ' plate' : '') + (sizeClass ? ' ' + sizeClass : '');
+        d.className = 'card-mono' + (kind === 'logo' ? ' plate' : kind === 'art' ? ' art' : '') + (sizeClass ? ' ' + sizeClass : '');
         d.style.background = 'linear-gradient(135deg, hsl(' + monoHue(name) + ' 52% 42%), hsl(' + ((monoHue(name) + 40) % 360) + ' 56% 32%))';
         d.textContent = monoInitials(name);
         return d;
@@ -1094,7 +1099,7 @@
             img.onload = () => {                  // swap in only once it has actually loaded
                 if (!holder.isConnected) return;
                 const box = document.createElement('div');
-                box.className = 'card-face' + (sizeClass ? ' ' + sizeClass : '');
+                box.className = (kind === 'art' ? 'card-art' : 'card-face') + (sizeClass ? ' ' + sizeClass : '');
                 box.appendChild(img);
                 mono.replaceWith(box);
             };
@@ -1752,7 +1757,7 @@
         const lowTag = s.low ? ' · <span class="low">few votes</span>' : '';
         const itemCat = item.categoryId || currentCategoryId;
         const kind = IMAGE_KIND[itemCat];
-        const hasAvatar = kind === 'logo' || kind === 'face';   // glyph letters would duplicate the name
+        const hasAvatar = kind === 'logo' || kind === 'face' || kind === 'art';   // glyph letters would duplicate the name
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
         const tag = currentCategoryId === RANDOM_ID ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         const mine = priorVerdict(itemCat, item.id);   // mark where *you* stand
