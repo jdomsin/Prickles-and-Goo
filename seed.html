@@ -162,6 +162,29 @@
         "Pablo Honey", "The Bends", "OK Computer", "Kid A", "Amnesiac", "Hail to the Thief",
         "In Rainbows", "The King of Limbs", "A Moon Shaped Pool"
     ];
+    // text-only Gen-Z sets — no imagery; deliberately mixed so the divisive sort has fuel
+    const EMOTIONS = [
+        "nostalgia", "dread", "a crush", "cringe", "the ick", "anxiety", "euphoria", "jealousy",
+        "boredom", "the Sunday-night feeling", "ambition", "loneliness", "contentment", "rage",
+        "awe", "embarrassment", "relief", "longing"
+    ];
+    const INTERNET_OBJECTS = [
+        "read receipts", "the typing bubble", "the blue checkmark", "CAPTCHAs", "autocorrect",
+        "the loading spinner", "notification badges", "Caps Lock", "airplane mode", "Do Not Disturb",
+        "the spinning beachball", "the low-battery warning", "the paywall", "the cookie banner",
+        "the group chat", "the delivered receipt", "unread badges", "the QR code"
+    ];
+    const ANIMALS = [
+        "capybara", "axolotl", "goose", "octopus", "moth", "pigeon", "golden retriever", "cat",
+        "shark", "jellyfish", "sloth", "crow", "hedgehog", "otter", "wasp", "manatee",
+        "praying mantis", "koala"
+    ];
+    const MOMENTS = [
+        "3am", "Sunday night", "golden hour", "finals week", "a Monday", "the airport at 5am",
+        "the DMV", "New Year's Eve", "the last day of school", "a snow day", "rush hour", "11:11",
+        "the morning after", "midnight", "a rainy Tuesday", "the first warm day of spring",
+        "last call", "noon"
+    ];
 
     const CATEGORIES = [
         // images:false → app logos come from the live app's domain map (or letters render
@@ -175,6 +198,10 @@
         { id: "languages",         label: "Programming Languages", items: LANGUAGES, images: false },
         { id: "social",            label: "Social Platforms",  items: SOCIAL,       images: false },
         { id: "alphabet",          label: "The Alphabet",      items: ALPHABET,     images: false },
+        { id: "emotions",          label: "Emotions & States", items: EMOTIONS,         images: false },
+        { id: "internet_objects",  label: "Internet Objects",  items: INTERNET_OBJECTS, images: false },
+        { id: "animals",           label: "Animals",           items: ANIMALS,          images: false },
+        { id: "moments",           label: "Moments & Times",   items: MOMENTS,          images: false },
         // weekly themes (rotated one at a time by "This Week")
         { id: "typefaces",         label: "Typefaces",         items: TYPEFACES,        images: false },
         { id: "cocktails",         label: "Cocktails",         items: COCKTAILS,        images: true },
