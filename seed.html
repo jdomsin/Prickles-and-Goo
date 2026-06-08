@@ -97,7 +97,15 @@
         "Anduril": "Anduril Industries", "Cursor": "Cursor (code editor)",
         "Stripe": "Stripe, Inc.", "Ramp": "Ramp (company)", "Scale AI": "Scale AI",
         // people
-        "Pony Ma": "Ma Huateng", "Colin Huang": "Huang Zheng"
+        "Pony Ma": "Ma Huateng", "Colin Huang": "Huang Zheng",
+        // cocktails (disambiguation → the right Wikipedia page = the right photo)
+        "Manhattan": "Manhattan (cocktail)", "Martini": "Martini (cocktail)", "Cosmopolitan": "Cosmopolitan (cocktail)",
+        "Old Fashioned": "Old Fashioned (cocktail)", "Aperol Spritz": "Spritz (alcoholic beverage)",
+        // Beatles albums
+        "A Hard Day's Night": "A Hard Day's Night (album)", "Help!": "Help! (album)", "Revolver": "Revolver (Beatles album)",
+        "Magical Mystery Tour": "Magical Mystery Tour", "The White Album": "The Beatles (album)", "Let It Be": "Let It Be",
+        // Radiohead albums
+        "Amnesiac": "Amnesiac (album)", "In Rainbows": "In Rainbows", "The King of Limbs": "The King of Limbs"
     };
     function wikiFor(name) { return WIKI_OVERRIDES[name] || name; }
 
@@ -136,6 +144,25 @@
         "LinkedIn", "Substack", "Snapchat", "WhatsApp", "Telegram", "Pinterest", "Facebook", "Mastodon"
     ];
 
+    // ===== Weekly themes (surfaced one at a time via "This Week") =====
+    // Typefaces render as a glyph (the letter); cocktails + albums pull Wikipedia art.
+    const TYPEFACES = [
+        "Helvetica", "Comic Sans", "Times New Roman", "Garamond", "Futura", "Gotham", "Papyrus", "Courier",
+        "Arial", "Wingdings", "Baskerville", "Impact", "Gill Sans", "Avenir", "Cooper Black", "Bodoni", "Trajan", "Frutiger"
+    ];
+    const COCKTAILS = [
+        "Negroni", "Espresso Martini", "Aperol Spritz", "Old Fashioned", "Margarita", "Piña Colada", "Manhattan",
+        "Mojito", "Daiquiri", "Martini", "Whiskey Sour", "Cosmopolitan", "Mai Tai", "Gin and Tonic", "Moscow Mule", "Sazerac"
+    ];
+    const ALBUMS_BEATLES = [
+        "Please Please Me", "With the Beatles", "A Hard Day's Night", "Beatles for Sale", "Help!", "Rubber Soul",
+        "Revolver", "Sgt. Pepper's Lonely Hearts Club Band", "Magical Mystery Tour", "The White Album", "Abbey Road", "Let It Be"
+    ];
+    const ALBUMS_RADIOHEAD = [
+        "Pablo Honey", "The Bends", "OK Computer", "Kid A", "Amnesiac", "Hail to the Thief",
+        "In Rainbows", "The King of Limbs", "A Moon Shaped Pool"
+    ];
+
     const CATEGORIES = [
         // images:false → app logos come from the live app's domain map (or letters render
         // as a glyph), so no wiki title is needed for these.
@@ -147,7 +174,12 @@
         { id: "ai_models",         label: "AI Models",         items: AI_MODELS,    images: false },
         { id: "languages",         label: "Programming Languages", items: LANGUAGES, images: false },
         { id: "social",            label: "Social Platforms",  items: SOCIAL,       images: false },
-        { id: "alphabet",          label: "The Alphabet",      items: ALPHABET,     images: false }
+        { id: "alphabet",          label: "The Alphabet",      items: ALPHABET,     images: false },
+        // weekly themes (rotated one at a time by "This Week")
+        { id: "typefaces",         label: "Typefaces",         items: TYPEFACES,        images: false },
+        { id: "cocktails",         label: "Cocktails",         items: COCKTAILS,        images: true },
+        { id: "albums_beatles",    label: "Beatles Albums",    items: ALBUMS_BEATLES,   images: true },
+        { id: "albums_radiohead",  label: "Radiohead Albums",  items: ALBUMS_RADIOHEAD, images: true }
     ];
 
     /* ---- UI ---- */

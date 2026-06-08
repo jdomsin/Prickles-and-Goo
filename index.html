@@ -570,6 +570,17 @@
     const DAILY_SIZE = 10;                 // cards in a bounded daily ballot
     const PREDICT_ID = "predict";
     const MIN_PREDICT_VOTES = 5;           // an item needs this many votes to be guessable
+    const WEEKLY_ID = "weekly";
+    // Themed decks surfaced one at a time. The active one rotates by ISO week.
+    const WEEKLY = [
+        { id: "typefaces",        label: "Typefaces" },
+        { id: "cocktails",        label: "Cocktails" },
+        { id: "albums_beatles",   label: "Beatles Albums" },
+        { id: "albums_radiohead", label: "Radiohead Albums" }
+    ];
+    function weekNo() { return Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / (7 * 86400000)); }
+    function activeWeekly() { return WEEKLY[((weekNo() % WEEKLY.length) + WEEKLY.length) % WEEKLY.length]; }
+    function isWeeklyId(id) { return WEEKLY.some(t => t.id === id); }
     const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter" };
     let dailyMode = false, dailyDeck = [], dailyResults = [];
     let predictMode = false, predictDeck = [], predictPos = 0, predictScore = 0, predictStreak = 0, predictBest = 0;
@@ -675,21 +686,22 @@
             iSumSq: d.iSumSq || 0       // Σ intensity² → variance/divisiveness
         };
     }
-    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
-    function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
+    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: WEEKLY_ID, label: "This Week" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
+    function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === WEEKLY_ID) loadWeekly(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
     function renderVoteCategoryBar() {
         voteCategoryBar.innerHTML = '';
         voteCategorySelect.innerHTML = '';
         voteCategories().forEach(c => {
+            const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
             const b = document.createElement('button');
-            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
+            b.className = 'cat' + (active ? ' active' : '');
             b.textContent = c.label;
-            b.onclick = () => { if (c.id !== currentCategoryId || c.id === DAILY_ID) openCategory(c.id); };
+            b.onclick = () => { if (!active || c.id === DAILY_ID) openCategory(c.id); };
             voteCategoryBar.appendChild(b);
 
             const o = document.createElement('option');     // mirror into the mobile dropdown
             o.value = c.id; o.textContent = c.label;
-            if (c.id === currentCategoryId) o.selected = true;
+            if (active) o.selected = true;
             voteCategorySelect.appendChild(o);
         });
     }
@@ -702,12 +714,14 @@
         });
         return all;
     }
-    async function loadCategory(categoryId) {
+    // This Week → load the rotating active theme (its own seeded category)
+    function loadWeekly() { const t = activeWeekly(); return loadCategory(t.id, 'This Week · ' + t.label); }
+    async function loadCategory(categoryId, kicker) {
         currentCategoryId = categoryId;
         votesThisSession = 0; dailyMode = false; predictMode = false;
         clearError(views.vote);
         const cat = CATEGORIES.find(c => c.id === categoryId);
-        voteKicker.textContent = cat ? cat.label : categoryId;
+        voteKicker.textContent = kicker || (cat ? cat.label : categoryId);
         renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
@@ -982,7 +996,9 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph' };
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'face', albums_radiohead: 'face' };
+    // Comic Sans needs its real family name; the rest match by display name (fallback if not installed).
+    const TYPEFACE_FONT = { 'Comic Sans': '"Comic Sans MS"', 'Times New Roman': '"Times New Roman"' };
     // Curated app logos: domain + tile treatment, keyed by item id (the seeded slug).
     // fill = app-icon that carries its own background, render edge-to-edge; otherwise a
     // padded mark on a white plate. Clearbit supplies the art (Google favicon fallback).
@@ -1134,6 +1150,10 @@
             '</div>';
         arena.appendChild(wrap);
         buildCardMedia(wrap.querySelector('#cardMedia'), item);
+        if (itemCat === 'typefaces') {                     // show the name set in its own typeface
+            const nm = wrap.querySelector('.name');
+            if (nm) { nm.style.fontFamily = (TYPEFACE_FONT[item.name] || ('"' + item.name + '"')) + ', Georgia, serif'; nm.style.fontWeight = '400'; }
+        }
 
         const gauge = document.createElement('div');
         gauge.className = 'lean-gauge';
@@ -1905,7 +1925,7 @@
         const qs = p.toString();
         try { history.replaceState(null, '', qs ? ('?' + qs) : location.pathname); } catch (e) {}
     }
-    function knownCat(c) { return c && (c === RANDOM_ID || c === DAILY_ID || CATEGORIES.some(x => x.id === c)); }
+    function knownCat(c) { return c && (c === RANDOM_ID || c === DAILY_ID || isWeeklyId(c) || CATEGORIES.some(x => x.id === c)); }
     function applyInitialRoute() {
         const p = new URLSearchParams(location.search);
         let cat = p.get('c'); const view = p.get('v'); let item = p.get('i');
