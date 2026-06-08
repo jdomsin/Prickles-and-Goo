@@ -3,17 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Prickles &amp; Goo — Lab: swipe-intensity + spectrum</title>
+<title>Prickles &amp; Goo — Lab: immersive lean + spectrum</title>
 <!-- STANDALONE PROTOTYPE. Mock data, no Firebase, does not touch the live app.
-     (A) swipe-with-intensity voting: a flick carries BOTH direction and force —
-     intensity = clamp(displacement + releaseVelocity*0.7). (B) a prickly→gooey
-     spectrum. Open this file directly in a browser. -->
+     Pull-and-hold to confirm (the card gets *claimed*, no snap-back); the whole
+     viewport + the ooze/amethyst edges lean with you; static film grain. -->
 <style>
+    @property --p { syntax:'<number>'; initial-value:0; inherits:true; }
     :root {
         --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
         --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
-        --gooey:#0D7680; --gooey-soft:#E3EFEF; --gooey-2:#0a5d65;
-        --prickly:#6D3B6E; --prickly-soft:#EFE3F0; --prickly-2:#4C2A4D;
+        --gooey:#0D7680; --gooey-lt:#7FE3DA; --gooey-soft:#E3EFEF; --gooey-2:#0a5d65;
+        --prickly:#6D3B6E; --prickly-lt:#B583B7; --prickly-soft:#EFE3F0; --prickly-2:#4C2A4D;
+        --gain:1;
         --shadow:0 1px 2px rgba(40,30,20,.05), 0 8px 28px rgba(40,30,20,.08);
         --shadow-lift:0 18px 50px rgba(40,30,20,.20);
         --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
@@ -24,23 +25,59 @@
     html,body { margin:0; }
     body { font-family:var(--sans); background:var(--paper); color:var(--ink); -webkit-font-smoothing:antialiased; }
     .wrap { max-width:760px; margin:0 auto; padding:28px clamp(16px,5vw,40px) 80px; position:relative; z-index:1; }
-    /* immersive lean: the whole viewport washes toward the side you pull */
+
+    /* immersive viewport wash toward the lean side */
     .bg-wash { position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0; transition:opacity .12s ease, background .12s ease; }
+    /* static film grain — rendered once, no per-frame cost */
+    .noise { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        background-size:160px 160px; }
+
+    /* ---------- lean-driven edge FX (ooze right · amethyst left) ---------- */
+    .edge { position:fixed; top:0; bottom:0; width:46vw; max-width:440px; pointer-events:none; overflow:hidden; z-index:0;
+        transition:--p .14s cubic-bezier(.2,.7,.2,1);
+        -webkit-mask-image:linear-gradient(var(--mask),#000 20%,transparent 92%); mask-image:linear-gradient(var(--mask),#000 20%,transparent 92%); }
+    .edge.right { right:0; --mask:to left; } .edge.left { left:0; --mask:to right; }
+    .goo-warm { position:absolute; right:-10%; top:50%; transform:translateY(-50%); width:120%; height:150%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 60%, transparent), transparent 70%); filter:blur(40px); opacity:calc(var(--p)*.55*var(--gain)); }
+    .ooze { position:absolute; inset:0; filter:url(#gooFilter); }
+    .blob { position:absolute; border-radius:50%;
+        background:radial-gradient(38% 32% at 34% 28%, rgba(255,255,255,.95), rgba(255,255,255,0) 60%), radial-gradient(120% 120% at 60% 40%, var(--gooey-lt), var(--gooey) 46%, var(--gooey-2) 100%);
+        width:var(--s); height:var(--s);
+        transform:translateX(calc(var(--tx) - var(--p)*var(--reach))) translateY(calc(var(--p)*var(--rise))) scale(calc(.3 + var(--p)*.7));
+        opacity:clamp(0, calc(var(--p)*3 - var(--d)), 1); animation:blobwob var(--dur) ease-in-out infinite var(--ad); }
+    @keyframes blobwob { 0%,100%{ translate:0 0 } 50%{ translate:-6px -10px } }
+    .meniscus { position:absolute; right:0; top:0; bottom:0; width:10px; background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), var(--gooey-lt), transparent); filter:blur(1px); opacity:var(--p); }
+    .sheen { position:absolute; inset:0; mix-blend-mode:screen; opacity:calc(var(--p)*.5); background:radial-gradient(60% 40% at 92% 38%, rgba(255,255,255,.5), transparent 60%); }
+    .prk-cold { position:absolute; left:-10%; top:50%; transform:translateY(-50%); width:120%; height:140%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly-lt) 50%, transparent), transparent 70%); filter:blur(36px); opacity:calc(var(--p)*.42*var(--gain)); }
+    .crystal { position:absolute; left:0; top:var(--y); height:var(--h); width:calc(clamp(0, var(--p)*1.1 - var(--d), 1)*var(--len));
+        transform:rotate(var(--a)); transform-origin:left center; opacity:clamp(0, calc(var(--p)*2 - var(--d)), 1);
+        filter:drop-shadow(0 4px 10px color-mix(in srgb,var(--prickly) 40%, transparent)) drop-shadow(0 0 7px color-mix(in srgb,var(--prickly-lt) 55%, transparent)); }
+    .crystal .f { position:absolute; inset:0; }
+    .crystal .top { clip-path:polygon(0 0,100% 50%,0 50%); background:linear-gradient(118deg, color-mix(in srgb,var(--prickly-lt) 80%, #fff), var(--prickly) 78%); }
+    .crystal .bot { clip-path:polygon(0 50%,100% 50%,0 100%); background:linear-gradient(62deg, var(--prickly-2), var(--prickly) 88%); }
+    .crystal .core { clip-path:polygon(0 30%,66% 50%,0 70%); background:linear-gradient(100deg, color-mix(in srgb,#fff 55%, var(--prickly-lt)), transparent 72%); opacity:.7; }
+    .crystal .spine { position:absolute; left:0; right:0; top:50%; height:1.5px; transform:translateY(-.75px); background:linear-gradient(90deg,#fff, color-mix(in srgb,var(--prickly-lt) 80%, #fff) 35%, transparent 78%); }
+    .crystal .arris { position:absolute; inset:0; clip-path:polygon(0 0,100% 50%,0 0); border-top:1.5px solid rgba(255,255,255,.85); opacity:.5; }
+    .crystal .spark { position:absolute; width:7px; height:7px; background:#fff; border-radius:50%; left:var(--sx,14%); top:var(--sy,40%); filter:blur(.3px); box-shadow:0 0 6px 1px rgba(255,255,255,.9); animation:twinkle var(--tw,2.6s) ease-in-out infinite var(--td,0s); }
+    @keyframes twinkle { 0%,100%{ opacity:.25; transform:scale(.7) } 50%{ opacity:1; transform:scale(1.15) } }
+    .crystal.back { filter:blur(2px); opacity:calc(var(--p)*.45); }
+
     .lab-tag { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
         color:var(--prickly); background:var(--prickly-soft); border-radius:999px; padding:5px 12px; }
     h1 { font-family:var(--serif); font-size:2rem; letter-spacing:-.01em; margin:14px 0 4px; }
     .lead { color:var(--ink-soft); line-height:1.5; margin:0 0 8px; }
-    section { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r);
-        box-shadow:var(--shadow); padding:24px clamp(16px,4vw,30px); margin-top:26px; }
+    /* translucent panels so the wash + edges read through (no backdrop-blur → perf-safe) */
+    section { background:color-mix(in srgb,var(--surface) 80%, transparent); border:1px solid color-mix(in srgb,var(--hairline) 70%, transparent);
+        border-radius:var(--r); box-shadow:var(--shadow); padding:24px clamp(16px,4vw,30px); margin-top:26px; }
     .kicker { font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; }
     h2 { font-family:var(--serif); font-size:1.5rem; margin:0 0 6px; }
     .sub { color:var(--ink-soft); font-size:.95rem; line-height:1.45; margin:0 0 18px; }
     button { font:inherit; font-weight:600; border-radius:999px; padding:11px 22px; cursor:pointer; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); }
-    button.primary { background:var(--ink); color:var(--paper); border-color:var(--ink); }
 
-    /* ---------- A. swipe-with-intensity ---------- */
+    /* ---------- A. pull & hold ---------- */
     .stage { position:relative; height:268px; margin:4px 0 6px; touch-action:none; }
-    /* side gutters brighten as you push toward them */
     .gutter { position:absolute; top:0; bottom:0; width:34%; display:flex; align-items:center; pointer-events:none;
         font-family:var(--serif); font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:1rem; opacity:.25; transition:opacity .12s; }
     .gutter.p { left:0; justify-content:flex-start; color:var(--prickly); }
@@ -50,17 +87,12 @@
         display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
         overflow:hidden; will-change:transform; touch-action:none; }
     .swipe-card.dragging { cursor:grabbing; }
-    .swipe-card .wash { position:absolute; inset:0; opacity:0; pointer-events:none;
-        background:radial-gradient(120% 90% at var(--wx,50%) 50%, var(--wc,transparent), transparent 68%); }
+    .swipe-card .wash { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .08s;
+        background:radial-gradient(120% 90% at var(--wx,50%) 50%, var(--wc,transparent), transparent 70%); }
     .swipe-card .nm { font-family:var(--serif); font-size:2rem; font-weight:700; position:relative; padding:0 18px; }
     .swipe-card .meta { color:var(--ink-soft); font-size:.84rem; margin-top:4px; position:relative; }
     .swipe-card .verdict { position:relative; margin-top:14px; font-family:var(--serif); font-weight:700; font-size:1.15rem; min-height:1.3em; opacity:0; transition:opacity .1s; }
-    .swipe-card .charge { position:absolute; left:50%; top:50%; width:128px; height:128px; transform:translate(-50%,-50%) rotate(-90deg);
-        opacity:0; transition:opacity .12s; pointer-events:none; }
-    .swipe-card .charge .track { fill:none; stroke:var(--hairline); stroke-width:7; opacity:.5; }
-    .swipe-card .charge .prog { fill:none; stroke-width:7; stroke-linecap:round; }
-    /* center-out intensity gauge */
-    .gauge { position:relative; height:14px; border-radius:999px; background:var(--hairline); overflow:hidden; margin:8px 0 2px; }
+    .gauge { position:relative; height:10px; border-radius:999px; background:var(--hairline); overflow:hidden; margin:10px 0 2px; }
     .gauge .c { position:absolute; left:50%; top:-3px; bottom:-3px; width:2px; background:var(--ink-soft); opacity:.5; transform:translateX(-1px); }
     .gauge .f { position:absolute; top:0; bottom:0; width:0; }
     .hintline { text-align:center; color:var(--ink-soft); font-size:.84rem; margin-top:10px; }
@@ -95,25 +127,34 @@
 </head>
 <body>
 <div class="bg-wash" id="bgwash"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="gooFilter">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/>
+        <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="goo"/>
+        <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+    </filter>
+</svg>
+<div class="edge left"  id="edgeL"></div>
+<div class="edge right" id="edgeR"></div>
+<div class="noise"></div>
+
 <div class="wrap">
     <span class="lab-tag">Lab · prototype · mock data</span>
-    <h1>Pull, hold, confirm → the spectrum</h1>
-    <p class="lead">Pull the card to a lean — how far is how strongly you feel — then <b>hold to confirm</b> (a ring charges) or just let go. It <b>never snaps back</b> to centre; only a release near the middle cancels. A hard flick still commits instantly. Your calls land on the spectrum below.</p>
+    <h1>Pull, hold, claim → the spectrum</h1>
+    <p class="lead">Pull the card to a lean — how far is how strongly you feel. <b>Hold</b> and the card is <b>claimed</b> by that side (it fills, lifts, the whole screen + edges lean with it). It <b>never snaps back</b>; only a release near the middle cancels. A hard flick still commits instantly.</p>
 
-    <!-- A. SWIPE-WITH-INTENSITY -->
     <section>
         <p class="kicker">A · Pull &amp; hold</p>
         <h2>How prickly, how gooey?</h2>
-        <p class="sub">Pull to a lean and <b>hold</b> — a ring charges and confirms at that strength. Or release anywhere off-centre; it won’t snap back. Flick fast to commit hard instantly.</p>
+        <p class="sub">Pull to a lean and hold — the card gets claimed at that strength. Or release anywhere off-centre; it won’t snap back. Flick fast to commit hard instantly.</p>
         <div id="voteArea"></div>
         <div class="progress" id="progress"></div>
     </section>
 
-    <!-- B. SPECTRUM -->
     <section>
         <p class="kicker">B · The spectrum</p>
         <h2>Where the category lands</h2>
-        <p class="sub">Every airline on one prickly→gooey axis — no ranked list, no single "winner" pole. Midline is an even 50/50. Your calls appear as ◆, joined to the crowd dot so the <i>gap</i> (how far you diverge) is visible.</p>
+        <p class="sub">Every airline on one prickly→gooey axis. Midline is an even 50/50. Your calls appear as ◆, joined to the crowd dot so the gap is visible.</p>
         <div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>
         <div class="spectrum" id="spectrum"></div>
         <div class="legend">
@@ -127,7 +168,7 @@
         </div>
     </section>
 
-    <p class="foot">Prickles &amp; Goo — exploration sandbox. Swap the data, feel the interaction, then graduate the winners into the real app.</p>
+    <p class="foot">Prickles &amp; Goo — exploration sandbox. Feel the interaction, then we graduate the winners into the real app.</p>
 </div>
 
 <script>
@@ -142,31 +183,49 @@ const ITEMS = [
 const yourVotes = {};
 let showYou = false;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rnd = (a, b) => a + Math.random() * (b - a);
 
-// immersive lean wash — floods the viewport toward the side you pull
+// viewport wash
 const bgwash = document.getElementById('bgwash');
 const GOO_WASH = 'radial-gradient(130% 120% at 100% 50%, color-mix(in srgb,var(--gooey) 60%, transparent), color-mix(in srgb,var(--gooey) 14%, transparent) 46%, transparent 74%)';
 const PRK_WASH = 'radial-gradient(130% 120% at 0% 50%, color-mix(in srgb,var(--prickly) 60%, transparent), color-mix(in srgb,var(--prickly) 14%, transparent) 46%, transparent 74%)';
 function setWash(dir, amt) { bgwash.style.background = dir < 0 ? PRK_WASH : GOO_WASH; bgwash.style.opacity = clamp(amt, 0, 1); }
 
-/* ===== A. swipe-with-intensity ===== */
+// lean-driven edges
+const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
+function setSide(dir, p) { edgeR.style.setProperty('--p', dir > 0 ? p : 0); edgeL.style.setProperty('--p', dir < 0 ? p : 0); }
+function buildEdges() {
+    let R = '<div class="goo-warm"></div><div class="ooze">';
+    for (let i = 0; i < 7; i++) R += '<div class="blob" style="right:' + rnd(-10, 40).toFixed(0) + 'px; top:' + (i * 13 + rnd(-3, 3)).toFixed(0) + '%; --s:' + rnd(70, 150).toFixed(0) + 'px; --tx:' + rnd(40, 110).toFixed(0) + 'px; --reach:' + rnd(120, 220).toFixed(0) + 'px; --rise:' + rnd(-30, 30).toFixed(0) + 'px; --d:' + rnd(0, .8).toFixed(2) + '; --dur:' + rnd(3.5, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;"></div>';
+    R += '</div><div class="sheen"></div><div class="meniscus"></div>';
+    edgeR.innerHTML = R;
+    let L = '<div class="prk-cold"></div>';
+    for (let i = 0; i < 7; i++) {
+        const back = Math.random() < .35;
+        L += '<div class="crystal' + (back ? ' back' : '') + '" style="--y:' + (i * 14 + rnd(-2, 2)).toFixed(1) + '%; --h:' + (back ? rnd(26, 40) : rnd(46, 76)).toFixed(0) + 'px; --len:' + (back ? rnd(150, 230) : rnd(230, 400)).toFixed(0) + 'px; --a:' + rnd(-11, 11).toFixed(1) + 'deg; --d:' + rnd(0, .5).toFixed(2) + ';">' +
+            '<div class="f top"></div><div class="f bot"></div><div class="f core"></div><div class="spine"></div><div class="arris"></div>' +
+            '<span class="spark" style="--sx:' + rnd(8, 22).toFixed(0) + '%;--sy:' + rnd(34, 50).toFixed(0) + '%;--tw:' + rnd(2, 3.4).toFixed(1) + 's;--td:' + rnd(0, 2.5).toFixed(1) + 's"></span></div>';
+    }
+    edgeL.innerHTML = L;
+}
+
+/* ===== A. pull & hold (the card gets claimed) ===== */
 const deck = ITEMS.slice(0, 8);
 let pos = 0;
 const voteArea = document.getElementById('voteArea');
 const progressEl = document.getElementById('progress');
 
-function intensityWord(signed) {           // signed: -100..100
+function intensityWord(signed) {
     const a = Math.abs(signed);
     if (a < 8) return 'neutral';
     const deg = a < 34 ? 'a little' : a < 67 ? 'fairly' : 'very';
     return deg + ' ' + (signed < 0 ? 'prickly' : 'gooey');
 }
 function renderProgress() {
-    progressEl.innerHTML = deck.map((_, i) =>
-        '<span class="pip' + (i < pos ? ' on' : i === pos ? ' cur' : '') + '"></span>').join('');
+    progressEl.innerHTML = deck.map((_, i) => '<span class="pip' + (i < pos ? ' on' : i === pos ? ' cur' : '') + '"></span>').join('');
 }
 function renderCard() {
-    bgwash.style.opacity = 0;                  // clear the lean wash for the new card
+    bgwash.style.opacity = 0; setSide(0, 0);
     if (pos >= deck.length) { renderDone(); return; }
     const it = deck[pos];
     voteArea.innerHTML =
@@ -174,14 +233,13 @@ function renderCard() {
             '<div class="gutter p" id="gutP">Prickly</div><div class="gutter g" id="gutG">Gooey</div>' +
             '<div class="swipe-card" id="card">' +
                 '<div class="wash" id="wash"></div>' +
-                '<svg class="charge" id="charge" viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="prog" id="chargeProg" cx="60" cy="60" r="52"/></svg>' +
                 '<div class="nm">' + it.name + '</div>' +
                 '<div class="meta">' + it.n + ' crowd votes so far</div>' +
                 '<div class="verdict" id="verdict"></div>' +
             '</div>' +
         '</div>' +
         '<div class="gauge"><div class="c"></div><div class="f" id="gfill"></div></div>' +
-        '<div class="hintline">Pull to a lean and <b>hold to confirm</b> — or flick. It won’t snap back.</div>' +
+        '<div class="hintline">Pull to a lean and <b>hold to claim</b> — or flick. It won’t snap back.</div>' +
         '<div class="skiprow"><button id="skip">Skip</button></div>';
 
     const stage = document.getElementById('stage');
@@ -192,55 +250,53 @@ function renderCard() {
     const gutP = document.getElementById('gutP'), gutG = document.getElementById('gutG');
     document.getElementById('skip').onclick = () => { pos++; renderProgress(); renderCard(); };
 
-    const chargeProg = document.getElementById('chargeProg');
-    const chargeSvg = document.getElementById('charge');
-    const CIRC = 2 * Math.PI * 52;
-    chargeProg.style.strokeDasharray = CIRC;
-
     let drag = null, charge = 0, chargeRAF = 0, lastTick = 0;
-    const maxDisp = () => stage.clientWidth * 0.45;     // displacement that alone = full intensity
-    const DEAD = 24, HOLD_MS = 120, CHARGE_MS = 560;    // dead zone · settle before charging · hold-to-confirm
+    const maxDisp = () => stage.clientWidth * 0.45;
+    const DEAD = 24, HOLD_MS = 120, CHARGE_MS = 560;
 
     function paint(dx, live) {
         const dir = Math.sign(dx) || 0;
         const pos01 = clamp(Math.abs(dx) / maxDisp(), 0, 1);
-        card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx * 0.035) + 'deg)';
         const goo = dir > 0;
-        wash.style.setProperty('--wc', goo ? 'color-mix(in srgb,var(--gooey) 36%, transparent)' : 'color-mix(in srgb,var(--prickly) 36%, transparent)');
-        wash.style.setProperty('--wx', goo ? '88%' : '12%');
-        wash.style.opacity = pos01;
+        card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx * 0.035) + 'deg)';
+        wash.style.setProperty('--wc', goo ? 'color-mix(in srgb,var(--gooey) 40%, transparent)' : 'color-mix(in srgb,var(--prickly) 40%, transparent)');
+        wash.style.setProperty('--wx', goo ? '86%' : '14%');
+        wash.style.opacity = pos01 * 0.85;
         gutG.style.opacity = .25 + (goo ? pos01 * .75 : 0);
         gutP.style.opacity = .25 + (!goo && dir ? pos01 * .75 : 0);
-        const half = 50;
         if (dir >= 0) { gfill.style.left = '50%'; gfill.style.right = ''; gfill.style.background = 'var(--gooey)'; }
         else { gfill.style.right = '50%'; gfill.style.left = ''; gfill.style.background = 'var(--prickly)'; }
-        gfill.style.width = (pos01 * half) + '%';
-        if (live && dir) { verdict.style.opacity = 1; verdict.style.color = goo ? 'var(--gooey)' : 'var(--prickly)';
-            verdict.textContent = intensityWord(dir * pos01 * 100); }
+        gfill.style.width = (pos01 * 50) + '%';
+        if (live && dir) { verdict.style.opacity = 1; verdict.style.color = goo ? 'var(--gooey)' : 'var(--prickly)'; verdict.textContent = intensityWord(dir * pos01 * 100); }
         else if (live) { verdict.style.opacity = .55; verdict.style.color = 'var(--ink-soft)'; verdict.textContent = 'neutral'; }
-        setWash(dir, dir ? pos01 * 0.92 : 0);          // whole screen leans with you
+        setWash(dir, dir ? pos01 * 0.9 : 0);
+        setSide(dir, dir ? pos01 : 0);
     }
 
-    function renderCharge() {
+    // charge = the card being CLAIMED: fills, lifts, a colored halo + border close in
+    function renderClaim() {
         const goo = (drag ? drag.dx : 0) > 0;
-        chargeSvg.style.opacity = charge > 0.02 ? 1 : 0;
-        chargeProg.style.stroke = goo ? 'var(--gooey)' : 'var(--prickly)';
-        chargeProg.style.strokeDashoffset = CIRC * (1 - charge);
-        card.style.scale = 1 + charge * 0.04;
-        card.style.boxShadow = charge > 0.02
-            ? 'var(--shadow-lift), 0 0 ' + (charge * 44) + 'px ' + (charge * 8) + 'px color-mix(in srgb,' + (goo ? 'var(--gooey)' : 'var(--prickly)') + ' ' + (charge * 60) + '%, transparent)'
-            : '';
+        const col = goo ? 'var(--gooey)' : 'var(--prickly)';
         const pos01 = drag ? clamp(Math.abs(drag.dx) / maxDisp(), 0, 1) : 0;
-        setWash(goo ? 1 : -1, pos01 * 0.92 + charge * 0.5);          // charge surges the wash too
+        card.style.scale = 1 + charge * 0.06;
+        card.style.boxShadow = charge > 0.02
+            ? 'var(--shadow-lift), 0 0 ' + (charge * 56) + 'px ' + (charge * 12) + 'px color-mix(in srgb,' + col + ' ' + (charge * 60) + '%, transparent), inset 0 0 0 ' + (charge * 3.5) + 'px color-mix(in srgb,' + col + ' ' + (charge * 88) + '%, transparent)'
+            : '';
+        wash.style.setProperty('--wc', 'color-mix(in srgb,' + col + ' ' + (40 + charge * 42) + '%, transparent)');
+        wash.style.setProperty('--wx', goo ? '86%' : '14%');
+        wash.style.opacity = Math.max(pos01 * 0.85, charge);
+        verdict.style.transform = 'scale(' + (1 + charge * 0.16) + ')';
+        setWash(goo ? 1 : -1, pos01 * 0.9 + charge * 0.5);
+        setSide(goo ? 1 : -1, clamp(pos01 + charge * 0.6, 0, 1));
     }
     function chargeTick(now) {
         if (!drag) { chargeRAF = 0; return; }
         const dt = now - (lastTick || now); lastTick = now;
         const settled = (now - drag.lastMoveT) > HOLD_MS;
-        if (Math.abs(drag.dx) > DEAD && settled) charge = Math.min(1, charge + dt / CHARGE_MS);   // hold builds the charge
-        else charge = Math.max(0, charge - dt / 200);                                             // moving / near centre lets it ebb
-        renderCharge();
-        if (charge >= 1) { commit(Math.sign(drag.dx) || 1, 1); return; }                          // held to full → confirm
+        if (Math.abs(drag.dx) > DEAD && settled) charge = Math.min(1, charge + dt / CHARGE_MS);
+        else charge = Math.max(0, charge - dt / 200);
+        renderClaim();
+        if (charge >= 1) { commit(Math.sign(drag.dx) || 1, 1); return; }
         chargeRAF = requestAnimationFrame(chargeTick);
     }
 
@@ -248,14 +304,14 @@ function renderCard() {
         card.setPointerCapture(e.pointerId);
         card.classList.add('dragging'); card.style.transition = 'none';
         drag = { x0: e.clientX, lastX: e.clientX, lastT: performance.now(), lastMoveT: performance.now(), v: 0, dx: 0 };
-        charge = 0; lastTick = 0; renderCharge();
+        charge = 0; lastTick = 0;
         chargeRAF = requestAnimationFrame(chargeTick);
     });
     card.addEventListener('pointermove', e => {
         if (!drag) return;
         const now = performance.now(); const dt = now - drag.lastT;
         const ndx = e.clientX - drag.x0;
-        if (Math.abs(ndx - drag.dx) > 3) drag.lastMoveT = now;     // a real move resets the "held still" timer
+        if (Math.abs(ndx - drag.dx) > 3) drag.lastMoveT = now;
         drag.dx = ndx;
         if (dt > 0) drag.v = (e.clientX - drag.lastX) / dt;
         drag.lastX = e.clientX; drag.lastT = now;
@@ -267,16 +323,16 @@ function renderCard() {
         if (chargeRAF) { cancelAnimationFrame(chargeRAF); chargeRAF = 0; }
         const dir = Math.sign(d.dx) || 0;
         const ax = Math.abs(d.dx), vel01 = clamp(Math.abs(d.v) / 1.5, 0, 1);
-        if (!dir || (ax < DEAD && vel01 < 0.3)) { snapBack(); return; }     // only a near-centre release cancels
+        if (!dir || (ax < DEAD && vel01 < 0.3)) { snapBack(); return; }
         const intensity = clamp(Math.max(clamp(ax / maxDisp(), 0, 1) + vel01 * 0.7, charge), 0, 1);
         commit(dir, intensity);
     }
     card.addEventListener('pointerup', release);
     card.addEventListener('pointercancel', release);
 
-    function resetCharge() { charge = 0; chargeSvg.style.opacity = 0; card.style.scale = 1; card.style.boxShadow = ''; bgwash.style.opacity = 0; }
+    function clearClaim() { charge = 0; card.style.scale = 1; card.style.boxShadow = ''; verdict.style.transform = ''; }
     function snapBack() {
-        resetCharge();
+        clearClaim(); bgwash.style.opacity = 0; setSide(0, 0);
         card.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1.2)';
         card.style.transform = 'translateX(0) rotate(0)';
         wash.style.opacity = 0; gfill.style.width = 0; verdict.style.opacity = 0;
@@ -285,12 +341,11 @@ function renderCard() {
     function commit(dir, intensity) {
         if (drag) { drag = null; card.classList.remove('dragging'); }
         if (chargeRAF) { cancelAnimationFrame(chargeRAF); chargeRAF = 0; }
-        charge = 0; chargeSvg.style.opacity = 0; card.style.scale = 1; card.style.boxShadow = '';
-        setWash(dir, 0.92);                 // full-screen confirm; the next card clears it
+        clearClaim();
+        setWash(dir, 0.92); setSide(dir, 1);
         const signed = Math.round(dir * intensity * 100);
         yourVotes[it.name] = clamp(Math.round(50 + signed / 2), 0, 100);
-        verdict.style.opacity = 1; verdict.style.color = dir > 0 ? 'var(--gooey)' : 'var(--prickly)';
-        verdict.textContent = intensityWord(signed);
+        verdict.style.opacity = 1; verdict.style.color = dir > 0 ? 'var(--gooey)' : 'var(--prickly)'; verdict.textContent = intensityWord(signed);
         const dur = 0.18 + (1 - intensity) * 0.24;
         const dist = stage.clientWidth * (0.85 + intensity * 0.7);
         card.style.transition = 'transform ' + dur + 's cubic-bezier(.3,.1,.3,1), opacity ' + dur + 's';
@@ -302,17 +357,15 @@ function renderCard() {
 }
 function renderDone() {
     const n = Object.keys(yourVotes).length;
-    voteArea.innerHTML = '<p class="done-note">That’s the deck — <b>' + n + '</b> call' + (n === 1 ? '' : 's') +
-        ' logged with force. Your ◆ markers are on the spectrum below.</p>' +
-        '<div class="skiprow"><button class="primary" id="again">Swipe again</button></div>';
+    voteArea.innerHTML = '<p class="done-note">That’s the deck — <b>' + n + '</b> call' + (n === 1 ? '' : 's') + ' claimed. Your ◆ markers are on the spectrum below.</p>' +
+        '<div class="skiprow"><button id="again">Again</button></div>';
     document.getElementById('again').onclick = () => { pos = 0; for (const k in yourVotes) delete yourVotes[k]; showYou = false; syncToggle(); renderProgress(); renderCard(); renderSpectrum(); };
 }
 
-/* ===== B. spectrum (beeswarm + you-connectors) ===== */
+/* ===== B. spectrum ===== */
 const spectrumEl = document.getElementById('spectrum');
 const PAD = 8;
 const place = gp => PAD + (gp / 100) * (100 - 2 * PAD);
-
 function renderSpectrum() {
     const W = spectrumEl.clientWidth || 680;
     const laneH = 34, baseY = 32;
@@ -321,7 +374,6 @@ function renderSpectrum() {
     sorted.forEach(d => {
         d.xpx = d.x / 100 * W;
         let lane = 0;
-        // reserve ~ half the label width so labels don't collide, not just dots
         while (placed.some(p => p.lane === lane && Math.abs(p.xpx - d.xpx) < (d.it.name.length * 4 + 46))) lane++;
         d.lane = lane; placed.push(d);
     });
@@ -332,18 +384,13 @@ function renderSpectrum() {
         const y = baseY + d.lane * laneH;
         const goo = d.it.g >= 50;
         const lblPos = d.lane % 2 === 0 ? 'above' : 'below';
-        if (showYou && yourVotes[d.it.name] != null) {     // connector crowd ↔ you
+        if (showYou && yourVotes[d.it.name] != null) {
             const yx = place(yourVotes[d.it.name]);
             const x1 = Math.min(d.x, yx), x2 = Math.max(d.x, yx);
             html += '<div class="conn" style="left:' + x1 + '%;width:' + (x2 - x1) + '%;top:' + y + 'px"></div>';
         }
-        html += '<div class="dot" style="left:' + d.x + '%;top:' + y + 'px">' +
-            '<div class="bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></div>' +
-            '<div class="lbl ' + lblPos + '">' + d.it.name + ' · ' + d.it.g + '%</div></div>';
-        if (showYou && yourVotes[d.it.name] != null) {
-            html += '<div class="you" style="left:' + place(yourVotes[d.it.name]) + '%;top:' + y + 'px">' +
-                '<div class="tick">you</div><div class="mk"></div></div>';
-        }
+        html += '<div class="dot" style="left:' + d.x + '%;top:' + y + 'px"><div class="bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></div><div class="lbl ' + lblPos + '">' + d.it.name + ' · ' + d.it.g + '%</div></div>';
+        if (showYou && yourVotes[d.it.name] != null) html += '<div class="you" style="left:' + place(yourVotes[d.it.name]) + '%;top:' + y + 'px"><div class="tick">you</div><div class="mk"></div></div>';
     });
     spectrumEl.innerHTML = html;
 }
@@ -355,6 +402,7 @@ document.getElementById('tgCrowd').onclick = () => { showYou = false; syncToggle
 document.getElementById('tgYou').onclick = () => { showYou = true; syncToggle(); renderSpectrum(); };
 window.addEventListener('resize', renderSpectrum);
 
+buildEdges();
 renderCard();
 renderSpectrum();
 </script>
