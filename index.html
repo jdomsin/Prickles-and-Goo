@@ -286,6 +286,8 @@
     .taste-cat { margin-bottom:14px; }
     .taste-cat.is-thin { opacity:.55; }                         /* few votes → visually recede */
     .taste-cat .pct .low { color:var(--ink-soft); font-style:italic; }
+    .taste-untouched { margin-top:16px; font-size:.85rem; color:var(--ink-soft); line-height:1.7; }
+    .taste-untouched .n { opacity:.6; }
     .taste-cat-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; font-size:.95rem; }
     .taste-cat-top .pct { font-size:.8rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
     /* daily ballot recap */
@@ -1334,7 +1336,7 @@
         const ax = Math.abs(swipe.dx), ay = Math.abs(swipe.dy);
         const vertical = ay > ax && ay > 28;
         const settled = (now - swipe.lastMoveT) > HOLD_MS;
-        if (!vertical && ax > DEAD && settled) swipe.charge = Math.min(1, swipe.charge + dt / CHARGE_MS);
+        if (!vertical && ax > SWIPE_THRESHOLD * 0.45 && settled) swipe.charge = Math.min(1, swipe.charge + dt / CHARGE_MS);   // only a deliberate lean auto-charges (not a hesitant nudge)
         else swipe.charge = Math.max(0, swipe.charge - dt / 200);
         if (!vertical) renderClaim();
         if (swipe.charge >= 1) { const v = swipe.dx > 0 ? 'gooey' : 'prickly'; stopCharge(); flySwipe(v, null, swipeSigned(v)); return; }
@@ -1720,12 +1722,20 @@
         skip:    ['Abstained.', 'No comment.', 'Recused yourself.']
     };
     let reactionTimer = 0;
-    function showReaction(verdict) {
+    function intensityWord(signed) {       // signed -100..100 → "very gooey" / "a little prickly"
+        const a = Math.abs(signed);
+        if (a < 8) return 'neutral';
+        const deg = a < 34 ? 'a little' : a < 67 ? 'fairly' : 'very';
+        return deg + ' ' + (signed < 0 ? 'prickly' : 'gooey');
+    }
+    function showReaction(verdict, word) {
+        // A swipe carries strength → say it back ("Very gooey — filed."), so the user
+        // sees the conviction signal was heard. Button/keyboard votes use the flat pool.
         const pool = REACTIONS[verdict] || REACTIONS.skip;
-        reactionEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+        reactionEl.textContent = word ? (word.charAt(0).toUpperCase() + word.slice(1) + ' — filed.') : pool[Math.floor(Math.random() * pool.length)];
         reactionEl.className = 'reaction show' + (verdict === 'gooey' ? ' goo' : verdict === 'prickly' ? ' prk' : '');
         clearTimeout(reactionTimer);
-        reactionTimer = setTimeout(() => reactionEl.classList.remove('show'), 1000);
+        reactionTimer = setTimeout(() => reactionEl.classList.remove('show'), 1100);
     }
     const toastEl = document.getElementById('toast');
     let toastTimer;
@@ -1822,7 +1832,7 @@
 
     /* ===== 9. RECORD VOTE ===== */
     async function commitVote(item, verdict, categoryId, signed) {
-        showReaction(verdict);
+        showReaction(verdict, (verdict !== 'skip' && typeof signed === 'number') ? intensityWord(signed) : null);
         // optimistic local update keeps selection balanced within the session
         item.shown += 1;
         if (verdict === 'gooey') item.gooey += 1;
@@ -2225,6 +2235,7 @@
         try {                                          // best-effort crowd comparison
             const all = await fetchAllItems();
             const key = {}; all.forEach(it => key[it.categoryId + '/' + it.id] = it);
+            all.forEach(it => { const p = byId[it.categoryId]; if (p) p.itemsTotal = (p.itemsTotal || 0) + 1; });   // total items per category, for coverage
             CATEGORIES.forEach(c => {
                 const voted = lsGet('pg-voted-' + c.id);
                 Object.keys(voted).forEach(id => {
@@ -2272,12 +2283,18 @@
         html += '<div class="taste-cats">';
         ranked.forEach(p => {
             const cp = Math.round(p.g / p.t * 100);
+            const cover = p.itemsTotal ? p.t + ' of ' + p.itemsTotal + ' voted' : p.t + ' vote' + (p.t === 1 ? '' : 's');
             const thin = p.t < 3 ? ' <span class="low">· thin</span>' : '';
             html += '<div class="taste-cat' + (p.t < 3 ? ' is-thin' : '') + '"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span>' +
-                '<span class="pct">' + cp + '% gooey · ' + p.t + ' vote' + (p.t === 1 ? '' : 's') + thin + '</span></div>' +
+                '<span class="pct">' + cp + '% gooey · ' + cover + thin + '</span></div>' +
                 '<div class="bar"><span class="p" style="width:' + (100 - cp) + '%"></span><span class="g" style="width:' + cp + '%"></span></div></div>';
         });
         html += '</div>';
+        const untouched = d.per.filter(p => p.t === 0 && p.itemsTotal > 0);
+        if (untouched.length) {
+            html += '<p class="taste-untouched">Not started: ' +
+                untouched.map(p => escapeHtml(p.label) + ' <span class="n">(' + p.itemsTotal + ')</span>').join(' · ') + '</p>';
+        }
         body.innerHTML = html;
         let outlier = '';
         if (contrarian && Math.abs(contrarian.diverg / contrarian.compared) > 0.12) outlier = 'You buck the crowd on ' + contrarian.label + '.';
