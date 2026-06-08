@@ -262,9 +262,9 @@
     .results-head { font-size:1rem; margin:0 0 6px; }
     .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 26px; }
     .row { margin-bottom:22px; text-align:left; }
-    .row.reveal { animation:rowin .5s cubic-bezier(.2,.7,.2,1) both; animation-delay:var(--d,0ms); }
+    .row.row-in { animation:rowin .5s cubic-bezier(.2,.7,.2,1) both; animation-delay:var(--d,0ms); }
     @keyframes rowin { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
-    @media (prefers-reduced-motion: reduce) { .row.reveal { animation:none; } }
+    @media (prefers-reduced-motion: reduce) { .row.row-in { animation:none; } }
     .row .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:8px; }
     .row .nm-wrap { display:flex; align-items:center; gap:10px; min-width:0; }
     .row .nm { font-family:var(--serif); font-size:1.2rem; }
@@ -649,7 +649,7 @@
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
     const resultsCategorySelect = document.getElementById('results-category-select');
-    resultsCategorySelect.onchange = () => { currentCategoryId = resultsCategorySelect.value; loadResults(); };
+    resultsCategorySelect.onchange = () => openResultsCategory(resultsCategorySelect.value);
     const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteCategorySelect = document.getElementById('vote-category-select');
     voteCategorySelect.onchange = () => {
@@ -2077,24 +2077,46 @@
     }
 
     /* ===== 11. FULL RESULTS ===== */
+    // Daily/Predict have no standings of their own — selecting them on Results just goes and plays them.
+    function openResultsCategory(id) {
+        if (id === DAILY_ID) { showView('vote'); loadDaily(); return; }
+        if (id === PREDICT_ID) { showView('vote'); loadPredict(); return; }
+        currentCategoryId = (id === WEEKLY_ID) ? activeWeekly().id : id;
+        loadResults();
+    }
+    // Same structure as the vote bar: mode pills + an "Other Sets" dropdown for the topic categories.
     function renderCategoryBar() {
         categoryBar.innerHTML = '';
         resultsCategorySelect.innerHTML = '';
-        // Daily Ballot is a play mode, not a results category — show it only in the vote bar.
-        if (currentCategoryId === DAILY_ID || currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;
-        voteCategories().filter(c => c.id !== DAILY_ID && c.id !== PREDICT_ID).forEach(c => {
+        if (currentCategoryId === DAILY_ID || currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;   // landed here mid-play → show All
+        const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
+        const ogCats = document.createElement('optgroup'); ogCats.label = 'Other Sets';
+        const dd = document.createElement('select'); dd.className = 'cat-dropdown'; dd.setAttribute('aria-label', 'Other Sets');
+        const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'Other Sets'; dd.appendChild(ph);
+        let topicActive = false;
+        voteCategories().forEach(c => {
+            const isMode = MODE_IDS.has(c.id);
             const label = c.id === RANDOM_ID ? 'All' : c.label;    // results: "All", not "Random"
-            const b = document.createElement('button');
-            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
-            b.textContent = label;
-            b.onclick = () => { currentCategoryId = c.id; loadResults(); };
-            categoryBar.appendChild(b);
-
-            const o = document.createElement('option');            // mirror into the mobile dropdown
-            o.value = c.id; o.textContent = label;
-            if (c.id === currentCategoryId) o.selected = true;
-            resultsCategorySelect.appendChild(o);
+            const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
+            if (isMode) {
+                const b = document.createElement('button');
+                b.className = 'cat' + (active ? ' active' : '');
+                b.textContent = label;
+                b.onclick = () => openResultsCategory(c.id);
+                categoryBar.appendChild(b);
+            } else {
+                const o = document.createElement('option'); o.value = c.id; o.textContent = c.label;
+                if (active) topicActive = true;
+                dd.appendChild(o);
+            }
+            const o2 = document.createElement('option'); o2.value = c.id; o2.textContent = label; if (active) o2.selected = true;
+            (isMode ? ogPlay : ogCats).appendChild(o2);
         });
+        ph.selected = true;
+        dd.classList.toggle('chosen', topicActive);
+        dd.onchange = () => { if (dd.value) openResultsCategory(dd.value); };
+        categoryBar.appendChild(dd);
+        resultsCategorySelect.append(ogPlay, ogCats);
     }
     let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
     const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
@@ -2176,7 +2198,7 @@
                 ents.forEach(en => { if (en.isIntersecting) { ob.unobserve(en.target); attachReasons(en.target, en.target.__it, en.target.__cat); } });
             }, { rootMargin: '250px' }) : null;
             rows.forEach((it, idx) => {
-                const r = resultRow(it); r.classList.add('reveal'); r.style.setProperty('--d', Math.min(idx, 14) * 35 + 'ms');   // gentle staggered entrance
+                const r = resultRow(it); r.classList.add('row-in'); r.style.setProperty('--d', Math.min(idx, 14) * 35 + 'ms');   // gentle staggered entrance
                 resultsList.appendChild(r);
                 const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat);
                 if (io) { r.__it = it; r.__cat = cat; io.observe(r); } else { attachReasons(r, it, cat); }
@@ -2242,18 +2264,24 @@
         const body = document.getElementById('taste-body');
         body.innerHTML = Array.from({ length: 3 }, () => '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         let total = 0, gooey = 0;
-        const per = CATEGORIES.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
+        // standing sets + any weekly theme you've actually played, so weekly coverage shows up here too
+        const hasVotes = id => { const v = lsGet('pg-voted-' + id); return Object.keys(v).some(k => v[k] === 'gooey' || v[k] === 'prickly'); };
+        const cats = CATEGORIES.concat(WEEKLY.filter(t => hasVotes(t.id)));
+        const per = cats.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
         const byId = {}; per.forEach(p => byId[p.id] = p);
-        CATEGORIES.forEach(c => {
+        cats.forEach(c => {
             const voted = lsGet('pg-voted-' + c.id);
             Object.keys(voted).forEach(id => { const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return; total++; byId[c.id].t++; if (v === 'gooey') { gooey++; byId[c.id].g++; } });
         });
         if (!total) { body.innerHTML = '<p class="results-sub">Vote on a few things and your taste takes shape here — how gooey you run, where you lean soft, and where you go against the grain.</p>'; return; }
         try {                                          // best-effort crowd comparison
             const all = await fetchAllItems();
+            const weeklyPlayed = WEEKLY.filter(t => hasVotes(t.id));   // pull their items too, for totals + comparison
+            const wsnaps = await Promise.all(weeklyPlayed.map(t => db.collection('categories').doc(t.id).collection('items').get()));
+            wsnaps.forEach((snap, i) => snap.docs.map(normalize).filter(x => x.named).forEach(x => { x.categoryId = weeklyPlayed[i].id; all.push(x); }));
             const key = {}; all.forEach(it => key[it.categoryId + '/' + it.id] = it);
             all.forEach(it => { const p = byId[it.categoryId]; if (p) p.itemsTotal = (p.itemsTotal || 0) + 1; });   // total items per category, for coverage
-            CATEGORIES.forEach(c => {
+            cats.forEach(c => {
                 const voted = lsGet('pg-voted-' + c.id);
                 Object.keys(voted).forEach(id => {
                     const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return;
