@@ -768,9 +768,9 @@
         const wrap = document.createElement('div');
         wrap.className = 'result';
         const real = weeklyResults.filter(r => r.userPos != null);
-        wrap.innerHTML = '<p class="kicker">This Week · ' + escapeHtml(weeklyLabel) + '</p>' +
-            '<h3>Where they landed.</h3>' +
-            '<p class="results-sub">All ' + weeklyResults.length + ' on one axis — the crowd as dots, your calls as ◆.</p>' +
+        wrap.innerHTML = '<p class="kicker">This Week · ' + escapeHtml(weeklyLabel) + ' · complete</p>' +
+            '<h3>That’s all ' + weeklyResults.length + '.</h3>' +
+            '<p class="results-sub">Every one on a single prickly→gooey axis — the crowd as dots, your calls as ◆.</p>' +
             '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>' +
             '<div class="spectrum" id="recapSpectrum"></div>';
         const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
@@ -783,8 +783,9 @@
     function renderSpectrum(host, rows) {
         if (!host) return;
         const W = host.clientWidth || 600, PAD = 8, laneH = 34, baseY = 30;
-        const place = gp => PAD + (gp / 100) * (100 - 2 * PAD);
-        const sorted = rows.map(r => ({ r, x: place(r.gp) })).sort((a, b) => a.x - b.x);
+        const place = p => PAD + (p / 100) * (100 - 2 * PAD);
+        const px = r => (r.pos != null ? r.pos : r.gp);            // position by intensity mean if present, else crowd %
+        const sorted = rows.map(r => ({ r, x: place(px(r)) })).sort((a, b) => a.x - b.x);
         const placed = [];
         sorted.forEach(d => {
             d.xpx = d.x / 100 * W; let lane = 0;
@@ -795,7 +796,7 @@
         host.style.height = (baseY + (maxLane + 1) * laneH + 26) + 'px';
         let html = '<div class="sp-mid"></div><div class="sp-midcap">even 50 / 50</div>';
         placed.forEach(d => {
-            const y = baseY + d.lane * laneH, goo = d.r.gp >= 50, lbl = d.lane % 2 === 0 ? 'above' : 'below';
+            const y = baseY + d.lane * laneH, goo = px(d.r) >= 50, lbl = d.lane % 2 === 0 ? 'above' : 'below';
             if (d.r.userPos != null) {
                 const yx = place(d.r.userPos), x1 = Math.min(d.x, yx), x2 = Math.max(d.x, yx);
                 html += '<div class="sp-conn" style="left:' + x1 + '%;width:' + (x2 - x1) + '%;top:' + y + 'px"></div>';
@@ -804,6 +805,16 @@
             if (d.r.userPos != null) html += '<div class="sp-you" style="left:' + place(d.r.userPos) + '%;top:' + y + 'px"><span class="sp-tick">you</span><span class="sp-mk"></span></div>';
         });
         host.innerHTML = html;
+    }
+    function crowdPos(item) {        // 0..100 axis: prefer the intensity mean once enough intensity votes exist
+        if (item.iVotes >= 4) return Math.max(0, Math.min(100, Math.round(50 + (item.iSum / item.iVotes) / 2)));
+        const t = item.gooey + item.prickly; return t ? Math.round(item.gooey / t * 100) : 50;
+    }
+    function userPosFor(cat, id) {   // your own call as a position; exact lean if stored, else binary
+        const s = priorIntensity(cat, id);
+        if (typeof s === 'number') return Math.max(0, Math.min(100, Math.round(50 + s / 2)));
+        const v = priorVerdict(cat, id);
+        return v === 'gooey' ? 100 : v === 'prickly' ? 0 : null;
     }
     async function loadCategory(categoryId, kicker) {
         currentCategoryId = categoryId;
@@ -1447,7 +1458,7 @@
         const size = weeklyDeck.length || 0, done = Math.min(weeklyResults.length, size);
         let pips = '';
         for (let i = 0; i < size; i++) pips += '<span class="pip' + (i < done ? ' on' : '') + '"></span>';
-        passMeter.innerHTML = '<span class="lbl">This Week</span><span class="pips">' + pips + '</span><span class="prog">' + done + ' / ' + size + '</span>';
+        passMeter.innerHTML = '<span class="lbl">' + escapeHtml(weeklyLabel || 'This Week') + '</span><span class="pips">' + pips + '</span><span class="prog">' + done + ' / ' + size + '</span>';
     }
     function renderPassMeter() {
         if (predictMode) return renderPredictMeter();      // score/streak replaces passes in predict mode
@@ -1485,6 +1496,8 @@
     function lsGet(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { return {}; } }
     function priorVerdict(cat, id) { return lsGet('pg-voted-' + cat)[id] || null; }
     function rememberVerdict(cat, id, v) { const k = 'pg-voted-' + cat, m = lsGet(k); m[id] = v; localStorage.setItem(k, JSON.stringify(m)); }
+    function priorIntensity(cat, id) { const v = lsGet('pg-int-' + cat)[id]; return typeof v === 'number' ? v : null; }
+    function rememberIntensity(cat, id, s) { const k = 'pg-int-' + cat, m = lsGet(k); m[id] = s; localStorage.setItem(k, JSON.stringify(m)); }
     function hasAsked(cat, id) { return lsGet('pg-asked-' + cat)[id] === true; }
     function markAsked(cat, id) { const k = 'pg-asked-' + cat, m = lsGet(k); m[id] = true; localStorage.setItem(k, JSON.stringify(m)); }
 
@@ -1778,6 +1791,7 @@
             const s = verdict === 'gooey' ? mag : -mag;
             update.iVotes = inc(1); update.iSum = inc(s); update.iSumSq = inc(s * s);
             item.iVotes = (item.iVotes || 0) + 1; item.iSum = (item.iSum || 0) + s; item.iSumSq = (item.iSumSq || 0) + s * s;
+            rememberIntensity(categoryId, item.id, s);     // your own lean, for the Results spectrum
         }
 
         const ref = db.collection('categories').doc(categoryId).collection('items').doc(item.id);
@@ -2020,6 +2034,17 @@
             };
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
                 '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>';
+
+            // Every category reads as a spectrum: items on the prickly→gooey axis, your calls overlaid.
+            if (voted.length) {
+                const cat0 = currentCategoryId;
+                const specSource = voted.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly)).slice(0, 24);
+                const specRows = specSource.map(it => ({ name: it.name, gp: stats(it).gp, pos: crowdPos(it), userPos: userPosFor(it.categoryId || cat0, it.id) }));
+                const sw = document.createElement('div');
+                sw.innerHTML = '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div><div class="spectrum" id="resSpectrum"></div>';
+                resultsList.appendChild(sw);
+                renderSpectrum(sw.querySelector('#resSpectrum'), specRows);
+            }
 
             const sortBar = document.createElement('div');
             sortBar.className = 'sort-bar';
