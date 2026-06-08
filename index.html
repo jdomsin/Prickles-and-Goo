@@ -165,6 +165,8 @@
     .edge.right { right:0; --mask-dir:to left; }
     .edge.left  { left:0;  --mask-dir:to right; }
     .fx { position:absolute; inset:0; }
+    /* immersive lean: the whole viewport washes toward the side you're choosing */
+    .bg-wash { position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0; transition:opacity .12s ease, background .12s ease; }
 
     /* gooey — molten ooze (right): real metaball liquid with molten gloss */
     .goo-warm { position:absolute; right:-10%; top:50%; transform:translateY(-50%); width:120%; height:150%;
@@ -469,6 +471,7 @@
             <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
         </filter>
     </svg>
+    <div class="bg-wash" id="bgwash"></div>
     <div class="edge left"  id="edgeL"><div class="fx" id="fxL"></div></div>
     <div class="edge right" id="edgeR"><div class="fx" id="fxR"></div></div>
     <div class="word prk">Prickly</div>
@@ -1138,6 +1141,7 @@
 
     function renderCard(item) {
         arena.innerHTML = '';
+        if (bgwash) bgwash.style.opacity = 0;          // clear the lean wash for the new card
         const wrap = document.createElement('div');
         wrap.className = 'swipe-wrap';
         const itemCat = item.categoryId || currentCategoryId;
@@ -1183,6 +1187,42 @@
     }
 
     /* ----- pointer-driven swipe (one shared window handler set) ----- */
+    /* ----- immersive wash + pull-to-claim charge (graduated from the lab) ----- */
+    const bgwash = document.getElementById('bgwash');
+    const GOO_WASH = 'radial-gradient(130% 120% at 100% 50%, color-mix(in srgb,var(--gooey) 60%, transparent), color-mix(in srgb,var(--gooey) 14%, transparent) 46%, transparent 74%)';
+    const PRK_WASH = 'radial-gradient(130% 120% at 0% 50%, color-mix(in srgb,var(--prickly) 60%, transparent), color-mix(in srgb,var(--prickly) 14%, transparent) 46%, transparent 74%)';
+    function setWash(dir, amt) { if (!bgwash) return; bgwash.style.background = dir < 0 ? PRK_WASH : GOO_WASH; bgwash.style.opacity = clamp01(amt); }
+    const DEAD = 30, HOLD_MS = 120, CHARGE_MS = 540;   // dead zone · settle before charging · hold-to-claim
+    function stopCharge() {
+        if (!swipe) return;
+        if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
+        swipe.charge = 0; swipe.card.style.scale = 1; swipe.card.style.boxShadow = '';
+    }
+    function renderClaim() {                            // the card gets claimed by the side: fills, lifts, glows
+        if (!swipe) return;
+        const c = swipe.charge, goo = swipe.dx > 0;
+        const col = goo ? 'var(--gooey)' : 'var(--prickly)';
+        swipe.card.style.scale = 1 + c * 0.05;
+        swipe.card.style.boxShadow = c > 0.02
+            ? 'var(--shadow-lift), 0 0 ' + (c * 54) + 'px ' + (c * 12) + 'px color-mix(in srgb,' + col + ' ' + (c * 60) + '%, transparent), inset 0 0 0 ' + (c * 3) + 'px color-mix(in srgb,' + col + ' ' + (c * 85) + '%, transparent)'
+            : '';
+        const pos01 = clamp01(Math.abs(swipe.dx) / SWIPE_THRESHOLD);
+        setWash(goo ? 1 : -1, pos01 * 0.9 + c * 0.5);
+        setSide(goo ? 'goo' : 'prk', clamp01(pos01 + c * 0.6));
+    }
+    function chargeTick(now) {
+        if (!swipe || !swipe.dragging) { if (swipe) swipe.chargeRAF = 0; return; }
+        const dt = now - (swipe.lastTick || now); swipe.lastTick = now;
+        const ax = Math.abs(swipe.dx), ay = Math.abs(swipe.dy);
+        const vertical = ay > ax && ay > 28;
+        const settled = (now - swipe.lastMoveT) > HOLD_MS;
+        if (!vertical && ax > DEAD && settled) swipe.charge = Math.min(1, swipe.charge + dt / CHARGE_MS);
+        else swipe.charge = Math.max(0, swipe.charge - dt / 200);
+        if (!vertical) renderClaim();
+        if (swipe.charge >= 1) { const v = swipe.dx > 0 ? 'gooey' : 'prickly'; stopCharge(); flySwipe(v, null, swipeSigned(v)); return; }
+        swipe.chargeRAF = requestAnimationFrame(chargeTick);
+    }
+
     let swipe = null;
     function beginCard(card, item) {
         swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0,
@@ -1196,6 +1236,8 @@
         swipe.sx = t.clientX; swipe.sy = t.clientY; swipe.dragging = true;
         swipe.lastX = t.clientX; swipe.lastT = performance.now(); swipe.vx = 0;
         swipe.card.style.transition = 'none';
+        swipe.charge = 0; swipe.lastMoveT = performance.now(); swipe.lastTick = 0;
+        swipe.chargeRAF = requestAnimationFrame(chargeTick);
     }
     function paintSwipe() {
         swipe.raf = 0;
@@ -1219,35 +1261,46 @@
                 swipe.gfill.style.width = (clamp01(ax / SWIPE_THRESHOLD) * 50) + '%';
             }
         }
+        setWash(verticalLean ? 0 : (dx > 0 ? 1 : dx < 0 ? -1 : 0), verticalLean ? 0 : clamp01(ax / SWIPE_THRESHOLD) * 0.9);
     }
     function onMove(e) {
         if (!swipe || !swipe.dragging) return;
         const t = e.touches ? e.touches[0] : e;
-        swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        const ndx = t.clientX - swipe.sx, ndy = t.clientY - swipe.sy;
+        if (Math.abs(ndx - swipe.dx) > 3 || Math.abs(ndy - swipe.dy) > 3) swipe.lastMoveT = performance.now();   // a real move resets the hold timer
+        swipe.dx = ndx; swipe.dy = ndy;
         const now = performance.now(), ndt = now - swipe.lastT;
         if (ndt > 0) { swipe.vx = (t.clientX - swipe.lastX) / ndt; swipe.lastX = t.clientX; swipe.lastT = now; }
         if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
     }
     function bounceBack() {
         if (!swipe) return;
+        stopCharge();
         swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
         swipe.card.style.transform = 'translate(0,0)';
         if (swipe.stampG) swipe.stampG.style.opacity = 0;
         if (swipe.stampP) swipe.stampP.style.opacity = 0;
         if (swipe.gfill) swipe.gfill.style.width = '0';
+        if (bgwash) bgwash.style.opacity = 0;
         setSide('none', 0);
     }
     const FLICK = 0.6;                                          // px/ms — a fast flick commits below the distance threshold
     function onUp() {
         if (!swipe || !swipe.dragging) return;
         swipe.dragging = false;
+        if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
         const dx = swipe.dx, dy = swipe.dy;
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
             if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
+            return;
         }
-        else if (dx > SWIPE_COMMIT || swipe.vx > FLICK) flySwipe('gooey', null, swipeSigned('gooey'));
-        else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly', null, swipeSigned('prickly'));
-        else bounceBack();
+        // No snap-back: any real lean (past the dead zone) or a flick commits at that lean.
+        const ax = Math.abs(dx);
+        if (ax > DEAD || swipe.vx > FLICK || swipe.vx < -FLICK) {
+            const verdict = swipe.vx > FLICK ? 'gooey' : swipe.vx < -FLICK ? 'prickly' : (dx > 0 ? 'gooey' : 'prickly');
+            stopCharge();
+            flySwipe(verdict, null, swipeSigned(verdict));
+        } else bounceBack();
     }
     // how far/hard you pushed → signed intensity (-100..100), sign set by the verdict
     function swipeSigned(verdict) {
@@ -1266,9 +1319,11 @@
     function flySwipe(verdict, dir, signed) {
         if (!swipe || swipe.done) return;
         swipe.done = true; swipe.dragging = false;
+        if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
         const item = swipe.item, card = swipe.card, categoryId = swipe.categoryId;
-        if (verdict === 'gooey') { setSide('goo', 1); popBurst(card, 'gooey'); }
-        else if (verdict === 'prickly') { setSide('prk', 1); popBurst(card, 'prickly'); }
+        card.style.scale = 1; card.style.boxShadow = '';                       // drop the claim transform before flight
+        if (verdict === 'gooey') { setSide('goo', 1); setWash(1, 0.92); popBurst(card, 'gooey'); }
+        else if (verdict === 'prickly') { setSide('prk', 1); setWash(-1, 0.92); popBurst(card, 'prickly'); }
         else setSide('none', 0);
         card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
@@ -1686,6 +1741,7 @@
     }
     function showReveal(item, verdict, categoryId) {
         setSide('none', 0);
+        if (bgwash) bgwash.style.opacity = 0;
         const goo = verdict === 'gooey';
         const total = item.gooey + item.prickly;
         const mine = goo ? item.gooey : item.prickly;
