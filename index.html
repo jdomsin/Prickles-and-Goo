@@ -801,7 +801,7 @@
                 const yx = place(d.r.userPos), x1 = Math.min(d.x, yx), x2 = Math.max(d.x, yx);
                 html += '<div class="sp-conn" style="left:' + x1 + '%;width:' + (x2 - x1) + '%;top:' + y + 'px"></div>';
             }
-            html += '<div class="sp-dot" style="left:' + d.x + '%;top:' + y + 'px"><span class="sp-bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></span><span class="sp-lbl ' + lbl + '">' + escapeHtml(d.r.name) + ' · ' + d.r.gp + '%</span></div>';
+            html += '<div class="sp-dot" style="left:' + d.x + '%;top:' + y + 'px"><span class="sp-bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></span><span class="sp-lbl ' + lbl + '">' + escapeHtml(d.r.name) + ' · ' + Math.round(px(d.r)) + '% gooey</span></div>';
             if (d.r.userPos != null) html += '<div class="sp-you" style="left:' + place(d.r.userPos) + '%;top:' + y + 'px"><span class="sp-tick">you</span><span class="sp-mk"></span></div>';
         });
         host.innerHTML = html;
@@ -1785,9 +1785,11 @@
         else update.skipped = inc(1);
 
         // Intensity (additive migration): record the lean's magnitude, sign = verdict.
-        // Buttons/keys with no captured lean default to full conviction (±100). Skips carry none.
-        if (verdict !== 'skip') {
-            const mag = Math.max(8, Math.min(100, Math.round(Math.abs(typeof signed === 'number' ? signed : 100))));
+        // Only SWIPE votes carry a real lean (signed). Button/keyboard votes don't —
+        // recording them as ±100 would skew the distribution by input method, so they
+        // stay verdict-only. Skips carry none.
+        if (verdict !== 'skip' && typeof signed === 'number') {
+            const mag = Math.max(8, Math.min(100, Math.round(Math.abs(signed))));
             const s = verdict === 'gooey' ? mag : -mag;
             update.iVotes = inc(1); update.iSum = inc(s); update.iSumSq = inc(s * s);
             item.iVotes = (item.iVotes || 0) + 1; item.iSum = (item.iSum || 0) + s; item.iSumSq = (item.iSumSq || 0) + s * s;
