@@ -509,7 +509,7 @@
         <!-- VIEW: VOTE -->
         <section id="vote-view">
             <p class="kicker" id="vote-kicker">Tech Companies</p>
-            <h1 class="prompt">Prickly or gooey?</h1>
+            <h1 class="prompt" id="vote-prompt">Prickly or gooey?</h1>
             <p class="sub" id="vote-sub"><b>Prickly</b> is sharp and exact. <b>Gooey</b> is soft and warm.<span class="instr"> Swipe left or right — flick up to pass.</span></p>
             <div class="category-bar" id="vote-category-bar"></div>
             <select class="category-select" id="vote-category-select" aria-label="Choose a category"></select>
@@ -578,7 +578,7 @@
     const RESULTS_EVERY = 5;             // surface the interim top-5 every N swipes
     const TOP_N = 5;                     // how many to show in the interim panel
     const RANK_MIN_VOTES = 5;            // an item needs this many gooey+prickly votes to be ranked
-    const SWIPE_THRESHOLD = 150;         // px drag that maps to full effect intensity
+    const SWIPE_THRESHOLD = 95;          // px drag that maps to full effect intensity — short, so a slight lean already reads
     const SWIPE_COMMIT = 110;            // px past which release commits the vote
     const MAX_PASSES = 5;                // most passes that can be banked
     const START_PASSES = 2;              // passes a new visitor begins with
@@ -995,40 +995,16 @@
             (predictBest ? ' · best ' + predictBest : '') + '</span>';
     }
     function predictNext() {
+        window.advanceReveal = null;
         setSide('none', 0);
         if (predictPos >= predictDeck.length) { showPredictDone(); return; }
-        renderPredictCard(predictDeck[predictPos]);
+        renderCard(predictDeck[predictPos]);           // same swipe card as voting — you just read the crowd instead
     }
-    function renderPredictCard(item) {
-        setSide('none', 0);
-        arena.innerHTML = '';
-        const itemCat = item.categoryId || currentCategoryId;
-        const isGlyph = IMAGE_KIND[itemCat] === 'glyph';
-        const wrap = document.createElement('div');
-        wrap.className = 'swipe-wrap';
-        wrap.innerHTML =
-            '<div class="swipe-card predict-card">' +
-                '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' +
-                '<div class="card-media" id="cardMedia"></div>' +
-                (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
-                '<span class="meta">how gooey did the crowd find it?</span>' +
-            '</div>';
-        arena.appendChild(wrap);
-        buildCardMedia(wrap.querySelector('#cardMedia'), item);
-
-        const panel = document.createElement('div');
-        panel.className = 'predict-panel';
-        panel.innerHTML =
-            '<div class="predict-val"><span id="pVal">50</span><span class="u">% gooey</span></div>' +
-            '<input type="range" min="0" max="100" value="50" class="predict-slider" id="pSlider" aria-label="Your guess">' +
-            '<button class="btn btn-primary" id="pLock">Lock in</button>';
-        arena.appendChild(panel);
-        const slider = panel.querySelector('#pSlider'), val = panel.querySelector('#pVal');
-        const paint = () => { val.textContent = slider.value; slider.style.setProperty('--fill', slider.value + '%'); };
-        slider.oninput = paint; paint();
-        panel.querySelector('#pLock').onclick = () => lockPredict(item, parseInt(slider.value, 10));
-    }
-    function lockPredict(item, guess) {
+    // Your swipe IS the guess: direction = which way you think the crowd leaned,
+    // strength = how far. Signed -100..100 maps to a gooey-% read.
+    function scorePredict(item, verdict, signed) {
+        if (typeof signed !== 'number') signed = verdict === 'gooey' ? 50 : -50;   // button/keyboard read → a moderate call
+        const guess = Math.max(0, Math.min(100, Math.round(50 + signed / 2)));
         const total = item.gooey + item.prickly;
         const actual = Math.round((item.gooey / total) * 100);
         const delta = Math.abs(guess - actual);
@@ -1056,6 +1032,7 @@
         const g = wrap.querySelector('.g'), p = wrap.querySelector('.p');
         requestAnimationFrame(() => { g.style.width = actual + '%'; p.style.width = (100 - actual) + '%'; });
         wrap.querySelector('#pNext').onclick = predictNext;
+        window.advanceReveal = predictNext;                 // Enter/Space/arrow advances, same as the vote reveal
     }
     function showPredictDone() {
         setSide('none', 0); arena.innerHTML = '';
@@ -1259,15 +1236,25 @@
         renderCard(currentItem);
     }
 
+    function setVotePrompt() {                          // header copy follows the mode (predict reads the crowd, not yourself)
+        const ph = document.getElementById('vote-prompt'), vsub = document.getElementById('vote-sub');
+        if (predictMode) {
+            if (ph) ph.textContent = 'Read the crowd';
+            if (vsub) { vsub.innerHTML = 'Swipe the way you think <b>the crowd</b> leaned — a harder swipe is a bolder call.'; vsub.style.display = ''; }
+        } else {
+            if (ph) ph.textContent = 'Prickly or gooey?';
+            if (vsub) { vsub.innerHTML = '<b>Prickly</b> is sharp and exact. <b>Gooey</b> is soft and warm.<span class="instr"> Swipe left or right — flick up to pass.</span>'; vsub.style.display = introSeen() ? 'none' : ''; }
+        }
+    }
     function renderCard(item) {
         arena.innerHTML = '';
         if (bgwash) bgwash.style.opacity = 0;          // clear the lean wash for the new card
-        const vsub = document.getElementById('vote-sub'); if (vsub) vsub.style.display = introSeen() ? 'none' : '';   // instruction only for first-timers
+        setVotePrompt();
         const wrap = document.createElement('div');
         wrap.className = 'swipe-wrap';
         const itemCat = item.categoryId || currentCategoryId;
         const isGlyph = IMAGE_KIND[itemCat] === 'glyph';   // letter lives on the plate
-        const mixed = currentCategoryId === RANDOM_ID || dailyMode;   // cross-category decks show each card's category
+        const mixed = currentCategoryId === RANDOM_ID || dailyMode || predictMode;   // cross-category decks show each card's category
         const badge = mixed ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         wrap.innerHTML =
             '<div class="peek-card"></div>' +
@@ -1276,7 +1263,7 @@
                 '<span class="stamp goo">Gooey</span><span class="stamp prk">Prickly</span>' +
                 '<div class="card-media" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
-                '<span class="meta">swipe, or tap below</span>' +
+                '<span class="meta">' + (predictMode ? 'which way did the crowd lean?' : 'swipe, or tap below') + '</span>' +
             '</div>';
         arena.appendChild(wrap);
         buildCardMedia(wrap.querySelector('#cardMedia'), item);
@@ -1292,11 +1279,22 @@
 
         const hint = document.createElement('div');
         hint.className = 'swipe-hint';
-        hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
+        hint.innerHTML = predictMode
+            ? '<span class="l">← Prickly</span><span class="m">your read</span><span class="r">Gooey →</span>'
+            : '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
         arena.appendChild(hint);
 
         const buttons = document.createElement('div');
         buttons.className = 'swipe-buttons';
+        if (predictMode) {                                 // predict is a binary read — no pass
+            buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-goo">Gooey</button>';
+            arena.appendChild(buttons);
+            beginCard(wrap.querySelector('#sc'), item);
+            if (swipe) swipe.gfill = gauge.querySelector('.lg-fill');
+            buttons.children[0].onclick = () => flySwipe('prickly');
+            buttons.children[1].onclick = () => flySwipe('gooey');
+            return;
+        }
         buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button><button class="btn btn-goo">Gooey</button>';
         arena.appendChild(buttons);
 
@@ -1454,7 +1452,7 @@
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
         const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
         card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
-        setTimeout(() => onboarding ? onboardDone(verdict) : commitVote(item, verdict, categoryId, signed), 460);
+        setTimeout(() => onboarding ? onboardDone(verdict) : predictMode ? scorePredict(item, verdict, signed) : commitVote(item, verdict, categoryId, signed), 460);
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -1463,7 +1461,7 @@
 
     /* ----- keyboard voting (matches the printed ← Prickly / Gooey → hints) ----- */
     window.keyboardVote = function (e) {
-        if (activeAsk || predictMode) return;              // predict uses a slider, not swipe keys
+        if (activeAsk) return;
         if (views.vote.classList.contains('hidden')) return;
         if (e.target && /^(input|textarea|select)$/i.test(e.target.tagName)) return;
         if (window.advanceReveal && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp')) {
@@ -1513,6 +1511,7 @@
     function spendPass() { passes = Math.max(0, passes - 1); savePassState(); renderPassMeter(); }
     function denyPass() { passMeter.classList.remove('deny'); void passMeter.offsetWidth; passMeter.classList.add('deny'); }
     function attemptPass(dir) {                 // returns true if a pass was actually spent
+        if (predictMode) return false;          // no passing inside a guess round
         if (!swipe || swipe.done) return false;
         if (passes > 0) { spendPass(); flySwipe('skip', dir); return true; }
         denyPass(); return false;
