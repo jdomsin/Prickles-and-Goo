@@ -260,7 +260,10 @@
     .result h3, .results-head { font-family:var(--serif); font-weight:700; color:var(--ink-soft); }
     .result h3 { font-size:1.1rem; margin:0 0 22px; }
     .results-head { font-size:1rem; margin:0 0 6px; }
-    .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 26px; }
+    .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 14px; }
+    .results-count { font-size:.82rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; margin:0 0 22px; }
+    .results-count b { color:var(--ink); font-weight:700; }
+    .results-count .dim { opacity:.6; }
     .row { margin-bottom:22px; text-align:left; }
     .row.row-in { animation:rowin .5s cubic-bezier(.2,.7,.2,1) both; animation-delay:var(--d,0ms); }
     @keyframes rowin { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
@@ -611,7 +614,11 @@
         { id: "ai_models",         label: "AI Models" },
         { id: "languages",         label: "Programming Languages" },
         { id: "social",            label: "Social Platforms" },
-        { id: "alphabet",          label: "The Alphabet" }
+        { id: "alphabet",          label: "The Alphabet" },
+        { id: "emotions",          label: "Emotions & States" },
+        { id: "internet_objects",  label: "Internet Objects" },
+        { id: "animals",           label: "Animals" },
+        { id: "moments",           label: "Moments & Times" }
     ];
     const RANDOM_ID = "random";
     const DAILY_ID = "daily";
@@ -629,7 +636,7 @@
     function weekNo() { return Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / (7 * 86400000)); }
     function activeWeekly() { return WEEKLY[((weekNo() % WEEKLY.length) + WEEKLY.length) % WEEKLY.length]; }
     function isWeeklyId(id) { return WEEKLY.some(t => t.id === id); }
-    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter" };
+    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter", emotions: "Emotion", internet_objects: "Internet", animals: "Animal", moments: "Moment" };
     let dailyMode = false, dailyDeck = [], dailyResults = [];
     let weeklyMode = false, weeklyDeck = [], weeklyResults = [], weeklyLabel = '';
     let predictMode = false, predictDeck = [], predictPos = 0, predictScore = 0, predictStreak = 0, predictBest = 0;
@@ -2032,7 +2039,7 @@
         const kind = IMAGE_KIND[itemCat];
         const hasAvatar = kind === 'logo' || kind === 'face' || kind === 'art';   // glyph letters would duplicate the name
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
-        const tag = currentCategoryId === RANDOM_ID ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
+        const tag = (currentCategoryId === RANDOM_ID || currentCategoryId === DAILY_ID) ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         const mine = priorVerdict(itemCat, item.id);   // mark where *you* stand
         const youChip = (mine === 'gooey' || mine === 'prickly') ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
@@ -2077,9 +2084,9 @@
     }
 
     /* ===== 11. FULL RESULTS ===== */
-    // Daily/Predict have no standings of their own — selecting them on Results just goes and plays them.
+    // Predict is a scoring game with no standings — it routes to play. Everything else (incl.
+    // Daily Ballot = today's deck) shows results right here, sorted like any other set.
     function openResultsCategory(id) {
-        if (id === DAILY_ID) { showView('vote'); loadDaily(); return; }
         if (id === PREDICT_ID) { showView('vote'); loadPredict(); return; }
         currentCategoryId = (id === WEEKLY_ID) ? activeWeekly().id : id;
         loadResults();
@@ -2088,7 +2095,7 @@
     function renderCategoryBar() {
         categoryBar.innerHTML = '';
         resultsCategorySelect.innerHTML = '';
-        if (currentCategoryId === DAILY_ID || currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;   // landed here mid-play → show All
+        if (currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;   // predict has no standings → land on All
         const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
         const ogCats = document.createElement('optgroup'); ogCats.label = 'Other Sets';
         const dd = document.createElement('select'); dd.className = 'cat-dropdown'; dd.setAttribute('aria-label', 'Other Sets');
@@ -2128,10 +2135,14 @@
         const share = i => { const t = i.gooey + i.prickly; return t ? i.gooey / t : 0; };
         if (mode === 'voted') return arr.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly));
         if (mode === 'divisive') {
-            const qual = arr.filter(i => (i.gooey + i.prickly) >= 4);
-            // prefer real divisiveness (intensity variance) once every item has enough intensity votes
-            const useVar = qual.length > 0 && qual.every(i => i.iVotes >= 4);
-            return qual.slice().sort((a, b) => useVar ? (intensityStd(b) - intensityStd(a)) : (Math.abs(share(a) - .5) - Math.abs(share(b) - .5)));
+            // Rank by how split the crowd is, weighted by how much we've heard — so a near-50/50
+            // leads, a unanimous item (0% or 100%) sinks to the bottom, and a 2-vote coin-flip
+            // can't outrank a well-voted contested one. Every voted item shows (no hard cutoff).
+            const conf = i => Math.min(1, (i.gooey + i.prickly) / 8);          // confidence ramps to full by ~8 votes
+            const split = i => 1 - 2 * Math.abs(share(i) - 0.5);               // 1 at 50/50, 0 at unanimous
+            const useVar = arr.length > 0 && arr.every(i => i.iVotes >= 4);    // real divisiveness once intensity is dense
+            const score = i => (useVar ? Math.min(1, intensityStd(i) / 50) : split(i)) * conf(i);
+            return arr.slice().sort((a, b) => score(b) - score(a));
         }
         if (mode === 'prickly') return arr.slice().sort((a, b) => share(a) - share(b));
         return arr.slice().sort((a, b) => share(b) - share(a));
@@ -2144,10 +2155,18 @@
             '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         try {
             const random = currentCategoryId === RANDOM_ID;
-            const all = random ? await fetchAllItems()
-                               : (await db.collection('categories').doc(currentCategoryId).collection('items').get())
-                                   .docs.map(normalize).filter(i => i.named);
-            if (!random) all.forEach(i => i.categoryId = currentCategoryId);
+            const daily = currentCategoryId === DAILY_ID;
+            let all;
+            if (daily) {                                       // today's ballot, ranked like any set (same deterministic deck as play)
+                const pool = await fetchAllItems();
+                all = seededDeck(pool, Math.min(DAILY_SIZE, pool.length), hashStr(todayStr()));
+            } else if (random) {
+                all = await fetchAllItems();
+            } else {
+                all = (await db.collection('categories').doc(currentCategoryId).collection('items').get())
+                        .docs.map(normalize).filter(i => i.named);
+                all.forEach(i => i.categoryId = currentCategoryId);
+            }
             paintResults(all, highlight);
         } catch (err) {
             console.error("Failed to load results:", err);
@@ -2158,6 +2177,7 @@
     // Render (and re-sort) from already-fetched items — sort chips no longer refetch.
     function paintResults(all, highlight) {
         const random = currentCategoryId === RANDOM_ID;
+        const mixed = random || currentCategoryId === DAILY_ID;     // cross-category sets show per-item badges
         const voted = all.filter(i => (i.gooey + i.prickly) > 0);
         const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
         const rows = sortVoted(voted, resultsSort);
@@ -2167,8 +2187,12 @@
                 prickly: (random ? 'Every list, mixed — ' : '') + 'ranked from most prickly to most gooey.',
                 voted: 'The most-judged so far.'
             };
+            // set size + coverage, up front — never buried
+            const setN = all.length, votedN = voted.length;
+            const count = setN ? '<p class="results-count"><b>' + setN + '</b> in this set · <b>' + votedN + '</b> with votes' +
+                (setN - votedN > 0 ? ' · <span class="dim">' + (setN - votedN) + ' not yet</span>' : '') + '</p>' : '';
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
-                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>';
+                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count;
 
             const sortBar = document.createElement('div');
             sortBar.className = 'sort-bar';
@@ -2212,7 +2236,7 @@
                 const cta = document.createElement('button');
                 cta.className = 'cold-cta';
                 cta.innerHTML = '<b>' + unvoted.length + '</b> awaiting their first vote — be the judge →';
-                cta.onclick = () => { showView('vote'); if (currentCategoryId === RANDOM_ID) loadRandom(); else loadCategory(currentCategoryId); };
+                cta.onclick = () => { showView('vote'); openCategory(currentCategoryId); };
                 resultsList.appendChild(cta);
             }
     }
