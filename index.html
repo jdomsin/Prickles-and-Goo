@@ -217,6 +217,13 @@
     .swipe-hint { display:flex; justify-content:center; align-items:center; gap:18px; width:min(460px,94vw); margin:18px auto 0; position:relative; z-index:10; }
     .swipe-hint span { font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
     .swipe-hint .l { color:var(--prickly); } .swipe-hint .r { color:var(--gooey); } .swipe-hint .m { color:var(--ink-soft); }
+    /* live lean gauge — fills outward from the centre the moment you start to drag,
+       so even a small move reads as "a little prickly / a little gooey". */
+    .lean-gauge { position:relative; width:min(300px,72vw); height:7px; margin:14px auto 0; border-radius:999px;
+        background:var(--hairline); overflow:hidden; z-index:10; }
+    .lean-gauge::after { content:""; position:absolute; left:50%; top:-2px; bottom:-2px; width:2px;
+        background:var(--ink-soft); opacity:.45; transform:translateX(-1px); }
+    .lg-fill { position:absolute; top:0; bottom:0; width:0; transition:width .04s linear, background .1s; }
     .swipe-buttons { display:flex; gap:12px; justify-content:center; margin-top:26px; flex-wrap:wrap; position:relative; z-index:10; }
     .btn.dim { opacity:.4; }
 
@@ -1125,6 +1132,11 @@
         arena.appendChild(wrap);
         buildCardMedia(wrap.querySelector('#cardMedia'), item);
 
+        const gauge = document.createElement('div');
+        gauge.className = 'lean-gauge';
+        gauge.innerHTML = '<span class="lg-fill"></span>';
+        arena.appendChild(gauge);
+
         const hint = document.createElement('div');
         hint.className = 'swipe-hint';
         hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
@@ -1136,6 +1148,7 @@
         arena.appendChild(buttons);
 
         beginCard(wrap.querySelector('#sc'), item);
+        if (swipe) swipe.gfill = gauge.querySelector('.lg-fill');
         buttons.children[0].onclick = () => flySwipe('prickly');
         buttons.children[1].onclick = () => attemptPass('up');
         buttons.children[2].onclick = () => flySwipe('gooey');
@@ -1164,10 +1177,20 @@
         const verticalLean = ay > ax && ay > 28;
         if (verticalLean) setSide('none', 0);                   // leaning to pass (up/down): lift only
         else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
-        // verdict stamp fades in past ~a third of the way, so the call is legible before release
-        const sp = clamp01((ax - SWIPE_THRESHOLD * 0.32) / (SWIPE_THRESHOLD * 0.5));
+        // verdict stamp fades in from the first pixel (no dead zone), so direction reads immediately
+        const sp = clamp01(ax / (SWIPE_THRESHOLD * 0.55));
         if (swipe.stampG) swipe.stampG.style.opacity = (!verticalLean && dx > 0) ? sp : 0;
         if (swipe.stampP) swipe.stampP.style.opacity = (!verticalLean && dx < 0) ? sp : 0;
+        // live lean gauge: fills outward from centre toward the side you're leaning
+        if (swipe.gfill) {
+            if (verticalLean || dx === 0) { swipe.gfill.style.width = '0'; }
+            else {
+                const goo = dx > 0;
+                swipe.gfill.style.left = goo ? '50%' : ''; swipe.gfill.style.right = goo ? '' : '50%';
+                swipe.gfill.style.background = goo ? 'var(--gooey)' : 'var(--prickly)';
+                swipe.gfill.style.width = (clamp01(ax / SWIPE_THRESHOLD) * 50) + '%';
+            }
+        }
     }
     function onMove(e) {
         if (!swipe || !swipe.dragging) return;
@@ -1183,6 +1206,7 @@
         swipe.card.style.transform = 'translate(0,0)';
         if (swipe.stampG) swipe.stampG.style.opacity = 0;
         if (swipe.stampP) swipe.stampP.style.opacity = 0;
+        if (swipe.gfill) swipe.gfill.style.width = '0';
         setSide('none', 0);
     }
     const FLICK = 0.6;                                          // px/ms — a fast flick commits below the distance threshold
@@ -1810,7 +1834,16 @@
                 e.textContent = resultsSort === 'divisive' ? 'Nothing contested enough yet — keep voting.' : 'No votes here yet. Be the first to judge.';
                 resultsList.appendChild(e);
             }
-            rows.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat); if (idx < 12) attachReasons(r, it, cat); });
+            // Reasons are lazy: fetch a row's "why" only when it scrolls into view, so
+            // opening Results no longer fires ~24 Firestore reads up front.
+            const io = ('IntersectionObserver' in window) ? new IntersectionObserver((ents, ob) => {
+                ents.forEach(en => { if (en.isIntersecting) { ob.unobserve(en.target); attachReasons(en.target, en.target.__it, en.target.__cat); } });
+            }, { rootMargin: '250px' }) : null;
+            rows.forEach((it) => {
+                const r = resultRow(it); resultsList.appendChild(r);
+                const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat);
+                if (io) { r.__it = it; r.__cat = cat; io.observe(r); } else { attachReasons(r, it, cat); }
+            });
 
             if (highlight) {     // deep-linked item: scroll to it and flash
                 const target = resultsList.querySelector('.row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(highlight) : highlight) + '"]');
