@@ -261,11 +261,16 @@
     .result h3 { font-size:1.1rem; margin:0 0 22px; }
     .results-head { font-size:1rem; margin:0 0 6px; }
     .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 26px; }
-    .row { margin-bottom:20px; text-align:left; }
-    .row .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px; }
+    .row { margin-bottom:22px; text-align:left; }
+    .row.reveal { animation:rowin .5s cubic-bezier(.2,.7,.2,1) both; animation-delay:var(--d,0ms); }
+    @keyframes rowin { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion: reduce) { .row.reveal { animation:none; } }
+    .row .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:8px; }
     .row .nm-wrap { display:flex; align-items:center; gap:10px; min-width:0; }
     .row .nm { font-family:var(--serif); font-size:1.2rem; }
     .row .pct { font-variant-numeric:tabular-nums; font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
+    .row .pct b { font-weight:700; font-size:.98rem; color:var(--ink); }   /* the gooey% is the hero number */
+    .row .pct .dim { opacity:.62; }
     .row .pct .low { color:var(--ink-soft); font-style:italic; font-weight:400; }
     /* results: sort chips, "you" marker, cold-start CTA */
     .sort-bar { display:flex; gap:6px; flex-wrap:wrap; margin:2px 0 14px; }
@@ -361,7 +366,7 @@
     @keyframes sk { 0%{background-position:100% 0} 100%{background-position:0 0} }
     @media (prefers-reduced-motion: reduce) { .sk-line { animation:none; } }
     .row .pct.muted { font-style:italic; opacity:.75; }
-    .bar { display:flex; height:12px; border-radius:999px; overflow:hidden; background:var(--hairline); }
+    .bar { display:flex; height:8px; border-radius:999px; overflow:hidden; background:var(--hairline); }
     .bar .g { background:var(--gooey); } .bar .p { background:var(--prickly); }
     .bar .g, .bar .p { transition:width .6s cubic-bezier(.2,.7,.2,1); }
     .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; }
@@ -958,7 +963,7 @@
             ? '<p class="recap-line">You sided with the crowd on <b>' + aligned + ' of ' + real.length + '</b> calls.</p>'
             : '<p class="recap-line">No calls logged today.</p>';
         if (bold) html += '<p class="recap-bold">Boldest call: you said <b>' + bold.verdict + '</b> on <b>' + escapeHtml(bold.name) + '</b> — ' + bold.crowd + '% went gooey.</p>';
-        html += '<div class="recap-glyphs" title="🟩 with the crowd · 🟧 against the grain · ⬜ skipped">' + dailyGlyphRow() + '</div>';
+        html += '<div class="recap-glyphs" title="🟣 prickly · 🔵 gooey · ⚪ skipped">' + dailyGlyphRow() + '</div>';
         wrap.innerHTML = html;
         const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
         const share = document.createElement('button'); share.className = 'btn btn-primary'; share.textContent = 'Share my ballot';
@@ -975,8 +980,7 @@
     }
     function shareDaily(aligned, total, bold) {
         const n = editionNo();
-        let txt = 'Prickles & Goo — Ballot No. ' + n + ': I sided with the crowd on ' + aligned + '/' + total + ' calls.';
-        if (bold) txt += ' Boldest: ' + bold.verdict + ' on ' + bold.name + '.';
+        const txt = dailyShareBody();                          // the brand bead-row + texture mix (same as Copy)
         const b = bold ? '&b=' + encodeURIComponent(bold.verdict + ' on ' + bold.name) : '';
         const url = location.origin + '/ballot/' + n + '?a=' + aligned + '&t=' + total + b;
         const imgUrl = location.origin + '/og?v=daily&n=' + n + '&a=' + aligned + '&t=' + total + b;
@@ -1795,21 +1799,24 @@
             showToast('Press and hold to copy');
         }
     }
-    /* Wordle-style, spoiler-free: a glyph row encoding the SHAPE of your calls
-       (with the crowd / against it / skipped) — never which way you voted or on what. */
+    /* Your texture fingerprint: each call as a brand bead — 🟣 prickly, 🔵 gooey, ⚪ skipped.
+       Reads as Prickles & Goo, not a Wordle grid; the crowd stat rides alongside as text. */
     function dailyGlyphRow() {
         return dailyResults.map(r =>
-            (r.verdict === 'skip' || r.crowd == null) ? '⬜'
-                : (((r.crowd >= 50) === (r.verdict === 'gooey')) ? '🟩' : '🟧')
+            r.verdict === 'skip' ? '⚪' : (r.verdict === 'gooey' ? '🔵' : '🟣')
         ).join('');
     }
-    function dailyResultString() {
+    function dailyShareBody() {
         const n = editionNo();
         const real = dailyResults.filter(r => r.verdict !== 'skip' && r.crowd != null);
         const aligned = real.filter(r => (r.crowd >= 50) === (r.verdict === 'gooey')).length;
-        const score = real.length ? aligned + '/' + real.length + ' with the crowd' : 'no calls logged';
-        return 'Prickles & Goo · No. ' + n + '\n' + dailyGlyphRow() + '\n' + score + '\n' + location.origin + '/ballot/' + n;
+        const goo = dailyResults.filter(r => r.verdict === 'gooey').length;
+        const prk = dailyResults.filter(r => r.verdict === 'prickly').length;
+        const mix = (goo || prk) ? goo + ' gooey · ' + prk + ' prickly' : 'all skipped';
+        const score = real.length ? ' · ' + aligned + '/' + real.length + ' with the crowd' : '';
+        return 'Prickles & Goo · No. ' + n + '\n' + dailyGlyphRow() + '\n' + mix + score;
     }
+    function dailyResultString() { return dailyShareBody() + '\n' + location.origin + '/ballot/' + editionNo(); }
     function introSeen() { try { return localStorage.getItem('pg-intro') === '1'; } catch (e) { return false; } }
     function markIntroSeen() { try { localStorage.setItem('pg-intro', '1'); } catch (e) {} }
     function showIntro() {
@@ -2021,7 +2028,6 @@
         const row = document.createElement('div');
         row.className = 'row';
         row.dataset.id = item.id;
-        const lowTag = s.low ? ' · <span class="low">few votes</span>' : '';
         const itemCat = item.categoryId || currentCategoryId;
         const kind = IMAGE_KIND[itemCat];
         const hasAvatar = kind === 'logo' || kind === 'face' || kind === 'art';   // glyph letters would duplicate the name
@@ -2031,8 +2037,9 @@
         const youChip = (mine === 'gooey' || mine === 'prickly') ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
         const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
+        const tail = s.low ? '<span class="low"> · few votes</span>' : '<span class="dim"> · ' + votes + '</span>';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
-                          : '<span class="pct">' + s.gp + '% gooey · ' + s.pp + '% prickly · ' + votes + lowTag + '</span>';
+                          : '<span class="pct"><b>' + s.gp + '%</b> gooey' + tail + '</span>';   // gooey% is the hero; bar carries the prickly split
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
             pct + '</div>' +
@@ -2141,17 +2148,6 @@
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
                 '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>';
 
-            // Every category reads as a spectrum: items on the prickly→gooey axis, your calls overlaid.
-            if (voted.length) {
-                const cat0 = currentCategoryId;
-                const specSource = voted.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly)).slice(0, 24);
-                const specRows = specSource.map(it => { const ul = userLean(it.categoryId || cat0, it.id); return { name: it.name, gp: stats(it).gp, pos: crowdPos(it), userPos: ul ? ul.pos : null, userExact: ul ? ul.exact : true }; });
-                const sw = document.createElement('div');
-                sw.innerHTML = '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div><div class="spectrum" id="resSpectrum"></div><p class="results-sub" style="margin:2px 0 14px;font-size:.8rem">Dots = the crowd · ◆ = your call (hollow = a side call, no strength).</p>';
-                resultsList.appendChild(sw);
-                renderSpectrum(sw.querySelector('#resSpectrum'), specRows);
-            }
-
             const sortBar = document.createElement('div');
             sortBar.className = 'sort-bar';
             SORTS.forEach(([v, label]) => {
@@ -2179,8 +2175,9 @@
             const io = ('IntersectionObserver' in window) ? new IntersectionObserver((ents, ob) => {
                 ents.forEach(en => { if (en.isIntersecting) { ob.unobserve(en.target); attachReasons(en.target, en.target.__it, en.target.__cat); } });
             }, { rootMargin: '250px' }) : null;
-            rows.forEach((it) => {
-                const r = resultRow(it); resultsList.appendChild(r);
+            rows.forEach((it, idx) => {
+                const r = resultRow(it); r.classList.add('reveal'); r.style.setProperty('--d', Math.min(idx, 14) * 35 + 'ms');   // gentle staggered entrance
+                resultsList.appendChild(r);
                 const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat);
                 if (io) { r.__it = it; r.__cat = cat; io.observe(r); } else { attachReasons(r, it, cat); }
             });
