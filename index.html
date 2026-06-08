@@ -96,6 +96,8 @@
     .card .meta { font-size:.8rem; color:var(--ink-soft); }
 
     /* ---------- Swipe arena ---------- */
+    /* reserve the card+controls height so the post-vote reveal lands in the same spot — no upward jump */
+    .arena { min-height:476px; display:flex; flex-direction:column; justify-content:center; }
     .swipe-wrap { position:relative; height:340px; display:grid; place-items:center; z-index:10; }
     .swipe-card {
         position:relative; z-index:10; overflow:hidden;
@@ -133,6 +135,8 @@
 
     /* ---------- Card media (Wikimedia-unified imagery) ---------- */
     .card-media { position:relative; z-index:1; width:96px; height:96px; margin:0 auto 2px; display:grid; place-items:center; }
+    .card-media.lg { width:150px; height:150px; }                                  /* photo sets (animals) read better big */
+    .card-media.lg .card-art, .card-media.lg .card-mono { width:150px; height:150px; }
     .card-plate { width:96px; height:96px; background:#fff; border-radius:20px; padding:14px; display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
     .card-plate img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
     .logo-fill { width:96px; height:96px; border-radius:20px; overflow:hidden; display:grid; place-items:center; background:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
@@ -497,6 +501,7 @@
         h1.prompt { font-size:1.9rem; margin-bottom:5px; }
         .sub { font-size:.92rem; margin-bottom:16px; }
         .sub .instr { display:none; }            /* keep the definition; the hint row covers the swipe */
+        .arena { min-height:380px; }             /* shorter card stack on phones */
         .swipe-wrap { height:248px; }
         .swipe-hint { margin-top:12px; }
         .swipe-buttons { margin-top:16px; }
@@ -1311,7 +1316,7 @@
             '<div class="swipe-card" id="sc">' +
                 badge +
                 '<span class="stamp goo">Gooey</span><span class="stamp prk">Prickly</span>' +
-                '<div class="card-media" id="cardMedia"></div>' +
+                '<div class="card-media' + (NAME_AS_WIKI.has(itemCat) ? ' lg' : '') + '" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
                 '<span class="meta">' + (predictMode ? 'which way did the crowd lean?' : 'swipe, or tap below') + '</span>' +
             '</div>';
@@ -2030,13 +2035,9 @@
     /* Show the interim top-5 only on the cadence AND once a full top-5 worth
        of items has crossed the vote threshold; otherwise keep swiping. */
     function maybeShowResults() {
-        if (dailyMode || weeklyMode) return nextCard();    // bounded decks have their own end recap
-        const ranked = rankedQualifiers();
-        if (votesThisSession % RESULTS_EVERY === 0 && ranked.length >= TOP_N) {
-            showTopResults(ranked.slice(0, TOP_N));
-        } else {
-            nextCard();
-        }
+        // No mid-vote leaderboard: it surfaced crowd standings for items you hadn't swiped yet,
+        // which reads as a spoiler. The per-card reveal stays; full standings live on Results.
+        nextCard();
     }
     function shareGooey(item) {
         const t = item.gooey + item.prickly;
