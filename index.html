@@ -1323,7 +1323,7 @@
         swipe.chargeRAF = requestAnimationFrame(chargeTick);
     }
 
-    let swipe = null;
+    let swipe = null, onboarding = false;
     function beginCard(card, item) {
         swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0, crossed: false,
                   vx: 0, lastX: 0, lastT: 0, stampG: card.querySelector('.stamp.goo'), stampP: card.querySelector('.stamp.prk') };
@@ -1432,7 +1432,7 @@
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
         const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
         card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
-        setTimeout(() => commitVote(item, verdict, categoryId, signed), 460);
+        setTimeout(() => onboarding ? onboardDone(verdict) : commitVote(item, verdict, categoryId, signed), 460);
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -1776,7 +1776,30 @@
             '<p class="intro-task">Your job: trust your gut and sort them.</p>' +
             '<button class="btn btn-primary" id="introStart">Start sorting →</button>';
         arena.appendChild(w);
-        w.querySelector('#introStart').onclick = () => { markIntroSeen(); nextCard(); };
+        w.querySelector('#introStart').onclick = () => { markIntroSeen(); showOnboard(); };
+    }
+    // A near-unanimous warm-up so the axis is felt on swipe one (before any real card).
+    function showOnboard() {
+        onboarding = true;
+        const item = { name: 'A cactus', id: '__tutorial', categoryId: '__tutorial', shown: 0, gooey: 0, prickly: 0, skipped: 0, iVotes: 0, iSum: 0, iSumSq: 0 };
+        currentItem = item;
+        renderCard(item);
+        voteKicker.textContent = 'First, a warm-up';
+        const meta = arena.querySelector('.meta'); if (meta) meta.textContent = 'Prickly or gooey? Swipe whichever way feels right.';
+    }
+    function onboardDone(verdict) {
+        onboarding = false;
+        if (verdict === 'skip') { nextCard(); return; }     // passed the warm-up → just begin
+        setSide('none', 0); if (bgwash) bgwash.style.opacity = 0; arena.innerHTML = '';
+        const obvious = verdict === 'prickly';
+        const w = document.createElement('div'); w.className = 'reveal ' + (verdict === 'gooey' ? 'goo' : 'prk');
+        w.innerHTML = '<div class="reveal-verdict">' + (verdict === 'gooey' ? 'GOOEY' : 'PRICKLY') + '</div>' +
+            '<div class="reveal-nm">A cactus</div>' +
+            '<div class="reveal-head">' + (obvious ? 'Exactly. About as prickly as it gets.' : 'Bold — most would say prickly. But it’s your call.') + '</div>' +
+            '<div class="reveal-quote">That’s the whole game. Now the real ones.</div>' +
+            '<div class="reveal-actions"><button class="btn btn-primary" id="obBegin">Begin →</button></div>';
+        arena.appendChild(w);
+        document.getElementById('obBegin').onclick = () => nextCard();
     }
 
     /* ===== 9. RECORD VOTE ===== */
@@ -2231,16 +2254,22 @@
         });
         html += '</div>';
         body.innerHTML = html;
+        let outlier = '';
+        if (contrarian && Math.abs(contrarian.diverg / contrarian.compared) > 0.12) outlier = 'You buck the crowd on ' + contrarian.label + '.';
+        else if (prickliest && prickliest !== gooiest) outlier = 'Sharpest on ' + prickliest.label + '.';
+        else if (gooiest) outlier = 'Softest on ' + gooiest.label + '.';
         const sh = document.createElement('button'); sh.className = 'btn btn-primary'; sh.style.marginTop = '18px';
-        sh.textContent = 'Share my taste'; sh.onclick = () => shareTaste(pct, d.total);
+        sh.textContent = 'Share my taste'; sh.onclick = () => shareTaste(pct, d.total, outlier);
         body.appendChild(sh);
     }
-    function shareTaste(pct, total) {
+    function shareTaste(pct, total, outlier) {
         const arch = archetypeFor(pct);
         const a = '&a=' + encodeURIComponent(arch.name);
+        const o = outlier ? '&o=' + encodeURIComponent(outlier) : '';
         const txt = "I'm " + arch.name + " on Prickles & Goo — " + pct + "% gooey (" + total + " votes). What are you?";
         const url = location.origin + '/you?g=' + pct + '&n=' + total + a;
-        const imgUrl = location.origin + '/og?v=taste&g=' + pct + '&n=' + total + a;
+        // The shared file is the vertical "You, sorted" card (Stories/TikTok); the link still unfurls the horizontal OG.
+        const imgUrl = location.origin + '/og?v=taste&shape=story&g=' + pct + '&n=' + total + a + o;
         smartShare({ text: txt, url, imgUrl });
     }
 

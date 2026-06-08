@@ -51,8 +51,43 @@ function headline(text, max) {
     return `<text x="100" y="300" font-family="${FONT}, Georgia, serif" font-size="${autosize(text, max)}" font-weight="bold" fill="${INK}">${esc(text)}</text>`;
 }
 
+// Centered auto-size to fit a given column width.
+function autosizeC(text, max, width) {
+    const len = String(text).length || 1;
+    return Math.max(40, Math.min(max || 88, Math.floor((width || 880) / (len * 0.56))));
+}
+// Vertical 9:16 "You, sorted" card, built for Stories / TikTok.
+function storyTaste(g, n, arch, outlier) {
+    const gW = Math.round((g / 100) * 880);
+    const archSize = autosizeC(arch || "", 88, 880);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <rect width="1080" height="1920" fill="${CREAM}"/>
+  <rect width="1080" height="14" fill="${PRICKLY}"/>
+  <text x="540" y="150" text-anchor="middle" font-family="${FONT}, serif" font-size="40" letter-spacing="10" fill="${PRICKLY}" font-weight="bold">PRICKLES &amp; GOO</text>
+  <line x1="100" y1="205" x2="980" y2="205" stroke="${LINE}" stroke-width="2"/>
+  <text x="540" y="500" text-anchor="middle" font-family="${FONT}, serif" font-size="52" letter-spacing="8" fill="${SOFT}">YOU, SORTED</text>
+  ${arch ? `<text x="540" y="${640 + (88 - archSize) * 0.4}" text-anchor="middle" font-family="${FONT}, serif" font-size="${archSize}" font-weight="bold" fill="${INK}">${esc(fit(arch, 26))}</text>` : ""}
+  <text x="540" y="860" text-anchor="middle" font-family="${FONT}, serif" font-size="150" font-weight="bold" fill="${g >= 50 ? GOOEY : PRICKLY}">${g}%</text>
+  <text x="540" y="930" text-anchor="middle" font-family="${FONT}, serif" font-size="44" fill="${SOFT}">gooey</text>
+  <g transform="translate(100,1040)">
+    <rect width="880" height="44" rx="22" fill="${LINE}"/>
+    <clipPath id="sr"><rect width="880" height="44" rx="22"/></clipPath>
+    <g clip-path="url(#sr)"><rect width="${gW}" height="44" fill="${GOOEY}"/><rect x="${gW}" width="${880 - gW}" height="44" fill="${PRICKLY}"/></g>
+  </g>
+  <text x="100" y="1145" font-family="${FONT}, serif" font-size="30" fill="${GOOEY}" font-weight="bold">GOOEY</text>
+  <text x="980" y="1145" text-anchor="end" font-family="${FONT}, serif" font-size="30" fill="${PRICKLY}" font-weight="bold">PRICKLY</text>
+  ${outlier ? `<text x="540" y="1330" text-anchor="middle" font-family="${FONT}, serif" font-size="40" font-style="italic" fill="${INK}">${esc(fit(outlier, 42))}</text>` : ""}
+  <text x="540" y="1660" text-anchor="middle" font-family="${FONT}, serif" font-size="68" font-weight="bold" fill="${INK}">what are you?</text>
+  <text x="540" y="1810" text-anchor="middle" font-family="${FONT}, serif" font-size="34" font-style="italic" fill="${SOFT}">${n ? esc(n + " votes · ") : ""}prickles-and-goo</text>
+</svg>`;
+}
+
 function buildSvg(params) {
     const v = params.get("v");
+    if (v === "taste" && params.get("shape") === "story") {
+        const g = Math.max(0, Math.min(100, num(params.get("g"), 50)));
+        return storyTaste(g, num(params.get("n"), 0), params.get("a"), params.get("o"));
+    }
     if (v === "taste") {
         const g = Math.max(0, Math.min(100, num(params.get("g"), 50)));
         const n = num(params.get("n"), 0);
@@ -123,7 +158,7 @@ async function toPng(svg) {
     const { Resvg, fonts } = await ensurePng();
     const r = new Resvg(svg, {
         font: { fontBuffers: fonts, defaultFontFamily: FONT, loadSystemFonts: false },
-        fitTo: { mode: "width", value: 1200 },
+        fitTo: { mode: "original" },        // render at the SVG's own size (1200×630 or 1080×1920)
     });
     return r.render().asPng();
 }
