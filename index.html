@@ -372,8 +372,30 @@
     .bar { display:flex; height:8px; border-radius:999px; overflow:hidden; background:var(--hairline); }
     .bar .g { background:var(--gooey); } .bar .p { background:var(--prickly); }
     .bar .g, .bar .p { transition:width .6s cubic-bezier(.2,.7,.2,1); }
-    .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; }
-    .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+    /* position track: each row is its own prickly→gooey spectrum — ● crowd, ◆ you, with the gap drawn */
+    .track { position:relative; height:14px; margin-top:2px; }
+    .track .t-rail { position:absolute; top:50%; left:0; right:0; height:3px; transform:translateY(-50%); border-radius:2px;
+        background:linear-gradient(90deg, color-mix(in srgb,var(--prickly) 38%,var(--hairline)), var(--hairline) 50%, color-mix(in srgb,var(--gooey) 38%,var(--hairline))); }
+    .track .t-gap { position:absolute; top:50%; height:2px; transform:translateY(-50%); background:var(--ink); opacity:.26; }
+    .track .t-crowd { position:absolute; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 1px 3px rgba(20,14,10,.22); }
+    .track .t-you { position:absolute; top:50%; transform:translate(-50%,-50%) rotate(45deg); width:12px; height:12px; border:2px solid var(--ink); background:var(--paper); }
+    .track .t-you.approx { border-style:dashed; opacity:.7; }      /* side-only call — strength unknown */
+    .track.empty .t-rail { opacity:.55; }
+    /* view toggle: Spectrum ↔ You vs crowd */
+    .view-bar { display:flex; gap:6px; margin:2px 0 18px; }
+    .view-chip { font:inherit; font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
+    .view-chip.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+    /* You vs crowd (Option C) */
+    .cv-summary { background:var(--surface-2); border:1px solid var(--hairline); border-radius:14px; padding:14px 16px; margin:0 0 18px; font-size:.92rem; line-height:1.5; }
+    .cv-summary b { color:var(--ink); }
+    .cv-group { font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin:20px 0 12px; }
+    .cv-row { display:flex; align-items:center; gap:12px; margin-bottom:15px; }
+    .cv-row .nm { font-family:var(--serif); font-size:1rem; flex:0 0 38%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cv-row .track { flex:1; }
+    .cv-empty { color:var(--ink-soft); font-size:.9rem; }
+    .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; align-items:center; }
+    .legend i { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px; border:2px solid var(--surface); }
+    .legend i.you { border-radius:0; transform:rotate(45deg); border:2px solid var(--ink); background:var(--paper); }
     .next-wrap { margin-top:28px; }
 
     .category-bar { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 22px; }      /* all visible — no scroll, no hidden pills */
@@ -1125,7 +1147,8 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'art', albums_radiohead: 'art' };
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'art', albums_radiohead: 'art', animals: 'art' };
+    const NAME_AS_WIKI = new Set(['animals']);   // these use the item name as its Wikipedia title (no seeded `wiki` needed)
     // Comic Sans needs its real family name; the rest match by display name (fallback if not installed).
     const TYPEFACE_FONT = { 'Comic Sans': '"Comic Sans MS"', 'Times New Roman': '"Times New Roman"' };
     // Curated app logos: domain + tile treatment, keyed by item id (the seeded slug).
@@ -1215,8 +1238,10 @@
         // faces (presidents / billionaires): Wikimedia thumbnail in a circle
         const mono = monoNode(item.name, kind, sizeClass);
         holder.appendChild(mono);
-        if (!item.wiki) return;                  // no title → monogram stays
-        wikiThumb(item.wiki).then(url => {
+        const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+        const wikiTitle = item.wiki || (NAME_AS_WIKI.has(item.categoryId || currentCategoryId) ? cap(item.name) : null);
+        if (!wikiTitle) return;                  // no title → monogram stays
+        wikiThumb(wikiTitle).then(url => {
             if (!url || !holder.isConnected) return;
             const img = new Image();
             img.referrerPolicy = 'no-referrer'; img.alt = item.name;
@@ -2046,14 +2071,24 @@
         const tail = s.low ? '<span class="low"> · few votes</span>' : '<span class="dim"> · ' + votes + '</span>';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
                           : '<span class="pct"><b>' + s.gp + '%</b> gooey' + tail + '</span>';   // gooey% is the hero; bar carries the prickly split
+        const lean = empty ? null : userLean(itemCat, item.id);   // where you landed on this item
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
             pct + '</div>' +
-            '<div class="bar"><span class="p" style="width:0%"></span><span class="g" style="width:0%"></span></div>';
-        const g = row.querySelector('.g'), p = row.querySelector('.p');
-        requestAnimationFrame(() => { g.style.width = (empty ? 0 : s.gp) + '%'; p.style.width = (empty ? 0 : s.pp) + '%'; });
+            trackHtml(s.gp, lean, empty);
         if (hasAvatar) buildMedia(row.querySelector('.row-avatar'), item, kind, 'sm');
         return row;
+    }
+    // One row's prickly→gooey rail: ● the crowd at its position, ◆ you at yours, a faint gap between.
+    function trackHtml(crowdPct, lean, empty) {
+        let h = '<div class="track' + (empty ? ' empty' : '') + '"><span class="t-rail"></span>';
+        if (!empty) {
+            if (lean) { const a = Math.min(crowdPct, lean.pos), b = Math.max(crowdPct, lean.pos);
+                h += '<span class="t-gap" style="left:' + a + '%;width:' + (b - a) + '%"></span>'; }
+            h += '<span class="t-crowd" style="left:' + crowdPct + '%;background:' + (crowdPct >= 50 ? 'var(--gooey)' : 'var(--prickly)') + '"></span>';
+            if (lean) h += '<span class="t-you' + (lean.exact === false ? ' approx' : '') + '" style="left:' + lean.pos + '%"></span>';
+        }
+        return h + '</div>';
     }
     function showTopResults(top) {
         setSide('none', 0);
@@ -2125,6 +2160,7 @@
         resultsCategorySelect.append(ogPlay, ogCats);
     }
     let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
+    let resultsView = 'spectrum';                  // 'spectrum' = the set + you on every item · 'mine' = you vs the crowd
     const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
     const SORT_HEAD = { divisive: 'The closest calls', gooey: 'Most gooey to most prickly', prickly: 'Most prickly to most gooey', voted: 'Most judged' };
     // intensity reads (from the additive aggregates; null until enough intensity votes)
@@ -2193,6 +2229,26 @@
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
                 '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count;
 
+            // view toggle: the spectrum (the whole set + where you sit) vs your map against the crowd
+            const viewBar = document.createElement('div');
+            viewBar.className = 'view-bar';
+            [['spectrum', 'Spectrum'], ['mine', 'You vs crowd']].forEach(([v, label]) => {
+                const b = document.createElement('button');
+                b.className = 'view-chip' + (v === resultsView ? ' active' : '');
+                b.textContent = label;
+                b.onclick = () => { if (v !== resultsView) { resultsView = v; paintResults(all, highlight); } };
+                viewBar.appendChild(b);
+            });
+            resultsList.appendChild(viewBar);
+
+            if (resultsView === 'mine') {                       // Option C — your calls vs the crowd
+                const w = document.createElement('div');
+                w.innerHTML = renderYouVsCrowd(all);
+                resultsList.appendChild(w);
+                if (unvoted.length) appendColdCta(unvoted.length);
+                return;
+            }
+
             const sortBar = document.createElement('div');
             sortBar.className = 'sort-bar';
             SORTS.forEach(([v, label]) => {
@@ -2206,7 +2262,7 @@
 
             const legend = document.createElement('div');
             legend.className = 'legend';
-            legend.innerHTML = '<span><i style="background:var(--prickly)"></i>Prickly</span><span><i style="background:var(--gooey)"></i>Gooey</span>';
+            legend.innerHTML = '<span><i style="background:var(--gooey)"></i>the crowd</span><span><i class="you"></i>your call</span>';
             resultsList.appendChild(legend);
 
             if (!rows.length) {
@@ -2231,13 +2287,37 @@
                 const target = resultsList.querySelector('.row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(highlight) : highlight) + '"]');
                 if (target) { if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.classList.add('flash'); }
             }
-            if (unvoted.length) {     // cold start becomes an invitation, not an empty scoreboard
-                const cta = document.createElement('button');
-                cta.className = 'cold-cta';
-                cta.innerHTML = '<b>' + unvoted.length + '</b> awaiting their first vote — be the judge →';
-                cta.onclick = () => { showView('vote'); openCategory(currentCategoryId); };
-                resultsList.appendChild(cta);
-            }
+            if (unvoted.length) appendColdCta(unvoted.length);
+    }
+    function appendColdCta(n) {     // cold start becomes an invitation, not an empty scoreboard
+        const cta = document.createElement('button');
+        cta.className = 'cold-cta';
+        cta.innerHTML = '<b>' + n + '</b> awaiting their first vote — be the judge →';
+        cta.onclick = () => { showView('vote'); openCategory(currentCategoryId); };
+        resultsList.appendChild(cta);
+    }
+    // Option C: your calls laid against the crowd — a self-portrait + where you break from the pack.
+    function renderYouVsCrowd(all) {
+        const cat0 = currentCategoryId;
+        const mine = all.map(it => {
+            const lean = userLean(it.categoryId || cat0, it.id);
+            if (!lean) return null;
+            const s = stats(it);
+            return { name: it.name, gp: s.gp, pos: lean.pos, exact: lean.exact };
+        }).filter(Boolean);
+        if (!mine.length) return '<p class="cv-empty">You haven’t voted in this set yet — swipe a few and your map against the crowd appears here.</p>';
+        const myAvg = Math.round(mine.reduce((s, m) => s + m.pos, 0) / mine.length);
+        const votedAll = all.filter(i => (i.gooey + i.prickly) > 0);
+        const setAvg = votedAll.length ? Math.round(votedAll.reduce((s, i) => s + stats(i).gp, 0) / votedAll.length) : 50;
+        const gap = m => Math.abs(m.pos - m.gp);
+        const against = mine.filter(m => gap(m) > 20).sort((a, b) => gap(b) - gap(a));
+        const withC = mine.filter(m => gap(m) <= 20).sort((a, b) => gap(a) - gap(b));
+        let h = '<div class="cv-summary">You run <b>' + myAvg + '% gooey</b> on this set; the crowd averages <b>' + setAvg + '%</b>. ' +
+            (against.length ? 'You broke from them on <b>' + against.length + '</b> of ' + mine.length + ' call' + (mine.length === 1 ? '' : 's') + '.' : 'You’re riding with the crowd across the board.') + '</div>';
+        const rowHtml = m => '<div class="cv-row"><span class="nm">' + escapeHtml(m.name) + '</span>' + trackHtml(m.gp, { pos: m.pos, exact: m.exact }, false) + '</div>';
+        if (against.length) h += '<div class="cv-group">Against the grain</div>' + against.map(rowHtml).join('');
+        if (withC.length) h += '<div class="cv-group">With the crowd</div>' + withC.map(rowHtml).join('');
+        return h;
     }
 
     /* ===== 11b. ROUTING + SHARE (deep links) ===== */
