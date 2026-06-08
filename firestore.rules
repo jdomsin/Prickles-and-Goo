@@ -11,10 +11,10 @@ rules_version = '2';
 // Everything else — arbitrary writes, value tampering, decrements, item/category
 // creation or deletion — is denied.
 //
-// SEEDING NOTE: seed.html writes item/category `name` fields, which these rules
-// DENY. Seed your categories BEFORE pasting these rules (or temporarily allow
-// writes, seed, then re-apply). Existing items must already exist for votes to
-// work — votes are updates, not creates.
+// SEEDING NOTE: seed.html writes item/category `name` (and `wiki`) fields, which
+// these rules DENY. To add items: publish firestore.seeding.rules, run seed.html,
+// then re-publish THIS file. Existing items must already exist for votes to work —
+// votes are updates, not creates.
 //
 // LIMITATION: without authentication / Firebase App Check, these rules cannot
 // rate-limit an anonymous user repeatedly casting +1 votes. They close the

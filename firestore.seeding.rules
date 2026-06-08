@@ -1,0 +1,48 @@
+rules_version = '2';
+
+// TEMPORARY seeding rules for Prickles & Goo — NOT for steady-state production.
+// Publish these only while running seed.html to add/update items, then immediately
+// re-publish firestore.rules (the strict production rules).
+//
+// What this allows beyond production: writing item `name`/`wiki` (and category
+// `name`). Vote counts and reasons stay protected — the seeder never touches them.
+//
+// Flow:
+//   1. Paste this in Firebase Console → Firestore → Rules → Publish.
+//   2. Open /seed.html → Seed database (watch for green ✓ per category).
+//   3. Paste firestore.rules back → Publish. (Leaving this live lets anyone
+//      rewrite item names.)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSingleVote() {
+      let r = request.resource.data;
+      let o = resource.data;
+      let changed = r.diff(o).affectedKeys();
+      return changed.hasOnly(['shown', 'gooey', 'prickly', 'skipped'])
+        && r.get('shown', 0) == o.get('shown', 0) + 1
+        && (
+             (r.get('gooey', 0)   == o.get('gooey', 0) + 1   && r.get('prickly', 0) == o.get('prickly', 0) && r.get('skipped', 0) == o.get('skipped', 0)) ||
+             (r.get('prickly', 0) == o.get('prickly', 0) + 1 && r.get('gooey', 0)   == o.get('gooey', 0)   && r.get('skipped', 0) == o.get('skipped', 0)) ||
+             (r.get('skipped', 0) == o.get('skipped', 0) + 1 && r.get('gooey', 0)   == o.get('gooey', 0)   && r.get('prickly', 0) == o.get('prickly', 0))
+           );
+    }
+
+    match /categories/{category} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasOnly(['name']);            // SEEDING: category label
+
+      match /items/{item} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasOnly(['name', 'wiki']); // SEEDING: new items
+        allow update: if isSingleVote()
+                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'wiki']); // SEEDING: name/wiki only
+        allow delete: if false;
+
+        match /reasons_gooey/{reason}   { allow read: if true; allow write: if false; }
+        match /reasons_prickly/{reason} { allow read: if true; allow write: if false; }
+      }
+    }
+  }
+}
