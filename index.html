@@ -1291,6 +1291,7 @@
     const GOO_WASH = 'radial-gradient(130% 120% at 100% 50%, color-mix(in srgb,var(--gooey) 60%, transparent), color-mix(in srgb,var(--gooey) 14%, transparent) 46%, transparent 74%)';
     const PRK_WASH = 'radial-gradient(130% 120% at 0% 50%, color-mix(in srgb,var(--prickly) 60%, transparent), color-mix(in srgb,var(--prickly) 14%, transparent) 46%, transparent 74%)';
     function setWash(dir, amt) { if (!bgwash) return; bgwash.style.background = dir < 0 ? PRK_WASH : GOO_WASH; bgwash.style.opacity = clamp01(amt); }
+    function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
     const DEAD = 30, HOLD_MS = 120, CHARGE_MS = 540;   // dead zone · settle before charging · hold-to-claim
     function stopCharge() {
         if (!swipe) return;
@@ -1324,7 +1325,7 @@
 
     let swipe = null;
     function beginCard(card, item) {
-        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0,
+        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0, crossed: false,
                   vx: 0, lastX: 0, lastT: 0, stampG: card.querySelector('.stamp.goo'), stampP: card.querySelector('.stamp.prk') };
         card.addEventListener('mousedown', onDown);
         card.addEventListener('touchstart', onDown, { passive: true });
@@ -1344,6 +1345,9 @@
         swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
         const ax = Math.abs(dx), ay = Math.abs(dy);
         const verticalLean = ay > ax && ay > 28;
+        const inCommit = !verticalLean && ax > DEAD;            // past here, a release commits
+        if (inCommit && !swipe.crossed) { swipe.crossed = true; haptic(8); }   // a tick as you cross into commit range
+        else if (!inCommit && swipe.crossed) { swipe.crossed = false; }
         if (verticalLean) setSide('none', 0);                   // leaning to pass (up/down): lift only
         else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
         // verdict stamp fades in from the first pixel (no dead zone), so direction reads immediately
@@ -1421,8 +1425,8 @@
         if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
         const item = swipe.item, card = swipe.card, categoryId = swipe.categoryId;
         card.style.scale = 1; card.style.boxShadow = '';                       // drop the claim transform before flight
-        if (verdict === 'gooey') { setSide('goo', 1); setWash(1, 0.92); popBurst(card, 'gooey'); }
-        else if (verdict === 'prickly') { setSide('prk', 1); setWash(-1, 0.92); popBurst(card, 'prickly'); }
+        if (verdict === 'gooey') { setSide('goo', 1); setWash(1, 0.92); popBurst(card, 'gooey'); haptic(18); }
+        else if (verdict === 'prickly') { setSide('prk', 1); setWash(-1, 0.92); popBurst(card, 'prickly'); haptic(18); }
         else setSide('none', 0);
         card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
