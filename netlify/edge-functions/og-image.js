@@ -128,8 +128,8 @@ function buildSvg(params) {
     }
     // brand default (homepage)
     return frame(
-        `<text x="100" y="280" font-family="${FONT}, Georgia, serif" font-size="78" font-weight="bold" fill="${INK}">Everything is either</text>
-         <text x="100" y="370" font-family="${FONT}, Georgia, serif" font-size="78" font-weight="bold"><tspan fill="${PRICKLY}">prickly</tspan><tspan fill="${INK}"> or </tspan><tspan fill="${GOOEY}">gooey</tspan>.</text>`,
+        `<text x="100" y="280" font-family="${FONT}, Georgia, serif" font-size="78" font-weight="bold" fill="${INK}">Everything can feel</text>
+         <text x="100" y="370" font-family="${FONT}, Georgia, serif" font-size="78" font-weight="bold"><tspan fill="${INK}">more </tspan><tspan fill="${PRICKLY}">prickly</tspan><tspan fill="${INK}"> or </tspan><tspan fill="${GOOEY}">gooey</tspan>.</text>`,
         "Vote on tech, money, billionaires — see where the crowd lands · prickles-and-goo"
     );
 }
