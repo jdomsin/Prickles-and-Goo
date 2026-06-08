@@ -53,6 +53,10 @@
     .swipe-card .nm { font-family:var(--serif); font-size:2rem; font-weight:700; position:relative; padding:0 18px; }
     .swipe-card .meta { color:var(--ink-soft); font-size:.84rem; margin-top:4px; position:relative; }
     .swipe-card .verdict { position:relative; margin-top:14px; font-family:var(--serif); font-weight:700; font-size:1.15rem; min-height:1.3em; opacity:0; transition:opacity .1s; }
+    .swipe-card .charge { position:absolute; left:50%; top:50%; width:128px; height:128px; transform:translate(-50%,-50%) rotate(-90deg);
+        opacity:0; transition:opacity .12s; pointer-events:none; }
+    .swipe-card .charge .track { fill:none; stroke:var(--hairline); stroke-width:7; opacity:.5; }
+    .swipe-card .charge .prog { fill:none; stroke-width:7; stroke-linecap:round; }
     /* center-out intensity gauge */
     .gauge { position:relative; height:14px; border-radius:999px; background:var(--hairline); overflow:hidden; margin:8px 0 2px; }
     .gauge .c { position:absolute; left:50%; top:-3px; bottom:-3px; width:2px; background:var(--ink-soft); opacity:.5; transform:translateX(-1px); }
@@ -90,14 +94,14 @@
 <body>
 <div class="wrap">
     <span class="lab-tag">Lab · prototype · mock data</span>
-    <h1>Swipe with force → the spectrum</h1>
-    <p class="lead">The swipe carries the intensity. Flick <b>hard and fast</b> for a strong call; <b>ease just off-center</b> for a soft one. Direction picks prickly/gooey; how far + how fast picks how much. Your calls land on the spectrum below.</p>
+    <h1>Pull, hold, confirm → the spectrum</h1>
+    <p class="lead">Pull the card to a lean — how far is how strongly you feel — then <b>hold to confirm</b> (a ring charges) or just let go. It <b>never snaps back</b> to centre; only a release near the middle cancels. A hard flick still commits instantly. Your calls land on the spectrum below.</p>
 
     <!-- A. SWIPE-WITH-INTENSITY -->
     <section>
-        <p class="kicker">A · Swipe with force</p>
+        <p class="kicker">A · Pull &amp; hold</p>
         <h2>How prickly, how gooey?</h2>
-        <p class="sub">Drag the card. A quick firm flick reads <b>very</b>; a slow short nudge reads <b>a little</b> — and the card flies off as hard as you threw it.</p>
+        <p class="sub">Pull to a lean and <b>hold</b> — a ring charges and confirms at that strength. Or release anywhere off-centre; it won’t snap back. Flick fast to commit hard instantly.</p>
         <div id="voteArea"></div>
         <div class="progress" id="progress"></div>
     </section>
@@ -160,13 +164,14 @@ function renderCard() {
             '<div class="gutter p" id="gutP">Prickly</div><div class="gutter g" id="gutG">Gooey</div>' +
             '<div class="swipe-card" id="card">' +
                 '<div class="wash" id="wash"></div>' +
+                '<svg class="charge" id="charge" viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="prog" id="chargeProg" cx="60" cy="60" r="52"/></svg>' +
                 '<div class="nm">' + it.name + '</div>' +
                 '<div class="meta">' + it.n + ' crowd votes so far</div>' +
                 '<div class="verdict" id="verdict"></div>' +
             '</div>' +
         '</div>' +
         '<div class="gauge"><div class="c"></div><div class="f" id="gfill"></div></div>' +
-        '<div class="hintline">Flick hard for a strong call · ease off for a soft one</div>' +
+        '<div class="hintline">Pull to a lean and <b>hold to confirm</b> — or flick. It won’t snap back.</div>' +
         '<div class="skiprow"><button id="skip">Skip</button></div>';
 
     const stage = document.getElementById('stage');
@@ -177,69 +182,102 @@ function renderCard() {
     const gutP = document.getElementById('gutP'), gutG = document.getElementById('gutG');
     document.getElementById('skip').onclick = () => { pos++; renderProgress(); renderCard(); };
 
-    let drag = null;
+    const chargeProg = document.getElementById('chargeProg');
+    const chargeSvg = document.getElementById('charge');
+    const CIRC = 2 * Math.PI * 52;
+    chargeProg.style.strokeDasharray = CIRC;
+
+    let drag = null, charge = 0, chargeRAF = 0, lastTick = 0;
     const maxDisp = () => stage.clientWidth * 0.45;     // displacement that alone = full intensity
+    const DEAD = 24, HOLD_MS = 120, CHARGE_MS = 560;    // dead zone · settle before charging · hold-to-confirm
 
     function paint(dx, live) {
         const dir = Math.sign(dx) || 0;
         const pos01 = clamp(Math.abs(dx) / maxDisp(), 0, 1);
         card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx * 0.035) + 'deg)';
-        // wash + gutters
         const goo = dir > 0;
         wash.style.setProperty('--wc', goo ? 'color-mix(in srgb,var(--gooey) 36%, transparent)' : 'color-mix(in srgb,var(--prickly) 36%, transparent)');
         wash.style.setProperty('--wx', goo ? '88%' : '12%');
         wash.style.opacity = pos01;
         gutG.style.opacity = .25 + (goo ? pos01 * .75 : 0);
         gutP.style.opacity = .25 + (!goo && dir ? pos01 * .75 : 0);
-        // gauge fills outward from center
         const half = 50;
         if (dir >= 0) { gfill.style.left = '50%'; gfill.style.right = ''; gfill.style.background = 'var(--gooey)'; }
         else { gfill.style.right = '50%'; gfill.style.left = ''; gfill.style.background = 'var(--prickly)'; }
         gfill.style.width = (pos01 * half) + '%';
-        // live verdict (displacement only while dragging)
         if (live && dir) { verdict.style.opacity = 1; verdict.style.color = goo ? 'var(--gooey)' : 'var(--prickly)';
             verdict.textContent = intensityWord(dir * pos01 * 100); }
         else if (live) { verdict.style.opacity = .55; verdict.style.color = 'var(--ink-soft)'; verdict.textContent = 'neutral'; }
     }
 
+    function renderCharge() {
+        const goo = (drag ? drag.dx : 0) > 0;
+        chargeSvg.style.opacity = charge > 0.02 ? 1 : 0;
+        chargeProg.style.stroke = goo ? 'var(--gooey)' : 'var(--prickly)';
+        chargeProg.style.strokeDashoffset = CIRC * (1 - charge);
+        card.style.scale = 1 + charge * 0.04;
+        card.style.boxShadow = charge > 0.02
+            ? 'var(--shadow-lift), 0 0 ' + (charge * 44) + 'px ' + (charge * 8) + 'px color-mix(in srgb,' + (goo ? 'var(--gooey)' : 'var(--prickly)') + ' ' + (charge * 60) + '%, transparent)'
+            : '';
+    }
+    function chargeTick(now) {
+        if (!drag) { chargeRAF = 0; return; }
+        const dt = now - (lastTick || now); lastTick = now;
+        const settled = (now - drag.lastMoveT) > HOLD_MS;
+        if (Math.abs(drag.dx) > DEAD && settled) charge = Math.min(1, charge + dt / CHARGE_MS);   // hold builds the charge
+        else charge = Math.max(0, charge - dt / 200);                                             // moving / near centre lets it ebb
+        renderCharge();
+        if (charge >= 1) { commit(Math.sign(drag.dx) || 1, 1); return; }                          // held to full → confirm
+        chargeRAF = requestAnimationFrame(chargeTick);
+    }
+
     card.addEventListener('pointerdown', e => {
         card.setPointerCapture(e.pointerId);
         card.classList.add('dragging'); card.style.transition = 'none';
-        drag = { x0: e.clientX, lastX: e.clientX, lastT: performance.now(), v: 0, dx: 0 };
+        drag = { x0: e.clientX, lastX: e.clientX, lastT: performance.now(), lastMoveT: performance.now(), v: 0, dx: 0 };
+        charge = 0; lastTick = 0; renderCharge();
+        chargeRAF = requestAnimationFrame(chargeTick);
     });
     card.addEventListener('pointermove', e => {
         if (!drag) return;
         const now = performance.now(); const dt = now - drag.lastT;
-        drag.dx = e.clientX - drag.x0;
-        if (dt > 0) drag.v = (e.clientX - drag.lastX) / dt;     // px/ms, recent
+        const ndx = e.clientX - drag.x0;
+        if (Math.abs(ndx - drag.dx) > 3) drag.lastMoveT = now;     // a real move resets the "held still" timer
+        drag.dx = ndx;
+        if (dt > 0) drag.v = (e.clientX - drag.lastX) / dt;
         drag.lastX = e.clientX; drag.lastT = now;
         paint(drag.dx, true);
     });
     function release() {
         if (!drag) return;
         const d = drag; drag = null; card.classList.remove('dragging');
+        if (chargeRAF) { cancelAnimationFrame(chargeRAF); chargeRAF = 0; }
         const dir = Math.sign(d.dx) || 0;
-        const pos01 = clamp(Math.abs(d.dx) / maxDisp(), 0, 1);
-        const vel01 = clamp(Math.abs(d.v) / 1.5, 0, 1);          // 1.5 px/ms ≈ a firm flick
-        const intensity = clamp(pos01 + vel01 * 0.7, 0, 1);      // ← the blend: distance OR force can max it
-        if (!dir || intensity < 0.08) { snapBack(); return; }
-        const signed = Math.round(dir * intensity * 100);
-        yourVotes[it.name] = clamp(Math.round(50 + signed / 2), 0, 100);
-        fling(dir, intensity, signed);
+        const ax = Math.abs(d.dx), vel01 = clamp(Math.abs(d.v) / 1.5, 0, 1);
+        if (!dir || (ax < DEAD && vel01 < 0.3)) { snapBack(); return; }     // only a near-centre release cancels
+        const intensity = clamp(Math.max(clamp(ax / maxDisp(), 0, 1) + vel01 * 0.7, charge), 0, 1);
+        commit(dir, intensity);
     }
     card.addEventListener('pointerup', release);
     card.addEventListener('pointercancel', release);
 
+    function resetCharge() { charge = 0; chargeSvg.style.opacity = 0; card.style.scale = 1; card.style.boxShadow = ''; }
     function snapBack() {
+        resetCharge();
         card.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1.2)';
         card.style.transform = 'translateX(0) rotate(0)';
         wash.style.opacity = 0; gfill.style.width = 0; verdict.style.opacity = 0;
         gutP.style.opacity = .25; gutG.style.opacity = .25;
     }
-    function fling(dir, intensity, signed) {
+    function commit(dir, intensity) {
+        if (drag) { drag = null; card.classList.remove('dragging'); }
+        if (chargeRAF) { cancelAnimationFrame(chargeRAF); chargeRAF = 0; }
+        resetCharge();
+        const signed = Math.round(dir * intensity * 100);
+        yourVotes[it.name] = clamp(Math.round(50 + signed / 2), 0, 100);
         verdict.style.opacity = 1; verdict.style.color = dir > 0 ? 'var(--gooey)' : 'var(--prickly)';
         verdict.textContent = intensityWord(signed);
-        const dur = 0.16 + (1 - intensity) * 0.26;               // harder throw → faster exit
+        const dur = 0.18 + (1 - intensity) * 0.24;
         const dist = stage.clientWidth * (0.85 + intensity * 0.7);
         card.style.transition = 'transform ' + dur + 's cubic-bezier(.3,.1,.3,1), opacity ' + dur + 's';
         card.style.transform = 'translateX(' + (dir * dist) + 'px) rotate(' + (dir * (10 + intensity * 16)) + 'deg)';
