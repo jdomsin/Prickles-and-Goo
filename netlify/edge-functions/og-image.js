@@ -11,7 +11,7 @@
 //   /og?v=taste&g=&n=                → taste badge ("I'm 80% gooey")
 
 const PROJECT = "prickles-or-goo";
-const CREAM = "#FFF1E5", INK = "#1D1B19", SOFT = "#6B6259", GOOEY = "#0D7680", PRICKLY = "#990F3D", LINE = "#E6D7C9";
+const CREAM = "#FFF1E5", INK = "#1D1B19", SOFT = "#6B6259", GOOEY = "#0D7680", PRICKLY = "#6D3B6E", LINE = "#E6D7C9";
 const FONT = "PT Serif";
 
 function esc(s) {

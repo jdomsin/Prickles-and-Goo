@@ -6,7 +6,7 @@
 <title>Prickles &amp; Goo — vote what's prickly, what's gooey</title>
 <meta name="description" content="Alan Watts said everything is either prickly or gooey. Swipe to vote on tech, money apps, trading terminals, billionaires, presidents — and see where the crowd lands.">
 <meta name="theme-color" content="#FFF1E5">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFF1E5'/%3E%3Cpath d='M16 4 a12 12 0 0 1 0 24 Z' fill='%230D7680'/%3E%3Cpath d='M16 4 a12 12 0 0 0 0 24 Z' fill='%23990F3D'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFF1E5'/%3E%3Cpath d='M16 4 a12 12 0 0 1 0 24 Z' fill='%230D7680'/%3E%3Cpath d='M16 4 a12 12 0 0 0 0 24 Z' fill='%236D3B6E'/%3E%3C/svg%3E">
 <meta property="og:title" content="Prickles &amp; Goo">
 <meta property="og:description" content="Vote what's prickly, what's gooey — and see where the crowd lands.">
 <meta property="og:type" content="website">
@@ -27,7 +27,7 @@
         --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
         --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
         --gooey:#0D7680; --gooey-soft:#E3EFEF; --gooey-lt:#7FE3DA; --gooey-2:#0a5d65;
-        --prickly:#990F3D; --prickly-soft:#F6E4E9; --prickly-lt:#FF6F91; --prickly-2:#73092c;
+        --prickly:#6D3B6E; --prickly-soft:#EFE3F0; --prickly-lt:#B583B7; --prickly-2:#4C2A4D;
         --gain:1;
         --shadow:0 1px 2px rgba(40,30,20,.05), 0 8px 28px rgba(40,30,20,.08);
         --shadow-lift:0 12px 40px rgba(40,30,20,.16);
@@ -40,7 +40,7 @@
         /* dark is its own ramp, not dimmed light: secondary text + accents lifted to clear WCAG AA (4.5:1) on the dark bg */
         --ink:#F3EBE2; --ink-soft:#BEB3A6; --hairline:#3A322C;
         --gooey:#5BC8CF; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
-        --prickly:#F0809A; --prickly-soft:#311721; --prickly-lt:#FF9DB6; --prickly-2:#9c1840;
+        --prickly:#D6A0D8; --prickly-soft:#2A1A2C; --prickly-lt:#E6BDE8; --prickly-2:#7A4A7C;
         --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
         --shadow-lift:0 16px 48px rgba(0,0,0,.6);
     }
@@ -183,16 +183,20 @@
     .prk-ambient { position:absolute; left:-12%; top:50%; transform:translateY(-50%); width:128%; height:135%;
         background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly) 60%, transparent), transparent 72%);
         filter:blur(30px); opacity:calc(var(--p) * .34 * var(--gain)); }
+    /* a polished crystal facet, not a broken shard: clean symmetric taper, a glassy
+       prismatic fill, a bright specular glint instead of a debris drop-shadow. */
     .shard { position:absolute; left:0; top:var(--y); height:var(--h);
         width:calc(clamp(0, (var(--p) - var(--d)) / .4, 1) * var(--len));
         transform:rotate(var(--a)); transform-origin:left center;
-        background:linear-gradient(100deg, color-mix(in srgb,var(--prickly) 92%, transparent), color-mix(in srgb,var(--prickly-2) 72%, transparent) 70%, color-mix(in srgb,var(--prickly-2) 40%, transparent));
-        clip-path:polygon(0 0, 100% 16%, 100% 84%, 0 100%);
-        filter:drop-shadow(0 0 7px color-mix(in srgb,var(--prickly) 45%, transparent));
+        background:linear-gradient(100deg, color-mix(in srgb,var(--prickly-lt) 88%, transparent), color-mix(in srgb,var(--prickly) 82%, transparent) 46%, color-mix(in srgb,var(--prickly-2) 52%, transparent));
+        clip-path:polygon(0 8%, 100% 42%, 100% 58%, 0 92%);
+        filter:drop-shadow(0 0 5px color-mix(in srgb,var(--prickly-lt) 55%, transparent));
         opacity:clamp(0, (var(--p) - var(--d)) / .3, 1); }
-    .shard::before { content:""; position:absolute; inset:0; clip-path:inherit;
-        background:linear-gradient(177deg, color-mix(in srgb,var(--prickly-lt) 95%, transparent), transparent 26%); }
-    .shard.back { filter:drop-shadow(0 0 5px color-mix(in srgb,var(--prickly) 30%, transparent)) blur(1.4px); }
+    .shard::before { content:""; position:absolute; inset:0; clip-path:inherit;   /* top-facet gloss */
+        background:linear-gradient(168deg, color-mix(in srgb,var(--prickly-lt) 98%, transparent), transparent 30%); }
+    .shard::after { content:""; position:absolute; inset:0; clip-path:inherit;    /* specular glint along the spine */
+        background:linear-gradient(100deg, rgba(255,255,255,.72), rgba(255,255,255,.12) 22%, transparent 40%); }
+    .shard.back { filter:drop-shadow(0 0 4px color-mix(in srgb,var(--prickly-lt) 38%, transparent)) blur(1.2px); }
 
     /* quiet oversized word cue */
     .word { position:fixed; top:50%; transform:translateY(-50%); z-index:4; pointer-events:none;
