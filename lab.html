@@ -23,7 +23,9 @@
     * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html,body { margin:0; }
     body { font-family:var(--sans); background:var(--paper); color:var(--ink); -webkit-font-smoothing:antialiased; }
-    .wrap { max-width:760px; margin:0 auto; padding:28px clamp(16px,5vw,40px) 80px; }
+    .wrap { max-width:760px; margin:0 auto; padding:28px clamp(16px,5vw,40px) 80px; position:relative; z-index:1; }
+    /* immersive lean: the whole viewport washes toward the side you pull */
+    .bg-wash { position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0; transition:opacity .12s ease, background .12s ease; }
     .lab-tag { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
         color:var(--prickly); background:var(--prickly-soft); border-radius:999px; padding:5px 12px; }
     h1 { font-family:var(--serif); font-size:2rem; letter-spacing:-.01em; margin:14px 0 4px; }
@@ -92,6 +94,7 @@
 </style>
 </head>
 <body>
+<div class="bg-wash" id="bgwash"></div>
 <div class="wrap">
     <span class="lab-tag">Lab · prototype · mock data</span>
     <h1>Pull, hold, confirm → the spectrum</h1>
@@ -140,6 +143,12 @@ const yourVotes = {};
 let showYou = false;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// immersive lean wash — floods the viewport toward the side you pull
+const bgwash = document.getElementById('bgwash');
+const GOO_WASH = 'radial-gradient(130% 120% at 100% 50%, color-mix(in srgb,var(--gooey) 60%, transparent), color-mix(in srgb,var(--gooey) 14%, transparent) 46%, transparent 74%)';
+const PRK_WASH = 'radial-gradient(130% 120% at 0% 50%, color-mix(in srgb,var(--prickly) 60%, transparent), color-mix(in srgb,var(--prickly) 14%, transparent) 46%, transparent 74%)';
+function setWash(dir, amt) { bgwash.style.background = dir < 0 ? PRK_WASH : GOO_WASH; bgwash.style.opacity = clamp(amt, 0, 1); }
+
 /* ===== A. swipe-with-intensity ===== */
 const deck = ITEMS.slice(0, 8);
 let pos = 0;
@@ -157,6 +166,7 @@ function renderProgress() {
         '<span class="pip' + (i < pos ? ' on' : i === pos ? ' cur' : '') + '"></span>').join('');
 }
 function renderCard() {
+    bgwash.style.opacity = 0;                  // clear the lean wash for the new card
     if (pos >= deck.length) { renderDone(); return; }
     const it = deck[pos];
     voteArea.innerHTML =
@@ -208,6 +218,7 @@ function renderCard() {
         if (live && dir) { verdict.style.opacity = 1; verdict.style.color = goo ? 'var(--gooey)' : 'var(--prickly)';
             verdict.textContent = intensityWord(dir * pos01 * 100); }
         else if (live) { verdict.style.opacity = .55; verdict.style.color = 'var(--ink-soft)'; verdict.textContent = 'neutral'; }
+        setWash(dir, dir ? pos01 * 0.92 : 0);          // whole screen leans with you
     }
 
     function renderCharge() {
@@ -219,6 +230,8 @@ function renderCard() {
         card.style.boxShadow = charge > 0.02
             ? 'var(--shadow-lift), 0 0 ' + (charge * 44) + 'px ' + (charge * 8) + 'px color-mix(in srgb,' + (goo ? 'var(--gooey)' : 'var(--prickly)') + ' ' + (charge * 60) + '%, transparent)'
             : '';
+        const pos01 = drag ? clamp(Math.abs(drag.dx) / maxDisp(), 0, 1) : 0;
+        setWash(goo ? 1 : -1, pos01 * 0.92 + charge * 0.5);          // charge surges the wash too
     }
     function chargeTick(now) {
         if (!drag) { chargeRAF = 0; return; }
@@ -261,7 +274,7 @@ function renderCard() {
     card.addEventListener('pointerup', release);
     card.addEventListener('pointercancel', release);
 
-    function resetCharge() { charge = 0; chargeSvg.style.opacity = 0; card.style.scale = 1; card.style.boxShadow = ''; }
+    function resetCharge() { charge = 0; chargeSvg.style.opacity = 0; card.style.scale = 1; card.style.boxShadow = ''; bgwash.style.opacity = 0; }
     function snapBack() {
         resetCharge();
         card.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1.2)';
@@ -272,7 +285,8 @@ function renderCard() {
     function commit(dir, intensity) {
         if (drag) { drag = null; card.classList.remove('dragging'); }
         if (chargeRAF) { cancelAnimationFrame(chargeRAF); chargeRAF = 0; }
-        resetCharge();
+        charge = 0; chargeSvg.style.opacity = 0; card.style.scale = 1; card.style.boxShadow = '';
+        setWash(dir, 0.92);                 // full-screen confirm; the next card clears it
         const signed = Math.round(dir * intensity * 100);
         yourVotes[it.name] = clamp(Math.round(50 + signed / 2), 0, 100);
         verdict.style.opacity = 1; verdict.style.color = dir > 0 ? 'var(--gooey)' : 'var(--prickly)';
