@@ -1693,9 +1693,9 @@
     /* ===== 8e. REACTIONS + FIRST-VISIT INTRO ===== */
     const reactionEl = document.getElementById('reaction');
     const REACTIONS = {
-        gooey:   ['Gooey, noted.', 'Soft call.', 'Smooth.', 'Mmm, gooey.'],
-        prickly: ['Prickly, noted.', 'Sharp call.', 'Crisp.', 'Mmm, prickly.'],
-        skip:    ['Passed.', 'We’ll circle back.', 'Skipped.']
+        gooey:   ['Filed under gooey.', 'Gooey — for the record.', 'Noted: gooey.', 'So logged.'],
+        prickly: ['Filed under prickly.', 'Prickly — for the record.', 'Noted: prickly.', 'So logged.'],
+        skip:    ['Abstained.', 'No comment.', 'Recused yourself.']
     };
     let reactionTimer = 0;
     function showReaction(verdict) {
@@ -1865,6 +1865,16 @@
             if (p < 1) requestAnimationFrame(tick);
         })(performance.now());
     }
+    const pick = a => a[Math.floor(Math.random() * a.length)];
+    // Deadpan register: a texture swipe, reported as if it were the public record.
+    // Neutral by construction — it's about agreement/dissent on the call, never good/bad.
+    function revealHead(lonely, pct) {
+        if (lonely) return pick(['First on the record.', 'Uncontested — you got here first.', 'No one else has weighed in. Bold.']);
+        if (pct >= 70) return pick(['The consensus agrees. Comfortably.', 'A popular reading. Filed.', 'You and the crowd: aligned.']);
+        if (pct >= 50) return pick(['The record concurs.', 'You’re with the majority.', 'Broadly, the crowd agrees.']);
+        if (pct >= 30) return pick(['A minority position. Noted.', 'You dissent. Duly logged.', 'The crowd leans the other way.']);
+        return pick(['A formal dissent.', 'You, against the internet. Bold.', 'The record disagrees. Emphatically.']);
+    }
     function showReveal(item, verdict, categoryId) {
         setSide('none', 0);
         if (bgwash) bgwash.style.opacity = 0;
@@ -1874,7 +1884,7 @@
         const pct = total > 0 ? Math.round((mine / total) * 100) : 100;
         const lonely = total <= 1;                         // your vote is the only one
         const hot = !lonely && total >= 5 && pct <= 40;    // a clear minority (not a near-tie) — a real "hot take"
-        const head = lonely ? 'You called it first.' : (pct >= 50 ? "You're with the crowd." : 'Against the grain.');
+        const head = revealHead(lonely, pct);
 
         arena.innerHTML = '';
         const wrap = document.createElement('div');
@@ -1886,7 +1896,7 @@
                            '<div class="reveal-sub">also said ' + verdict + ' · ' + total + ' votes</div>') +
             '<div class="reveal-head">' + head + '</div>' +
             '<div class="reveal-quote" id="revQuote"></div>' +
-            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">' + (hot ? 'Share the hot take 🌶' : 'Share') + '</button>' +
+            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">' + (hot ? 'Share the dissent' : 'Share') + '</button>' +
             '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button></div>';
         arena.appendChild(wrap);
         document.getElementById('revShare').onclick = (e) => { e.stopPropagation(); shareItem(item, verdict, categoryId, hot); };
@@ -2145,8 +2155,8 @@
         const url = location.origin + path + extra;
         const imgUrl = location.origin + '/og?c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id) + imgExtra;
         const txt = hot
-            ? 'The internet says ' + item.name + ' is ' + crowd + ' (' + gp + '% gooey). I said ' + verdict + '. I’m not on the internet’s side.'
-            : gp + '% say ' + item.name + ' is gooey — I said ' + verdict + '. Prickles & Goo:';
+            ? gp + '% of the internet has ruled ' + item.name + ' ' + crowd + '. I am filing a dissent.'
+            : 'The internet has ' + item.name + ' at ' + gp + '% gooey. For the record, I said ' + verdict + '.';
         smartShare({ text: txt, url, imgUrl });
     }
 
