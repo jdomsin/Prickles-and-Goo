@@ -455,7 +455,7 @@
         <!-- VIEW: RESULTS -->
         <section id="results-view" class="hidden">
             <p class="kicker">The standings</p>
-            <h1 class="prompt">The Gooey Index</h1>
+            <h1 class="prompt">The Texture Index</h1>
             <div class="category-bar" id="category-bar"></div>
             <select class="category-select" id="results-category-select" aria-label="Choose a category"></select>
             <div id="results-list"></div>
@@ -1259,9 +1259,11 @@
     function markAsked(cat, id) { const k = 'pg-asked-' + cat, m = lsGet(k); m[id] = true; localStorage.setItem(k, JSON.stringify(m)); }
 
     // Small client-side profanity guard — basic, not exhaustive; rules also cap length.
-    const BANNED = ['fuck', 'shit', 'bitch', 'cunt', 'nigger', 'faggot', 'retard'];
+    // Hashed (FNV-1a, via hashStr) so slurs aren't shipped in plaintext, and matched
+    // on whole words only — no Scunthorpe-style false positives on innocent substrings.
+    const BANNED_HASHES = new Set([3866578250, 2824268595, 2444789715, 2090526271, 2758825305, 2505785029, 2491417249, 3656079069, 3691556361, 336914794, 2285825857, 3388438485]);
     function cleanReason(t) { return (t || '').replace(/\s+/g, ' ').trim().slice(0, REASON_MAX); }
-    function looksAbusive(t) { const s = t.toLowerCase(); return BANNED.some(w => s.includes(w)); }
+    function looksAbusive(t) { return String(t).toLowerCase().split(/[^a-z]+/).some(w => w && BANNED_HASHES.has(hashStr(w))); }
     function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
     let activeAsk = null;
@@ -1442,8 +1444,8 @@
     /* ===== 8e. REACTIONS + FIRST-VISIT INTRO ===== */
     const reactionEl = document.getElementById('reaction');
     const REACTIONS = {
-        gooey:   ['Gooey, noted.', 'Soft call.', 'Duly softened.', 'Mmm, gooey.'],
-        prickly: ['Sharp call.', 'Prickly, noted.', 'Point taken.', 'Crisp and clear.'],
+        gooey:   ['Gooey, noted.', 'Soft call.', 'Smooth.', 'Mmm, gooey.'],
+        prickly: ['Prickly, noted.', 'Sharp call.', 'Crisp.', 'Mmm, prickly.'],
         skip:    ['Passed.', 'We’ll circle back.', 'Skipped.']
     };
     let reactionTimer = 0;
@@ -1640,10 +1642,10 @@
         const t = item.gooey + item.prickly;
         return t > 0 ? item.gooey / t : 0;
     }
-    function rankedQualifiers() {
+    function rankedQualifiers() {                   // most divisive first — a neutral interim peek
         return items
             .filter(i => (i.gooey + i.prickly) >= RANK_MIN_VOTES)
-            .sort((a, b) => shareGooey(b) - shareGooey(a));
+            .sort((a, b) => Math.abs(shareGooey(a) - .5) - Math.abs(shareGooey(b) - .5));
     }
 
     /* ===== 10. RESULT PANELS ===== */
@@ -1668,7 +1670,7 @@
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
         const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
-                          : '<span class="pct">' + s.gp + '% gooey · ' + votes + lowTag + '</span>';
+                          : '<span class="pct">' + s.gp + '% gooey · ' + s.pp + '% prickly · ' + votes + lowTag + '</span>';
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
             pct + '</div>' +
@@ -1683,7 +1685,7 @@
         arena.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'result';
-        wrap.innerHTML = '<h3>Gooiest so far — top ' + top.length + '</h3>';
+        wrap.innerHTML = '<h3>Most divisive so far — top ' + top.length + '</h3>';
         const legend = document.createElement('div');
         legend.className = 'legend';
         legend.innerHTML = '<span><i style="background:var(--prickly)"></i>Prickly</span><span><i style="background:var(--gooey)"></i>Gooey</span>';
@@ -1725,13 +1727,14 @@
             resultsCategorySelect.appendChild(o);
         });
     }
-    let resultsSort = 'gooey';
-    const SORTS = [['gooey', 'Gooiest'], ['divisive', 'Most divisive'], ['voted', 'Most voted']];
-    const SORT_HEAD = { gooey: 'Most gooey to most prickly', divisive: 'Most divisive', voted: 'Most judged' };
+    let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
+    const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
+    const SORT_HEAD = { divisive: 'The closest calls', gooey: 'Most gooey to most prickly', prickly: 'Most prickly to most gooey', voted: 'Most judged' };
     function sortVoted(arr, mode) {
         const share = i => { const t = i.gooey + i.prickly; return t ? i.gooey / t : 0; };
         if (mode === 'voted') return arr.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly));
         if (mode === 'divisive') return arr.filter(i => (i.gooey + i.prickly) >= 4).sort((a, b) => Math.abs(share(a) - .5) - Math.abs(share(b) - .5));
+        if (mode === 'prickly') return arr.slice().sort((a, b) => share(a) - share(b));
         return arr.slice().sort((a, b) => share(b) - share(a));
     }
     async function loadResults(highlight) {
@@ -1750,8 +1753,9 @@
             const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
             const rows = sortVoted(voted, resultsSort);
             const subs = {
-                gooey: (random ? 'Every list, mixed — ' : '') + 'ranked by how gooey the crowd finds each one.',
                 divisive: 'The closest calls, where the crowd splits hardest.',
+                gooey: (random ? 'Every list, mixed — ' : '') + 'ranked from most gooey to most prickly.',
+                prickly: (random ? 'Every list, mixed — ' : '') + 'ranked from most prickly to most gooey.',
                 voted: 'The most-judged so far.'
             };
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
@@ -1869,11 +1873,13 @@
     }
     /* A name beats a number: map a gooey-lean into a shareable archetype. */
     function archetypeFor(pct) {
-        if (pct >= 80) return { name: 'The Marshmallow', glyph: '🫧', blurb: 'You see softness in almost everything.' };
+        // Both ends are desirable on purpose: appetitive/soft at the gooey pole,
+        // prestige/precise at the prickly pole — neither reads as the "good" answer.
+        if (pct >= 80) return { name: 'The Marshmallow', glyph: '🫧', blurb: 'Soft all the way through.' };
         if (pct >= 60) return { name: 'The Crème Brûlée', glyph: '🍮', blurb: 'Crisp on top, gooey underneath.' };
         if (pct >= 40) return { name: 'The Porcupine-in-a-Cardigan', glyph: '🦔', blurb: 'Spikes out, soft within — hard to call.' };
-        if (pct >= 20) return { name: 'The Bramble', glyph: '🌿', blurb: 'Mostly thorns, the occasional berry.' };
-        return { name: 'The Cactus', glyph: '🌵', blurb: 'Sharp, dry, and proud of it.' };
+        if (pct >= 20) return { name: 'The Espresso', glyph: '☕', blurb: 'Sharp, intense, no apologies.' };
+        return { name: 'The Diamond', glyph: '💎', blurb: 'Hard, exact, and brilliant.' };
     }
     function renderTaste(d) {
         const pct = Math.round(d.gooey / d.total * 100);
@@ -1901,7 +1907,7 @@
         html += '<div class="taste-cats">';
         ranked.forEach(p => {
             const cp = Math.round(p.g / p.t * 100);
-            html += '<div class="taste-cat"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span><span class="pct">' + cp + '% gooey · ' + p.t + '</span></div>' +
+            html += '<div class="taste-cat"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span><span class="pct">' + cp + '% gooey · ' + (100 - cp) + '% prickly</span></div>' +
                 '<div class="bar"><span class="p" style="width:' + (100 - cp) + '%"></span><span class="g" style="width:' + cp + '%"></span></div></div>';
         });
         html += '</div>';
