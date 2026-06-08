@@ -306,6 +306,7 @@
     .sp-lbl.above { bottom:15px; } .sp-lbl.below { top:15px; }
     .sp-you { position:absolute; transform:translate(-50%,-50%); }
     .sp-mk { display:block; width:11px; height:11px; background:var(--ink); border:2px solid var(--surface); transform:rotate(45deg); }
+    .sp-mk.approx { background:transparent; border:2px solid var(--ink-soft); opacity:.65; }   /* side-only call, strength unknown */
     .sp-tick { position:absolute; left:50%; top:-19px; transform:translateX(-50%); font-size:.58rem; font-weight:700; color:var(--ink); }
     /* ---------- Crowd reveal (post-vote payoff) ---------- */
     .reveal { max-width:440px; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 14px; cursor:pointer; animation:revealIn .32s cubic-bezier(.2,.9,.3,1.2); }
@@ -770,7 +771,7 @@
         const real = weeklyResults.filter(r => r.userPos != null);
         wrap.innerHTML = '<p class="kicker">This Week · ' + escapeHtml(weeklyLabel) + ' · complete</p>' +
             '<h3>That’s all ' + weeklyResults.length + '.</h3>' +
-            '<p class="results-sub">Every one on a single prickly→gooey axis — the crowd as dots, your calls as ◆.</p>' +
+            '<p class="results-sub">Every one on a single prickly→gooey axis — crowd as dots, your calls as ◆ (hollow = a side call, no strength).</p>' +
             '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>' +
             '<div class="spectrum" id="recapSpectrum"></div>';
         const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
@@ -802,7 +803,7 @@
                 html += '<div class="sp-conn" style="left:' + x1 + '%;width:' + (x2 - x1) + '%;top:' + y + 'px"></div>';
             }
             html += '<div class="sp-dot" style="left:' + d.x + '%;top:' + y + 'px"><span class="sp-bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></span><span class="sp-lbl ' + lbl + '">' + escapeHtml(d.r.name) + ' · ' + Math.round(px(d.r)) + '% gooey</span></div>';
-            if (d.r.userPos != null) html += '<div class="sp-you" style="left:' + place(d.r.userPos) + '%;top:' + y + 'px"><span class="sp-tick">you</span><span class="sp-mk"></span></div>';
+            if (d.r.userPos != null) html += '<div class="sp-you" style="left:' + place(d.r.userPos) + '%;top:' + y + 'px"><span class="sp-tick">you</span><span class="sp-mk' + (d.r.userExact === false ? ' approx' : '') + '"></span></div>';
         });
         host.innerHTML = html;
     }
@@ -810,11 +811,16 @@
         if (item.iVotes >= 4) return Math.max(0, Math.min(100, Math.round(50 + (item.iSum / item.iVotes) / 2)));
         const t = item.gooey + item.prickly; return t ? Math.round(item.gooey / t * 100) : 50;
     }
-    function userPosFor(cat, id) {   // your own call as a position; exact lean if stored, else binary
+    // Your call as { pos, exact }. exact = a stored swipe lean. A side-only call
+    // (button/keyboard/legacy) gets a moderate representative position, NOT the axis
+    // extreme, and is drawn hollow — so it reads as "your side", not "max conviction".
+    function userLean(cat, id) {
         const s = priorIntensity(cat, id);
-        if (typeof s === 'number') return Math.max(0, Math.min(100, Math.round(50 + s / 2)));
+        if (typeof s === 'number') return { pos: Math.max(0, Math.min(100, Math.round(50 + s / 2))), exact: true };
         const v = priorVerdict(cat, id);
-        return v === 'gooey' ? 100 : v === 'prickly' ? 0 : null;
+        if (v === 'gooey') return { pos: 72, exact: false };
+        if (v === 'prickly') return { pos: 28, exact: false };
+        return null;
     }
     async function loadCategory(categoryId, kicker) {
         currentCategoryId = categoryId;
@@ -1818,9 +1824,12 @@
         if (weeklyMode) {                            // bounded themed deck → spectrum recap at the end
             const t = item.gooey + item.prickly;
             const gp = t ? Math.round(item.gooey / t * 100) : 50;
-            let userPos = null;
-            if (verdict !== 'skip') { const mag = Math.max(8, Math.min(100, Math.round(Math.abs(typeof signed === 'number' ? signed : 100)))); userPos = Math.max(0, Math.min(100, Math.round(50 + (verdict === 'gooey' ? mag : -mag) / 2))); }
-            weeklyResults.push({ name: item.name, gp, userPos });
+            let userPos = null, userExact = true;
+            if (verdict !== 'skip') {
+                if (typeof signed === 'number') { const mag = Math.max(8, Math.min(100, Math.round(Math.abs(signed)))); userPos = Math.max(0, Math.min(100, Math.round(50 + (verdict === 'gooey' ? mag : -mag) / 2))); }
+                else { userPos = verdict === 'gooey' ? 72 : 28; userExact = false; }   // button/keyboard: side only
+            }
+            weeklyResults.push({ name: item.name, gp, userPos, userExact });
             renderWeeklyMeter();
             rememberVerdict(categoryId, item.id, verdict);
             if (verdict !== 'skip') showReveal(item, verdict, categoryId); else maybeShowResults();
@@ -2041,9 +2050,9 @@
             if (voted.length) {
                 const cat0 = currentCategoryId;
                 const specSource = voted.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly)).slice(0, 24);
-                const specRows = specSource.map(it => ({ name: it.name, gp: stats(it).gp, pos: crowdPos(it), userPos: userPosFor(it.categoryId || cat0, it.id) }));
+                const specRows = specSource.map(it => { const ul = userLean(it.categoryId || cat0, it.id); return { name: it.name, gp: stats(it).gp, pos: crowdPos(it), userPos: ul ? ul.pos : null, userExact: ul ? ul.exact : true }; });
                 const sw = document.createElement('div');
-                sw.innerHTML = '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div><div class="spectrum" id="resSpectrum"></div>';
+                sw.innerHTML = '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div><div class="spectrum" id="resSpectrum"></div><p class="results-sub" style="margin:2px 0 14px;font-size:.8rem">Dots = the crowd · ◆ = your call (hollow = a side call, no strength).</p>';
                 resultsList.appendChild(sw);
                 renderSpectrum(sw.querySelector('#resSpectrum'), specRows);
             }
