@@ -161,42 +161,52 @@
     .edge.left  { left:0;  --mask-dir:to right; }
     .fx { position:absolute; inset:0; }
 
-    /* gooey glow (right) */
-    .glow-ambient { position:absolute; right:-12%; top:50%; transform:translateY(-50%); width:130%; height:150%;
-        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 85%, transparent), transparent 72%);
-        filter:blur(34px); opacity:calc(var(--p) * .5 * var(--gain)); }
-    .glow-core { position:absolute; right:0; top:0; bottom:0; width:62%;
-        background:radial-gradient(120% 78% at 100% 50%, color-mix(in srgb,var(--gooey-lt) 90%, transparent), color-mix(in srgb,var(--gooey) 60%, transparent) 38%, transparent 64%);
-        filter:blur(12px); opacity:calc(var(--p) * .8 * var(--gain)); }
-    .edge-rim { position:absolute; right:0; top:0; bottom:0; width:6px;
-        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), transparent);
-        filter:blur(2px); opacity:var(--p); }
-    .bubble { position:absolute; transform:translateY(calc(var(--p) * var(--rise))) translateX(calc(var(--p) * -8px)); will-change:transform;
-        opacity:clamp(0, (var(--p) - var(--d)) / .35, 1); filter:blur(calc((1 - var(--depth)) * 3px)); }
-    .bubble .ball { display:block; width:var(--s); height:var(--s); border-radius:50%;
-        background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(255,255,255,.25) 26%, var(--gooey) 58%, var(--gooey-2) 100%);
-        box-shadow: 0 0 calc(var(--s) * .55) color-mix(in srgb,var(--gooey) 65%, transparent), inset 0 calc(var(--s) * -.12) calc(var(--s) * .18) rgba(0,0,0,.18);
-        animation: floatwob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
-    @keyframes floatwob { 0%,100% { transform:translate(0,0); } 50% { transform:translate(-7px,-9px); } }
+    /* gooey — molten ooze (right): real metaball liquid with molten gloss */
+    .goo-warm { position:absolute; right:-10%; top:50%; transform:translateY(-50%); width:120%; height:150%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 60%, transparent), transparent 70%);
+        filter:blur(40px); opacity:calc(var(--p) * .55 * var(--gain)); }
+    .ooze { position:absolute; inset:0; filter:url(#gooFilter); }
+    .blob { position:absolute; border-radius:50%;
+        background:
+            radial-gradient(38% 32% at 34% 28%, rgba(255,255,255,.95), rgba(255,255,255,0) 60%),
+            radial-gradient(120% 120% at 60% 40%, var(--gooey-lt), var(--gooey) 46%, var(--gooey-2) 100%);
+        width:var(--s); height:var(--s);
+        transform:translateX(calc(var(--tx) - var(--p) * var(--reach))) translateY(calc(var(--p) * var(--rise))) scale(calc(.3 + var(--p)*.7));
+        opacity:clamp(0, calc(var(--p) * 3 - var(--d)), 1);
+        animation:blobwob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
+    @keyframes blobwob { 0%,100% { translate:0 0; } 50% { translate:-6px -10px; } }
+    .meniscus { position:absolute; right:0; top:0; bottom:0; width:10px;
+        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), var(--gooey-lt), transparent);
+        filter:blur(1px); opacity:var(--p); }
+    .sheen { position:absolute; inset:0; mix-blend-mode:screen; opacity:calc(var(--p)*.5);
+        background:radial-gradient(60% 40% at 92% 38%, rgba(255,255,255,.5), transparent 60%); }
 
-    /* prickly shards (left) */
-    .prk-ambient { position:absolute; left:-12%; top:50%; transform:translateY(-50%); width:128%; height:135%;
-        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly) 60%, transparent), transparent 72%);
-        filter:blur(30px); opacity:calc(var(--p) * .34 * var(--gain)); }
-    /* a polished crystal facet, not a broken shard: clean symmetric taper, a glassy
-       prismatic fill, a bright specular glint instead of a debris drop-shadow. */
-    .shard { position:absolute; left:0; top:var(--y); height:var(--h);
-        width:calc(clamp(0, (var(--p) - var(--d)) / .4, 1) * var(--len));
+    /* prickly — faceted amethyst (left): aspirational cut gem, luminous, not a weapon */
+    .prk-cold { position:absolute; left:-10%; top:50%; transform:translateY(-50%); width:120%; height:140%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly-lt) 50%, transparent), transparent 70%);
+        filter:blur(36px); opacity:calc(var(--p) * .42 * var(--gain)); }
+    .crystal { position:absolute; left:0; top:var(--y); height:var(--h);
+        width:calc(clamp(0, var(--p)*1.1 - var(--d), 1) * var(--len));
         transform:rotate(var(--a)); transform-origin:left center;
-        background:linear-gradient(100deg, color-mix(in srgb,var(--prickly-lt) 88%, transparent), color-mix(in srgb,var(--prickly) 82%, transparent) 46%, color-mix(in srgb,var(--prickly-2) 52%, transparent));
-        clip-path:polygon(0 8%, 100% 42%, 100% 58%, 0 92%);
-        filter:drop-shadow(0 0 5px color-mix(in srgb,var(--prickly-lt) 55%, transparent));
-        opacity:clamp(0, (var(--p) - var(--d)) / .3, 1); }
-    .shard::before { content:""; position:absolute; inset:0; clip-path:inherit;   /* top-facet gloss */
-        background:linear-gradient(168deg, color-mix(in srgb,var(--prickly-lt) 98%, transparent), transparent 30%); }
-    .shard::after { content:""; position:absolute; inset:0; clip-path:inherit;    /* specular glint along the spine */
-        background:linear-gradient(100deg, rgba(255,255,255,.72), rgba(255,255,255,.12) 22%, transparent 40%); }
-    .shard.back { filter:drop-shadow(0 0 4px color-mix(in srgb,var(--prickly-lt) 38%, transparent)) blur(1.2px); }
+        opacity:clamp(0, calc(var(--p)*2 - var(--d)), 1);
+        filter:drop-shadow(0 4px 10px color-mix(in srgb,var(--prickly) 40%, transparent))
+               drop-shadow(0 0 7px color-mix(in srgb,var(--prickly-lt) 55%, transparent)); }
+    .crystal .f { position:absolute; inset:0; }
+    .crystal .top  { clip-path:polygon(0 0, 100% 50%, 0 50%);
+        background:linear-gradient(118deg, color-mix(in srgb,var(--prickly-lt) 80%, #fff), var(--prickly) 78%); }
+    .crystal .bot  { clip-path:polygon(0 50%, 100% 50%, 0 100%);
+        background:linear-gradient(62deg, var(--prickly-2), var(--prickly) 88%); }
+    .crystal .core { clip-path:polygon(0 30%, 66% 50%, 0 70%);
+        background:linear-gradient(100deg, color-mix(in srgb,#fff 55%, var(--prickly-lt)), transparent 72%); opacity:.7; }
+    .crystal .spine { position:absolute; left:0; right:0; top:50%; height:1.5px; transform:translateY(-.75px);
+        background:linear-gradient(90deg, #fff, color-mix(in srgb,var(--prickly-lt) 80%, #fff) 35%, transparent 78%); }
+    .crystal .edge { position:absolute; inset:0; clip-path:polygon(0 0, 100% 50%, 0 0);
+        border-top:1.5px solid rgba(255,255,255,.85); opacity:.5; }
+    .crystal .spark { position:absolute; width:7px; height:7px; background:#fff; border-radius:50%;
+        left:var(--sx,14%); top:var(--sy,40%); filter:blur(.3px);
+        box-shadow:0 0 6px 1px rgba(255,255,255,.9); animation:twinkle var(--tw,2.6s) ease-in-out infinite var(--td,0s); }
+    @keyframes twinkle { 0%,100% { opacity:.25; transform:scale(.7); } 50% { opacity:1; transform:scale(1.15); } }
+    .crystal.back { filter:blur(2px); opacity:calc(var(--p)*.45); }
 
     /* quiet oversized word cue */
     .word { position:fixed; top:50%; transform:translateY(-50%); z-index:4; pointer-events:none;
@@ -439,6 +449,14 @@
     </nav>
 
     <!-- Glow & Shards effect layer (fixed, viewport-wide; inert until a swipe) -->
+    <!-- SVG goo filter: blur then sharpen alpha so gooey blobs fuse like liquid -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="gooFilter">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/>
+            <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="goo"/>
+            <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+        </filter>
+    </svg>
     <div class="edge left"  id="edgeL"><div class="fx" id="fxL"></div></div>
     <div class="edge right" id="edgeR"><div class="fx" id="fxR"></div></div>
     <div class="word prk">Prickly</div>
@@ -920,22 +938,27 @@
 
     // Build the glassy bubbles (right) and faceted shards (left) once.
     function buildEffects() {
-        let R = '<div class="glow-ambient"></div><div class="glow-core"></div><div class="edge-rim"></div>';
-        for (let i = 0; i < 16; i++) {
-            R += '<div class="bubble" style="right:' + rnd(6, 240).toFixed(0) + 'px; bottom:' + rnd(-30, 70).toFixed(0) + 'px;' +
-                 '--s:' + rnd(9, 46).toFixed(0) + 'px; --depth:' + rnd(.25, 1).toFixed(2) + '; --rise:' + rnd(-180, -440).toFixed(0) + 'px;' +
-                 '--d:' + rnd(0, .5).toFixed(2) + '; --dur:' + rnd(3.2, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;">' +
-                 '<span class="ball"></span></div>';
+        // gooey: molten metaball blobs that creep in + a warm glow, gloss sheen, meniscus rim
+        let R = '<div class="goo-warm"></div><div class="ooze">';
+        for (let i = 0; i < 9; i++) {
+            R += '<div class="blob" style="right:' + rnd(-10, 40).toFixed(0) + 'px; top:' + (i * 11 + rnd(-3, 3)).toFixed(0) + '%;' +
+                 '--s:' + rnd(70, 160).toFixed(0) + 'px; --tx:' + rnd(40, 120).toFixed(0) + 'px; --reach:' + rnd(120, 230).toFixed(0) + 'px;' +
+                 '--rise:' + rnd(-30, 30).toFixed(0) + 'px; --d:' + rnd(0, .8).toFixed(2) + '; --dur:' + rnd(3.5, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;"></div>';
         }
+        R += '</div><div class="sheen"></div><div class="meniscus"></div>';
         fxR.innerHTML = R;
 
-        let L = '<div class="prk-ambient"></div>';
-        for (let i = 0; i < 12; i++) {
-            const back = Math.random() < .4;
-            L += '<div class="shard' + (back ? ' back' : '') + '" style="' +
-                 '--y:' + (i * 8 + rnd(0, 4)).toFixed(1) + '%; --h:' + (back ? rnd(14, 26) : rnd(26, 50)).toFixed(0) + 'px;' +
-                 '--len:' + (back ? rnd(110, 200) : rnd(180, 340)).toFixed(0) + 'px; --a:' + rnd(-7, 7).toFixed(1) + 'deg;' +
-                 '--d:' + rnd(0, .45).toFixed(2) + ';"></div>';
+        // prickly: faceted amethyst crystals — top/bottom/inner facets, specular spine, sparkle
+        let L = '<div class="prk-cold"></div>';
+        for (let i = 0; i < 8; i++) {
+            const back = Math.random() < .35;
+            L += '<div class="crystal' + (back ? ' back' : '') + '" style="' +
+                 '--y:' + (i * 12 + rnd(-2, 2)).toFixed(1) + '%; --h:' + (back ? rnd(26, 40) : rnd(46, 78)).toFixed(0) + 'px;' +
+                 '--len:' + (back ? rnd(150, 240) : rnd(240, 420)).toFixed(0) + 'px; --a:' + rnd(-11, 11).toFixed(1) + 'deg;' +
+                 '--d:' + rnd(0, .5).toFixed(2) + ';">' +
+                 '<div class="f top"></div><div class="f bot"></div><div class="f core"></div>' +
+                 '<div class="spine"></div><div class="edge"></div>' +
+                 '<span class="spark" style="--sx:' + rnd(8, 22).toFixed(0) + '%;--sy:' + rnd(34, 50).toFixed(0) + '%;--tw:' + rnd(2, 3.4).toFixed(1) + 's;--td:' + rnd(0, 2.5).toFixed(1) + 's"></span></div>';
         }
         fxL.innerHTML = L;
     }
