@@ -374,7 +374,8 @@
         transition:background .15s ease, color .15s ease; }
     .category-bar .cat:hover { color:var(--ink); }
     .category-bar .cat.active { background:var(--ink); color:var(--paper); }       /* clean solid fill, neutral (not a teal ring) */
-    .category-bar .cat-sep { flex-basis:100%; height:0; margin:1px 0; }            /* line break: Play row, then categories below */
+    .category-bar .cat-grouplabel { flex-basis:100%; margin:10px 0 1px; font-size:.66rem; font-weight:700;
+        letter-spacing:.09em; text-transform:uppercase; color:var(--ink-soft); opacity:.7; }   /* "Other Sets" header over the categories */
     /* mobile dropdown alternative (shown < 560px, see media query) */
     .category-select { display:none; width:100%; font:inherit; font-size:1rem; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:13px 42px 13px 16px; margin:0 0 22px; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6259' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; }
 
@@ -729,13 +730,13 @@
         voteCategoryBar.innerHTML = '';
         voteCategorySelect.innerHTML = '';
         const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
-        const ogCats = document.createElement('optgroup'); ogCats.label = 'Categories';
+        const ogCats = document.createElement('optgroup'); ogCats.label = 'Other Sets';
         let prevMode = null;
         voteCategories().forEach(c => {
             const isMode = MODE_IDS.has(c.id);
             const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
-            if (prevMode !== null && isMode !== prevMode) {     // a thin rule where modes meet topics
-                const sep = document.createElement('span'); sep.className = 'cat-sep'; voteCategoryBar.appendChild(sep);
+            if (prevMode === true && isMode === false) {        // label the topic group below the Play row
+                const lbl = document.createElement('span'); lbl.className = 'cat-grouplabel'; lbl.textContent = 'Other Sets'; voteCategoryBar.appendChild(lbl);
             }
             prevMode = isMode;
             const b = document.createElement('button');
