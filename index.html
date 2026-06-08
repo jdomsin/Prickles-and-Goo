@@ -669,7 +669,10 @@
             shown: d.shown || 0,
             gooey: d.gooey || 0,
             prickly: d.prickly || 0,
-            skipped: d.skipped || 0
+            skipped: d.skipped || 0,
+            iVotes: d.iVotes || 0,      // intensity aggregates (additive migration)
+            iSum: d.iSum || 0,          // Σ signed intensity (-100..100); mean = iSum/iVotes
+            iSumSq: d.iSumSq || 0       // Σ intensity² → variance/divisiveness
         };
     }
     function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
@@ -1217,9 +1220,16 @@
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
             if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
         }
-        else if (dx > SWIPE_COMMIT || swipe.vx > FLICK) flySwipe('gooey');
-        else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly');
+        else if (dx > SWIPE_COMMIT || swipe.vx > FLICK) flySwipe('gooey', null, swipeSigned('gooey'));
+        else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly', null, swipeSigned('prickly'));
         else bounceBack();
+    }
+    // how far/hard you pushed → signed intensity (-100..100), sign set by the verdict
+    function swipeSigned(verdict) {
+        const pos = clamp01(Math.abs(swipe.dx) / SWIPE_THRESHOLD);
+        const vel = clamp01(Math.abs(swipe.vx) / 1.2);
+        const mag = Math.round(Math.max(8, Math.min(100, (pos + vel * 0.7) * 100)));
+        return verdict === 'gooey' ? mag : -mag;
     }
     function popBurst(card, verdict) {                 // clean halftone radiate on commit (no comic words)
         if (reduceMotion || !card.parentElement) return;
@@ -1228,7 +1238,7 @@
         card.parentElement.appendChild(d);
         setTimeout(() => d.remove(), 560);
     }
-    function flySwipe(verdict, dir) {
+    function flySwipe(verdict, dir, signed) {
         if (!swipe || swipe.done) return;
         swipe.done = true; swipe.dragging = false;
         const item = swipe.item, card = swipe.card, categoryId = swipe.categoryId;
@@ -1239,7 +1249,7 @@
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
         const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
         card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
-        setTimeout(() => commitVote(item, verdict, categoryId), 460);
+        setTimeout(() => commitVote(item, verdict, categoryId, signed), 460);
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -1578,7 +1588,7 @@
     }
 
     /* ===== 9. RECORD VOTE ===== */
-    async function commitVote(item, verdict, categoryId) {
+    async function commitVote(item, verdict, categoryId, signed) {
         showReaction(verdict);
         // optimistic local update keeps selection balanced within the session
         item.shown += 1;
@@ -1591,6 +1601,15 @@
         if (verdict === 'gooey') update.gooey = inc(1);
         else if (verdict === 'prickly') update.prickly = inc(1);
         else update.skipped = inc(1);
+
+        // Intensity (additive migration): record the lean's magnitude, sign = verdict.
+        // Buttons/keys with no captured lean default to full conviction (±100). Skips carry none.
+        if (verdict !== 'skip') {
+            const mag = Math.max(8, Math.min(100, Math.round(Math.abs(typeof signed === 'number' ? signed : 100))));
+            const s = verdict === 'gooey' ? mag : -mag;
+            update.iVotes = inc(1); update.iSum = inc(s); update.iSumSq = inc(s * s);
+            item.iVotes = (item.iVotes || 0) + 1; item.iSum = (item.iSum || 0) + s; item.iSumSq = (item.iSumSq || 0) + s * s;
+        }
 
         const ref = db.collection('categories').doc(categoryId).collection('items').doc(item.id);
         ref.update(update).catch(async (err) => {
@@ -1781,10 +1800,18 @@
     let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
     const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
     const SORT_HEAD = { divisive: 'The closest calls', gooey: 'Most gooey to most prickly', prickly: 'Most prickly to most gooey', voted: 'Most judged' };
+    // intensity reads (from the additive aggregates; null until enough intensity votes)
+    function meanIntensity(i) { return i.iVotes ? i.iSum / i.iVotes : null; }
+    function intensityStd(i) { if (!i.iVotes) return 0; const m = i.iSum / i.iVotes; return Math.sqrt(Math.max(0, i.iSumSq / i.iVotes - m * m)); }
     function sortVoted(arr, mode) {
         const share = i => { const t = i.gooey + i.prickly; return t ? i.gooey / t : 0; };
         if (mode === 'voted') return arr.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly));
-        if (mode === 'divisive') return arr.filter(i => (i.gooey + i.prickly) >= 4).sort((a, b) => Math.abs(share(a) - .5) - Math.abs(share(b) - .5));
+        if (mode === 'divisive') {
+            const qual = arr.filter(i => (i.gooey + i.prickly) >= 4);
+            // prefer real divisiveness (intensity variance) once every item has enough intensity votes
+            const useVar = qual.length > 0 && qual.every(i => i.iVotes >= 4);
+            return qual.slice().sort((a, b) => useVar ? (intensityStd(b) - intensityStd(a)) : (Math.abs(share(a) - .5) - Math.abs(share(b) - .5)));
+        }
         if (mode === 'prickly') return arr.slice().sort((a, b) => share(a) - share(b));
         return arr.slice().sort((a, b) => share(b) - share(a));
     }
