@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prickles &amp; Goo — Lab: intensity voting + spectrum</title>
+<!-- STANDALONE PROTOTYPE. Mock data, no Firebase, does not touch the live app.
+     Explores two ideas: (A) center-out intensity voting, (B) a prickly→gooey
+     spectrum view. Open this file directly in a browser. -->
+<style>
+    :root {
+        --paper:#FFF1E5; --surface:#FFFFFF; --surface-2:#FBEFE3;
+        --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
+        --gooey:#0D7680; --gooey-soft:#E3EFEF; --gooey-2:#0a5d65;
+        --prickly:#6D3B6E; --prickly-soft:#EFE3F0; --prickly-2:#4C2A4D;
+        --shadow:0 1px 2px rgba(40,30,20,.05), 0 8px 28px rgba(40,30,20,.08);
+        --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
+        --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Roboto,Helvetica,Arial,sans-serif;
+        --r:14px;
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { margin:0; }
+    body { font-family:var(--sans); background:var(--paper); color:var(--ink); -webkit-font-smoothing:antialiased; }
+    .wrap { max-width:760px; margin:0 auto; padding:28px clamp(16px,5vw,40px) 80px; }
+    .lab-tag { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+        color:var(--prickly); background:var(--prickly-soft); border-radius:999px; padding:5px 12px; }
+    h1 { font-family:var(--serif); font-size:2rem; letter-spacing:-.01em; margin:14px 0 4px; }
+    .lead { color:var(--ink-soft); line-height:1.5; margin:0 0 8px; }
+    section { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r);
+        box-shadow:var(--shadow); padding:24px clamp(16px,4vw,30px); margin-top:26px; }
+    .kicker { font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; }
+    h2 { font-family:var(--serif); font-size:1.5rem; margin:0 0 6px; }
+    .sub { color:var(--ink-soft); font-size:.95rem; line-height:1.45; margin:0 0 18px; }
+
+    /* ---------- A. Center-out intensity voting ---------- */
+    .card { text-align:center; }
+    .card-nm { font-family:var(--serif); font-size:2.2rem; font-weight:700; margin:6px 0 2px; }
+    .card-meta { color:var(--ink-soft); font-size:.85rem; margin-bottom:26px; }
+    .dial-labels { display:flex; justify-content:space-between; font-size:.74rem; font-weight:700;
+        letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px; }
+    .dial-labels .p { color:var(--prickly); } .dial-labels .g { color:var(--gooey); } .dial-labels .m { color:var(--ink-soft); opacity:.7; }
+    .track { position:relative; height:26px; border-radius:999px; background:var(--hairline); overflow:hidden; }
+    .track .center { position:absolute; left:50%; top:-4px; bottom:-4px; width:2px; background:var(--ink-soft); opacity:.5; transform:translateX(-1px); }
+    .track .fill { position:absolute; top:0; bottom:0; width:0; transition:width .04s linear, background .1s; }
+    .range { -webkit-appearance:none; appearance:none; position:absolute; inset:0; width:100%; height:100%; margin:0; background:transparent; cursor:grab; }
+    .range:active { cursor:grabbing; }
+    .range::-webkit-slider-thumb { -webkit-appearance:none; width:34px; height:34px; border-radius:50%; background:var(--surface);
+        border:2px solid var(--ink); box-shadow:0 6px 18px rgba(20,14,10,.28); margin-top:-4px; }
+    .range::-moz-range-thumb { width:30px; height:30px; border-radius:50%; background:var(--surface); border:2px solid var(--ink); }
+    .readout { font-family:var(--serif); font-size:1.4rem; margin:18px 0 2px; min-height:1.5em; }
+    .readout .n { color:var(--ink-soft); }
+    .btns { display:flex; gap:12px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+    button { font:inherit; font-weight:600; border-radius:999px; padding:12px 24px; cursor:pointer; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); }
+    button.primary { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+    button:disabled { opacity:.45; cursor:default; }
+    .progress { display:flex; gap:6px; justify-content:center; margin-top:20px; }
+    .pip { width:8px; height:8px; border-radius:50%; background:var(--hairline); }
+    .pip.on { background:var(--ink); }
+    .pip.cur { background:var(--ink-soft); }
+    .done-note { text-align:center; color:var(--ink-soft); }
+
+    /* ---------- B. Spectrum ---------- */
+    .axis-cap { display:flex; justify-content:space-between; font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .axis-cap .p { color:var(--prickly); } .axis-cap .g { color:var(--gooey); }
+    .spectrum { position:relative; margin:6px 0 4px; border-radius:12px; background:
+        linear-gradient(90deg, var(--prickly-soft), var(--surface-2) 50%, var(--gooey-soft)); border:1px solid var(--hairline); }
+    .spectrum .mid { position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--ink-soft); opacity:.35; }
+    .spectrum .mid-cap { position:absolute; left:50%; transform:translateX(-50%); bottom:6px; font-size:.66rem; color:var(--ink-soft); white-space:nowrap; }
+    .dot { position:absolute; transform:translate(-50%,-50%); }
+    .dot .bead { width:13px; height:13px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 2px 6px rgba(20,14,10,.18); }
+    .dot .lbl { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:.72rem; color:var(--ink); background:color-mix(in srgb,var(--surface) 86%, transparent); padding:1px 5px; border-radius:6px; }
+    .dot .lbl.above { bottom:16px; } .dot .lbl.below { top:16px; }
+    .you { position:absolute; transform:translate(-50%,-50%); width:0; height:0; }
+    .you .tick { position:absolute; left:50%; top:-22px; transform:translateX(-50%); font-size:.62rem; font-weight:700; color:var(--ink); }
+    .you .mk { position:absolute; left:50%; top:-12px; transform:translate(-50%,-50%) rotate(45deg); width:10px; height:10px; background:var(--ink); border:2px solid var(--surface); }
+    .legend { display:flex; gap:18px; justify-content:center; font-size:.78rem; color:var(--ink-soft); margin-top:14px; flex-wrap:wrap; }
+    .legend i { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px; border:2px solid var(--surface); box-shadow:0 1px 3px rgba(0,0,0,.15); }
+    .toggle { font-size:.82rem; color:var(--ink-soft); margin-top:12px; text-align:center; }
+    .toggle button { padding:7px 14px; font-size:.82rem; font-weight:600; }
+    .toggle button.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+    .foot { text-align:center; color:var(--ink-soft); font-size:.8rem; margin-top:30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <span class="lab-tag">Lab · prototype · mock data</span>
+    <h1>Voting from the middle → the spectrum</h1>
+    <p class="lead">Two ideas side by side. Vote a few airlines by pushing out from a neutral center with <b>intensity</b> (Section A). Your calls land on a continuous <b>prickly→gooey spectrum</b> (Section B). Mock crowd data; nothing here touches the live app.</p>
+
+    <!-- A. CENTER-OUT INTENSITY VOTING -->
+    <section>
+        <p class="kicker">A · Vote from the middle</p>
+        <h2>How prickly, how gooey?</h2>
+        <p class="sub">The slider starts <b>neutral</b>. Push left for prickly, right for gooey — how far you push is how strongly you feel. No binary flick; degree and direction both count.</p>
+        <div id="voteArea"></div>
+        <div class="progress" id="progress"></div>
+    </section>
+
+    <!-- B. SPECTRUM -->
+    <section>
+        <p class="kicker">B · The spectrum</p>
+        <h2>Where the category lands</h2>
+        <p class="sub">Every airline placed on one axis by how the crowd splits — no ranked list, no single "winner" pole. The midline is an even 50/50. Your votes from Section A appear as ◆ markers.</p>
+        <div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>
+        <div class="spectrum" id="spectrum"></div>
+        <div class="legend">
+            <span><i style="background:var(--gooey)"></i>Crowd (gooey-leaning)</span>
+            <span><i style="background:var(--prickly)"></i>Crowd (prickly-leaning)</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:var(--ink);transform:rotate(45deg);margin-right:6px"></span>Your call</span>
+        </div>
+        <div class="toggle">
+            <button id="tgCrowd" class="active">Crowd</button>
+            <button id="tgYou">Crowd + your votes</button>
+        </div>
+    </section>
+
+    <p class="foot">Prickles &amp; Goo — exploration sandbox. Swap the mock data, try the interactions, then we graduate the winners into the real app.</p>
+</div>
+
+<script>
+/* ---- mock data: a category (Airlines), crowd gooey% + vote counts ---- */
+const ITEMS = [
+    { name:'Singapore Airlines', g:80, n:240 },
+    { name:'Emirates',           g:74, n:210 },
+    { name:'Southwest',          g:72, n:300 },
+    { name:'JetBlue',            g:68, n:180 },
+    { name:'Alaska',             g:66, n:150 },
+    { name:'Delta',              g:58, n:260 },
+    { name:'British Airways',    g:50, n:170 },
+    { name:'United',             g:47, n:240 },
+    { name:'American',           g:44, n:230 },
+    { name:'Frontier',           g:22, n:120 },
+    { name:'Spirit',             g:14, n:200 },
+    { name:'Ryanair',            g:11, n:190 },
+];
+const yourVotes = {};          // name -> your gooey% (0..100)
+let showYou = false;
+
+/* ===== A. center-out intensity voting ===== */
+const deck = ITEMS.slice(0, 8);
+let pos = 0;
+const voteArea = document.getElementById('voteArea');
+const progressEl = document.getElementById('progress');
+
+function intensityWord(v) {
+    const a = Math.abs(v);
+    if (a < 6) return ['neutral', 'n'];
+    const deg = a < 34 ? 'a little' : a < 67 ? 'fairly' : 'very';
+    return [deg + ' ' + (v < 0 ? 'prickly' : 'gooey'), v < 0 ? 'p' : 'g'];
+}
+function renderProgress() {
+    progressEl.innerHTML = deck.map((_, i) =>
+        '<span class="pip' + (i < pos ? ' on' : i === pos ? ' cur' : '') + '"></span>').join('');
+}
+function renderCard() {
+    if (pos >= deck.length) { renderDone(); return; }
+    const it = deck[pos];
+    voteArea.innerHTML =
+        '<div class="card">' +
+            '<div class="card-nm">' + it.name + '</div>' +
+            '<div class="card-meta">' + it.n + ' crowd votes so far</div>' +
+            '<div class="dial-labels"><span class="p">Prickly</span><span class="m">neutral</span><span class="g">Gooey</span></div>' +
+            '<div class="track"><div class="fill" id="fill"></div><div class="center"></div>' +
+                '<input class="range" id="range" type="range" min="-100" max="100" value="0" step="1" aria-label="How prickly or gooey">' +
+            '</div>' +
+            '<div class="readout" id="readout">Push the slider to make a call</div>' +
+            '<div class="btns">' +
+                '<button id="skip">Skip</button>' +
+                '<button class="primary" id="lock" disabled>Lock it in →</button>' +
+            '</div>' +
+        '</div>';
+    const range = document.getElementById('range');
+    const fill = document.getElementById('fill');
+    const readout = document.getElementById('readout');
+    const lock = document.getElementById('lock');
+    function paint() {
+        const v = +range.value;
+        const half = 50;                       // each side is 50% of the track width
+        if (Math.abs(v) < 6) {
+            fill.style.width = '0';
+            readout.innerHTML = '<span class="n">neutral — right down the middle</span>';
+        } else if (v < 0) {
+            fill.style.left = ''; fill.style.right = '50%';
+            fill.style.width = (Math.abs(v) / 100 * half) + '%';
+            fill.style.background = 'var(--prickly)';
+            const [w] = intensityWord(v); readout.innerHTML = '<b style="color:var(--prickly)">' + w + '</b>';
+        } else {
+            fill.style.right = ''; fill.style.left = '50%';
+            fill.style.width = (v / 100 * half) + '%';
+            fill.style.background = 'var(--gooey)';
+            const [w] = intensityWord(v); readout.innerHTML = '<b style="color:var(--gooey)">' + w + '</b>';
+        }
+        lock.disabled = Math.abs(v) < 6;
+    }
+    range.addEventListener('input', paint);
+    range.addEventListener('change', () => { if (Math.abs(+range.value) < 6) { range.value = 0; paint(); } }); // center detent
+    document.getElementById('lock').onclick = () => {
+        const v = +range.value;
+        yourVotes[it.name] = Math.round(50 + v / 2);   // -100→0% gooey, +100→100% gooey
+        pos++; renderProgress(); renderCard();
+        if (pos >= deck.length) { showYou = true; syncToggle(); }
+        renderSpectrum();
+    };
+    document.getElementById('skip').onclick = () => { pos++; renderProgress(); renderCard(); };
+    paint();
+    renderProgress();
+}
+function renderDone() {
+    const n = Object.keys(yourVotes).length;
+    voteArea.innerHTML = '<p class="done-note">That’s the deck — <b>' + n + '</b> call' + (n === 1 ? '' : 's') +
+        ' logged. Scroll down: your ◆ markers are now on the spectrum.</p>' +
+        '<div class="btns"><button id="again">Vote again</button></div>';
+    document.getElementById('again').onclick = () => { pos = 0; renderProgress(); renderCard(); };
+}
+
+/* ===== B. spectrum (beeswarm placement) ===== */
+const spectrumEl = document.getElementById('spectrum');
+const PAD = 8;          // % padding each side
+function place(gp) { return PAD + (gp / 100) * (100 - 2 * PAD); }  // gp(0..100) → x %
+
+function renderSpectrum() {
+    const W = spectrumEl.clientWidth || 680;
+    const laneH = 30, baseY = 30;
+    // greedy beeswarm: sort by x, push down a lane if too close to a placed dot
+    const sorted = ITEMS.map(it => ({ it, x: place(it.g) })).sort((a, b) => a.x - b.x);
+    const placed = [];
+    sorted.forEach(d => {
+        let lane = 0;
+        while (placed.some(p => p.lane === lane && Math.abs(p.xpx - d.x / 100 * W) < 64)) lane++;
+        d.lane = lane; d.xpx = d.x / 100 * W; placed.push(d);
+    });
+    const maxLane = Math.max(0, ...placed.map(d => d.lane));
+    const h = baseY + (maxLane + 1) * laneH + 24;
+    spectrumEl.style.height = h + 'px';
+    let html = '<div class="mid"></div><div class="mid-cap">even 50 / 50</div>';
+    placed.forEach(d => {
+        const y = baseY + d.lane * laneH;
+        const goo = d.it.g >= 50;
+        const lblPos = d.lane % 2 === 0 ? 'above' : 'below';
+        html += '<div class="dot" style="left:' + d.x + '%;top:' + y + 'px">' +
+            '<div class="bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></div>' +
+            '<div class="lbl ' + lblPos + '">' + d.it.name + ' · ' + d.it.g + '%</div></div>';
+        if (showYou && yourVotes[d.it.name] != null) {
+            const yx = place(yourVotes[d.it.name]);
+            html += '<div class="you" style="left:' + yx + '%;top:' + y + 'px">' +
+                '<div class="mk"></div><div class="tick">you</div></div>';
+        }
+    });
+    spectrumEl.innerHTML = html;
+}
+
+function syncToggle() {
+    document.getElementById('tgCrowd').classList.toggle('active', !showYou);
+    document.getElementById('tgYou').classList.toggle('active', showYou);
+}
+document.getElementById('tgCrowd').onclick = () => { showYou = false; syncToggle(); renderSpectrum(); };
+document.getElementById('tgYou').onclick = () => { showYou = true; syncToggle(); renderSpectrum(); };
+window.addEventListener('resize', renderSpectrum);
+
+/* init */
+renderCard();
+renderSpectrum();
+</script>
+</body>
+</html>
