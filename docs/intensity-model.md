@@ -1,5 +1,14 @@
 # Migration plan: binary verdict → signed intensity
 
+> **Status: implemented on branch, logic-tested, NOT yet deployed.**
+> `firestore.rules` + `index.html` (normalize / commitVote / swipe capture /
+> variance-based divisive sort) are done; rule predicate + client writes + read
+> helpers pass 17/17 unit checks. **Deploy order is load-bearing:** publish the
+> updated `firestore.rules` *first*, then deploy the client. If the client ships
+> before the rules, strict rules reject the extra fields and **votes fail**. So
+> this does not auto-merge to `main` — see §6.
+
+
 **Goal.** Let a vote carry *how much*, not just *which way* — a signed intensity in
 `[-100, +100]` (prickly negative, gooey positive, 0 = neutral). This is what makes the
 swipe-with-force interaction and the prickly→gooey spectrum real, and it delivers the
