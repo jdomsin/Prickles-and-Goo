@@ -284,6 +284,8 @@
     .taste-line { font-family:var(--serif); font-size:1.1rem; line-height:1.45; margin:0 0 10px; }
     .taste-cats { margin-top:18px; }
     .taste-cat { margin-bottom:14px; }
+    .taste-cat.is-thin { opacity:.55; }                         /* few votes → visually recede */
+    .taste-cat .pct .low { color:var(--ink-soft); font-style:italic; }
     .taste-cat-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; font-size:.95rem; }
     .taste-cat-top .pct { font-size:.8rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
     /* daily ballot recap */
@@ -361,8 +363,13 @@
     .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
     .next-wrap { margin-top:28px; }
 
-    .category-bar { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 26px; }
-    .category-bar .cat { font-size:.85rem; font-weight:600; padding:8px 16px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
+    .category-bar { display:flex; flex-wrap:nowrap; gap:8px; margin:0 0 26px; overflow-x:auto; padding-bottom:2px;
+        scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch;
+        -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%);
+                mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%); }
+    .category-bar::-webkit-scrollbar { display:none; }
+    .category-bar .cat { flex:0 0 auto; white-space:nowrap; font-size:.85rem; font-weight:600; padding:8px 16px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
+    .category-bar .cat-sep { flex:0 0 auto; align-self:center; width:1px; height:20px; background:var(--hairline); margin:0 3px; }
     .category-bar .cat.active { color:var(--ink); border-color:var(--gooey); box-shadow:0 0 0 1px var(--gooey); }
     /* mobile dropdown alternative (shown < 560px, see media query) */
     .category-select { display:none; width:100%; font:inherit; font-size:1rem; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:13px 42px 13px 16px; margin:0 0 22px; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6259' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; }
@@ -713,22 +720,33 @@
     }
     function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: WEEKLY_ID, label: "This Week" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
     function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === WEEKLY_ID) loadWeekly(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
+    const MODE_IDS = new Set([DAILY_ID, WEEKLY_ID, PREDICT_ID, RANDOM_ID]);
     function renderVoteCategoryBar() {
         voteCategoryBar.innerHTML = '';
         voteCategorySelect.innerHTML = '';
+        const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
+        const ogCats = document.createElement('optgroup'); ogCats.label = 'Categories';
+        let prevMode = null, activeBtn = null;
         voteCategories().forEach(c => {
+            const isMode = MODE_IDS.has(c.id);
             const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
+            if (prevMode !== null && isMode !== prevMode) {     // a thin rule where modes meet topics
+                const sep = document.createElement('span'); sep.className = 'cat-sep'; voteCategoryBar.appendChild(sep);
+            }
+            prevMode = isMode;
             const b = document.createElement('button');
             b.className = 'cat' + (active ? ' active' : '');
             b.textContent = c.label;
             b.onclick = () => { if (!active || c.id === DAILY_ID) openCategory(c.id); };
             voteCategoryBar.appendChild(b);
+            if (active) activeBtn = b;
 
-            const o = document.createElement('option');     // mirror into the mobile dropdown
-            o.value = c.id; o.textContent = c.label;
-            if (active) o.selected = true;
-            voteCategorySelect.appendChild(o);
+            const o = document.createElement('option');         // mobile dropdown, grouped
+            o.value = c.id; o.textContent = c.label; if (active) o.selected = true;
+            (isMode ? ogPlay : ogCats).appendChild(o);
         });
+        voteCategorySelect.append(ogPlay, ogCats);
+        if (activeBtn) activeBtn.scrollIntoView({ inline: 'center', block: 'nearest' });
     }
     // Fetch every category's items at once, each tagged with its source category.
     async function fetchAllItems() {
@@ -2071,10 +2089,20 @@
                                : (await db.collection('categories').doc(currentCategoryId).collection('items').get())
                                    .docs.map(normalize).filter(i => i.named);
             if (!random) all.forEach(i => i.categoryId = currentCategoryId);
-            const voted = all.filter(i => (i.gooey + i.prickly) > 0);
-            const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
-            const rows = sortVoted(voted, resultsSort);
-            const subs = {
+            paintResults(all, highlight);
+        } catch (err) {
+            console.error("Failed to load results:", err);
+            resultsList.innerHTML = '';
+            showError(views.results, describeError(err));
+        }
+    }
+    // Render (and re-sort) from already-fetched items — sort chips no longer refetch.
+    function paintResults(all, highlight) {
+        const random = currentCategoryId === RANDOM_ID;
+        const voted = all.filter(i => (i.gooey + i.prickly) > 0);
+        const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
+        const rows = sortVoted(voted, resultsSort);
+        const subs = {
                 divisive: 'The closest calls, where the crowd splits hardest.',
                 gooey: (random ? 'Every list, mixed — ' : '') + 'ranked from most gooey to most prickly.',
                 prickly: (random ? 'Every list, mixed — ' : '') + 'ranked from most prickly to most gooey.',
@@ -2100,7 +2128,7 @@
                 const b = document.createElement('button');
                 b.className = 'sortchip' + (v === resultsSort ? ' active' : '');
                 b.textContent = label;
-                b.onclick = () => { resultsSort = v; loadResults(); };
+                b.onclick = () => { if (v !== resultsSort) { resultsSort = v; paintResults(all, highlight); } };
                 sortBar.appendChild(b);
             });
             resultsList.appendChild(sortBar);
@@ -2138,11 +2166,6 @@
                 cta.onclick = () => { showView('vote'); if (currentCategoryId === RANDOM_ID) loadRandom(); else loadCategory(currentCategoryId); };
                 resultsList.appendChild(cta);
             }
-        } catch (err) {
-            console.error("Failed to load results:", err);
-            resultsList.innerHTML = '';
-            showError(views.results, describeError(err));
-        }
     }
 
     /* ===== 11b. ROUTING + SHARE (deep links) ===== */
@@ -2249,7 +2272,9 @@
         html += '<div class="taste-cats">';
         ranked.forEach(p => {
             const cp = Math.round(p.g / p.t * 100);
-            html += '<div class="taste-cat"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span><span class="pct">' + cp + '% gooey · ' + (100 - cp) + '% prickly</span></div>' +
+            const thin = p.t < 3 ? ' <span class="low">· thin</span>' : '';
+            html += '<div class="taste-cat' + (p.t < 3 ? ' is-thin' : '') + '"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span>' +
+                '<span class="pct">' + cp + '% gooey · ' + p.t + ' vote' + (p.t === 1 ? '' : 's') + thin + '</span></div>' +
                 '<div class="bar"><span class="p" style="width:' + (100 - cp) + '%"></span><span class="g" style="width:' + cp + '%"></span></div></div>';
         });
         html += '</div>';
