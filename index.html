@@ -649,6 +649,8 @@
     const RANDOM_ID = "random";
     const DAILY_ID = "daily";
     const DAILY_SIZE = 10;                 // cards in a bounded daily ballot
+    // "Set of the Day": one coherent theme per edition, rotating — a fresh, NYT-style daily, not a random mix.
+    const DAILY_ROTATION = ["animals", "emotions", "internet_objects", "moments", "ai_models", "tech_companies", "social", "money_apps", "languages", "presidents", "trading_terminals", "alphabet"];
     const PREDICT_ID = "predict";
     const MIN_PREDICT_VOTES = 5;           // an item needs this many votes to be guessable
     const WEEKLY_ID = "weekly";
@@ -939,6 +941,16 @@
     /* ===== 8a. DAILY BALLOT (bounded, date-seeded) + recap ===== */
     function todayStr() { return new Date().toISOString().slice(0, 10); }
     function editionNo() { return Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / 86400000) + 1; }
+    function dailyCategory() { const n = DAILY_ROTATION.length; return DAILY_ROTATION[((editionNo() - 1) % n + n) % n]; }
+    function dailyLabel() { const id = dailyCategory(); return (CATEGORIES.find(c => c.id === id) || {}).label || id; }
+    // The day's themed deck: one category, a date-seeded subset, the same for everyone today.
+    async function fetchDailyDeck() {
+        const catId = dailyCategory();
+        const snap = await db.collection('categories').doc(catId).collection('items').get();
+        const all = snap.docs.map(normalize).filter(i => i.named);
+        all.forEach(i => i.categoryId = catId);
+        return seededDeck(all, Math.min(DAILY_SIZE, all.length), hashStr(todayStr()));
+    }
     function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
     function seededDeck(all, n, seed) {                     // deterministic shuffle → same deck all day
         const a = all.slice(); let s = seed || 1;
@@ -952,12 +964,11 @@
     async function loadDaily() {
         currentCategoryId = DAILY_ID; dailyMode = true; predictMode = false; weeklyMode = false; votesThisSession = 0;
         clearError(views.vote);
-        voteKicker.textContent = "Today's Ballot · No. " + editionNo();
+        voteKicker.textContent = "Today's Set · " + dailyLabel() + " · No. " + editionNo();
         renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
-            const all = await fetchAllItems();
-            dailyDeck = seededDeck(all, Math.min(DAILY_SIZE, all.length), hashStr(todayStr()));
+            dailyDeck = await fetchDailyDeck();
             items = dailyDeck;                              // so optimistic vote updates land on deck items
             dailyResults = loadDailyResults();
             lastShownId = null;
@@ -991,7 +1002,7 @@
         real.forEach(r => { if ((r.crowd >= 50) !== (r.verdict === 'gooey')) { const d = Math.abs(r.crowd - 50); if (d > dist) { dist = d; bold = r; } } });
         const wrap = document.createElement('div');
         wrap.className = 'result recap';
-        let html = '<p class="kicker">Today’s Ballot · No. ' + editionNo() + '</p><h3>That’s the ballot.</h3>';
+        let html = '<p class="kicker">Today’s Set · ' + escapeHtml(dailyLabel()) + ' · No. ' + editionNo() + '</p><h3>That’s the set.</h3>';
         html += real.length
             ? '<p class="recap-line">You sided with the crowd on <b>' + aligned + ' of ' + real.length + '</b> calls.</p>'
             : '<p class="recap-line">No calls logged today.</p>';
@@ -1309,7 +1320,7 @@
         wrap.className = 'swipe-wrap';
         const itemCat = item.categoryId || currentCategoryId;
         const isGlyph = IMAGE_KIND[itemCat] === 'glyph';   // letter lives on the plate
-        const mixed = currentCategoryId === RANDOM_ID || dailyMode || predictMode;   // cross-category decks show each card's category
+        const mixed = currentCategoryId === RANDOM_ID || predictMode;   // cross-category decks show each card's category (daily is one theme now)
         const badge = mixed ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         wrap.innerHTML =
             '<div class="peek-card"></div>' +
@@ -1844,7 +1855,7 @@
         const prk = dailyResults.filter(r => r.verdict === 'prickly').length;
         const mix = (goo || prk) ? goo + ' gooey · ' + prk + ' prickly' : 'all skipped';
         const score = real.length ? ' · ' + aligned + '/' + real.length + ' with the crowd' : '';
-        return 'Prickles & Goo · No. ' + n + '\n' + dailyGlyphRow() + '\n' + mix + score;
+        return 'Prickles & Goo · ' + dailyLabel() + ' · No. ' + n + '\n' + dailyGlyphRow() + '\n' + mix + score;
     }
     function dailyResultString() { return dailyShareBody() + '\n' + location.origin + '/ballot/' + editionNo(); }
     function introSeen() { try { return localStorage.getItem('pg-intro') === '1'; } catch (e) { return false; } }
@@ -2058,7 +2069,7 @@
         const kind = IMAGE_KIND[itemCat];
         const hasAvatar = kind === 'logo' || kind === 'face' || kind === 'art';   // glyph letters would duplicate the name
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
-        const tag = (currentCategoryId === RANDOM_ID || currentCategoryId === DAILY_ID) ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
+        const tag = (currentCategoryId === RANDOM_ID) ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         const mine = priorVerdict(itemCat, item.id);   // mark where *you* stand
         const youChip = (mine === 'gooey' || mine === 'prickly') ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
@@ -2187,9 +2198,8 @@
             const random = currentCategoryId === RANDOM_ID;
             const daily = currentCategoryId === DAILY_ID;
             let all;
-            if (daily) {                                       // today's ballot, ranked like any set (same deterministic deck as play)
-                const pool = await fetchAllItems();
-                all = seededDeck(pool, Math.min(DAILY_SIZE, pool.length), hashStr(todayStr()));
+            if (daily) {                                       // today's themed set, ranked like any other (same deck as play)
+                all = await fetchDailyDeck();
             } else if (random) {
                 all = await fetchAllItems();
             } else {
