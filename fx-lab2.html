@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prickles &amp; Goo — FX v2 (molten ooze · faceted crystal)</title>
+<!-- Premium FX exploration. Gooey = real metaball ooze with molten gloss & meniscus
+     rim. Prickly = layered faceted crystals with specular glints & depth. Aubergine
+     palette. --p (0..1) drives intensity; defaults near peak for the still. -->
+<style>
+    @property --p { syntax:'<number>'; initial-value:0; inherits:true; }
+    :root {
+        --paper:#FFF1E5; --surface:#FFFFFF;
+        --ink:#1D1B19; --ink-soft:#6B6259; --hairline:#E6D7C9;
+        --gooey:#0D7680; --gooey-lt:#7FE3DA; --gooey-2:#0a5d65;
+        --prickly:#6D3B6E; --prickly-lt:#B583B7; --prickly-2:#4C2A4D;
+        --serif:"Iowan Old Style","Palatino Linotype","Georgia",serif;
+        --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        --shadow-lift:0 18px 50px rgba(40,30,20,.20);
+    }
+    [data-theme="dark"] {
+        --paper:#1A1715; --surface:#241F1C; --ink:#F3EBE2; --ink-soft:#BEB3A6; --hairline:#3A322C;
+        --gooey:#5BC8CF; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
+        --prickly:#D6A0D8; --prickly-lt:#E6BDE8; --prickly-2:#7A4A7C;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; height:100%; }
+    body { font-family:var(--sans); background:var(--paper); color:var(--ink); overflow:hidden; }
+
+    .edge { position:fixed; top:0; bottom:0; width:48vw; max-width:520px; pointer-events:none; overflow:hidden; z-index:5;
+        transition:--p .2s cubic-bezier(.2,.7,.2,1); }
+    .edge.left { left:0; } .edge.right { right:0; }
+
+    /* ===================== GOOEY — molten ooze (right) ===================== */
+    .goo-warm { position:absolute; right:-10%; top:50%; transform:translateY(-50%); width:120%; height:150%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 60%, transparent), transparent 70%);
+        filter:blur(40px); opacity:calc(var(--p) * .55); }
+    .ooze { position:absolute; inset:0; filter:url(#gooFilter); }          /* metaball merge */
+    .blob { position:absolute; border-radius:50%;
+        background:
+            radial-gradient(38% 32% at 34% 28%, rgba(255,255,255,.95), rgba(255,255,255,0) 60%),  /* specular */
+            radial-gradient(120% 120% at 60% 40%, var(--gooey-lt), var(--gooey) 46%, var(--gooey-2) 100%);
+        width:var(--s); height:var(--s);
+        transform:translateX(calc(var(--tx) - var(--p) * var(--reach))) translateY(calc(var(--p) * var(--rise))) scale(calc(.3 + var(--p)*.7));
+        opacity:clamp(0, calc(var(--p) * 3 - var(--d)), 1);
+        animation:wob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
+    @keyframes wob { 0%,100%{ translate:0 0 } 50%{ translate:-6px -10px } }
+    .meniscus { position:absolute; right:0; top:0; bottom:0; width:10px;
+        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), var(--gooey-lt), transparent);
+        filter:blur(1px); opacity:var(--p); }
+    .sheen { position:absolute; inset:0; mix-blend-mode:screen; opacity:calc(var(--p)*.5);
+        background:radial-gradient(60% 40% at 92% 38%, rgba(255,255,255,.5), transparent 60%); }
+
+    /* ===================== PRICKLY — faceted amethyst (left) ===================== */
+    .prk-cold { position:absolute; left:-10%; top:50%; transform:translateY(-50%); width:120%; height:140%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly-lt) 50%, transparent), transparent 70%);
+        filter:blur(36px); opacity:calc(var(--p) * .42); }
+    .crystal { position:absolute; left:0; top:var(--y); height:var(--h);
+        width:calc(clamp(0, var(--p)*1.1 - var(--d), 1) * var(--len));
+        transform:rotate(var(--a)); transform-origin:left center;
+        opacity:clamp(0, calc(var(--p)*2 - var(--d)), 1);
+        filter:drop-shadow(0 4px 10px color-mix(in srgb,var(--prickly) 40%, transparent))
+               drop-shadow(0 0 7px color-mix(in srgb,var(--prickly-lt) 55%, transparent)); }   /* luminous gem glow */
+    .crystal .f { position:absolute; inset:0; }
+    /* a cut amethyst point: bright top facet, deep bottom facet, a luminous inner facet */
+    .crystal .top  { clip-path:polygon(0 0, 100% 50%, 0 50%);
+        background:linear-gradient(118deg, color-mix(in srgb,var(--prickly-lt) 80%, #fff), var(--prickly) 78%); }
+    .crystal .bot  { clip-path:polygon(0 50%, 100% 50%, 0 100%);
+        background:linear-gradient(62deg, var(--prickly-2), var(--prickly) 88%); }
+    .crystal .core { clip-path:polygon(0 30%, 66% 50%, 0 70%);
+        background:linear-gradient(100deg, color-mix(in srgb,#fff 55%, var(--prickly-lt)), transparent 72%); opacity:.7; }
+    .crystal .spine { position:absolute; left:0; right:0; top:50%; height:1.5px; transform:translateY(-.75px);
+        background:linear-gradient(90deg, #fff, color-mix(in srgb,var(--prickly-lt) 80%, #fff) 35%, transparent 78%); }
+    .crystal .edge { position:absolute; inset:0; clip-path:polygon(0 0, 100% 50%, 0 0);
+        border-top:1.5px solid rgba(255,255,255,.85); opacity:.5; }   /* bright top arris */
+    .crystal .spark { position:absolute; width:7px; height:7px; background:#fff; border-radius:50%;
+        left:var(--sx,14%); top:var(--sy,40%); filter:blur(.3px);
+        box-shadow:0 0 6px 1px rgba(255,255,255,.9); animation:twinkle var(--tw,2.6s) ease-in-out infinite var(--td,0s); }
+    @keyframes twinkle { 0%,100%{ opacity:.25; transform:scale(.7) } 50%{ opacity:1; transform:scale(1.15) } }
+    .crystal.back { filter:blur(2px); opacity:calc(var(--p)*.45); }
+
+    /* ---------- stage ---------- */
+    main { position:fixed; inset:0; display:grid; place-items:center; z-index:10; }
+    .stack { text-align:center; }
+    .label { font-family:var(--serif); font-style:italic; color:var(--ink-soft); margin:0 0 16px; }
+    .card { width:min(340px,70vw); min-height:280px; background:var(--surface); border:1px solid var(--hairline);
+        border-radius:20px; box-shadow:var(--shadow-lift); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+    .card .nm { font-family:var(--serif); font-size:2rem; }
+    .card .meta { font-size:.82rem; color:var(--ink-soft); }
+    .axis { margin-top:22px; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+    .axis .p { color:var(--prickly); font-weight:700; } .axis .g { color:var(--gooey); font-weight:700; }
+    .ctl { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:20; display:flex; gap:10px; align-items:center;
+        background:var(--surface); border:1px solid var(--hairline); border-radius:999px; padding:8px 14px; box-shadow:var(--shadow-lift); }
+    .ctl input { width:160px; } .ctl button { font:inherit; border:1px solid var(--hairline); background:var(--surface); color:var(--ink); border-radius:999px; padding:6px 12px; cursor:pointer; }
+</style>
+</head>
+<body>
+<!-- SVG goo filter: blur then sharpen alpha so overlapping blobs fuse like liquid -->
+<svg width="0" height="0" style="position:absolute">
+    <filter id="gooFilter">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/>
+        <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="goo"/>
+        <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+    </filter>
+</svg>
+
+<div class="edge left"  id="edgeL"></div>
+<div class="edge right" id="edgeR"></div>
+
+<main>
+    <div class="stack">
+        <p class="label">FX v2 — molten ooze · faceted crystal &nbsp;(slide to drive intensity)</p>
+        <div class="card"><span class="nm">Singapore Airlines</span><span class="meta">peak intensity shown</span></div>
+        <p class="axis"><span class="p">◀ Prickly</span> &nbsp;·&nbsp; <span class="g">Gooey ▶</span></p>
+    </div>
+</main>
+
+<div class="ctl">
+    <button id="theme">🌙</button>
+    <span style="font-size:.8rem;color:var(--ink-soft)">intensity</span>
+    <input id="p" type="range" min="0" max="100" value="92">
+</div>
+
+<script>
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const edgeL = document.getElementById('edgeL'), edgeR = document.getElementById('edgeR');
+
+    // gooey ooze (right)
+    let R = '<div class="goo-warm"></div><div class="ooze">';
+    for (let i = 0; i < 9; i++) {
+        R += '<div class="blob" style="right:' + rnd(-10, 40).toFixed(0) + 'px; top:' + (i * 11 + rnd(-3, 3)).toFixed(0) + '%;' +
+            '--s:' + rnd(70, 160).toFixed(0) + 'px; --tx:' + rnd(40, 120).toFixed(0) + 'px; --reach:' + rnd(120, 230).toFixed(0) + 'px;' +
+            '--rise:' + rnd(-30, 30).toFixed(0) + 'px; --d:' + rnd(0, .8).toFixed(2) + '; --dur:' + rnd(3.5, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;"></div>';
+    }
+    R += '</div><div class="sheen"></div><div class="meniscus"></div>';
+    edgeR.innerHTML = R;
+
+    // prickly amethyst crystals (left)
+    let L = '<div class="prk-cold"></div>';
+    for (let i = 0; i < 8; i++) {
+        const back = Math.random() < .35;
+        L += '<div class="crystal' + (back ? ' back' : '') + '" style="' +
+            '--y:' + (i * 12 + rnd(-2, 2)).toFixed(1) + '%; --h:' + (back ? rnd(26, 40) : rnd(46, 78)).toFixed(0) + 'px;' +
+            '--len:' + (back ? rnd(150, 240) : rnd(240, 420)).toFixed(0) + 'px; --a:' + rnd(-11, 11).toFixed(1) + 'deg;' +
+            '--d:' + rnd(0, .5).toFixed(2) + ';">' +
+            '<div class="f top"></div><div class="f bot"></div><div class="f core"></div>' +
+            '<div class="spine"></div><div class="edge"></div>' +
+            '<span class="spark" style="--sx:' + rnd(8, 22).toFixed(0) + '%;--sy:' + rnd(34, 50).toFixed(0) + '%;--tw:' + rnd(2, 3.4).toFixed(1) + 's;--td:' + rnd(0, 2.5).toFixed(1) + 's"></span></div>';
+    }
+    edgeL.innerHTML = L;
+
+    function setP(v) { const p = v / 100; edgeL.style.setProperty('--p', p); edgeR.style.setProperty('--p', p); }
+    document.getElementById('p').addEventListener('input', e => setP(+e.target.value));
+    document.getElementById('theme').onclick = () => {
+        const d = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', d ? 'light' : 'dark');
+    };
+    setP(92);
+</script>
+</body>
+</html>

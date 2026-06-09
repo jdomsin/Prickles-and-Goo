@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Prickles &amp; Goo — vote what's prickly, what's gooey</title>
-<meta name="description" content="Alan Watts said everything is either prickly or gooey. Swipe to vote on tech, money apps, trading terminals, billionaires, presidents — and see where the crowd lands.">
+<meta name="description" content="Alan Watts said everything can feel more prickly or gooey. Swipe to vote on tech, money apps, trading terminals, billionaires, presidents — and see where the crowd lands.">
 <meta name="theme-color" content="#FFF1E5">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFF1E5'/%3E%3Cpath d='M16 4 a12 12 0 0 1 0 24 Z' fill='%230D7680'/%3E%3Cpath d='M16 4 a12 12 0 0 0 0 24 Z' fill='%236D3B6E'/%3E%3C/svg%3E">
 <meta property="og:title" content="Prickles &amp; Goo">
@@ -77,7 +77,10 @@
     .theme-toggle:active { transform:scale(.92); }
 
     /* ---------- Stage ---------- */
-    main { max-width:760px; margin:0 auto; padding:clamp(24px,6vw,56px) clamp(16px,5vw,40px) 90px; }
+    main { max-width:760px; margin:0 auto; padding:clamp(18px,4vw,38px) clamp(16px,5vw,40px) 90px; }
+    /* tighter, more app-like header on the vote screen so the card leads */
+    #vote-view h1.prompt { font-size:clamp(1.7rem,5vw,2.4rem); margin-bottom:6px; }
+    #vote-view .sub { font-size:.92rem; margin-bottom:18px; }
     .kicker { font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--prickly); margin:0 0 10px; }
     h1.prompt { font-family:var(--serif); font-size:clamp(2rem,6vw,3rem); line-height:1.04; letter-spacing:-.02em; margin:0 0 8px; }
     .sub { color:var(--ink-soft); font-size:1rem; margin:0 0 34px; max-width:46ch; }
@@ -93,6 +96,8 @@
     .card .meta { font-size:.8rem; color:var(--ink-soft); }
 
     /* ---------- Swipe arena ---------- */
+    /* reserve the card+controls height so the post-vote reveal lands in the same spot — no upward jump */
+    .arena { min-height:476px; display:flex; flex-direction:column; justify-content:center; }
     .swipe-wrap { position:relative; height:340px; display:grid; place-items:center; z-index:10; }
     .swipe-card {
         position:relative; z-index:10; overflow:hidden;
@@ -130,6 +135,8 @@
 
     /* ---------- Card media (Wikimedia-unified imagery) ---------- */
     .card-media { position:relative; z-index:1; width:96px; height:96px; margin:0 auto 2px; display:grid; place-items:center; }
+    .card-media.lg { width:150px; height:150px; }                                  /* photo sets (animals) read better big */
+    .card-media.lg .card-art, .card-media.lg .card-mono { width:150px; height:150px; }
     .card-plate { width:96px; height:96px; background:#fff; border-radius:20px; padding:14px; display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
     .card-plate img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
     .logo-fill { width:96px; height:96px; border-radius:20px; overflow:hidden; display:grid; place-items:center; background:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
@@ -142,9 +149,14 @@
     .card-face img { width:100%; height:100%; object-fit:cover; display:block; }
     .card-mono { width:96px; height:96px; border-radius:50%; display:grid; place-items:center; color:#fff; font-family:var(--serif); font-weight:700; font-size:2rem; letter-spacing:.02em; }
     .card-mono.plate { border-radius:20px; }
+    /* square art tile (album covers) — full image, not circle-cropped */
+    .card-art { width:96px; height:96px; border-radius:14px; overflow:hidden; box-shadow:inset 0 0 0 1px var(--hairline); background:var(--surface-2); }
+    .card-art img { width:100%; height:100%; object-fit:cover; display:block; }
+    .card-mono.art { border-radius:14px; }
+    .card-art.sm { border-radius:9px; }
     /* small variants for results-row avatars */
     .row-avatar { display:inline-grid; place-items:center; flex:0 0 auto; }
-    .card-plate.sm, .card-face.sm, .card-mono.sm, .logo-fill.sm { width:34px; height:34px; }
+    .card-plate.sm, .card-face.sm, .card-art.sm, .card-mono.sm, .logo-fill.sm { width:34px; height:34px; }
     .card-plate.sm { border-radius:9px; padding:5px; }
     .logo-fill.sm { border-radius:9px; }
     .card-mono.sm { font-size:.8rem; }
@@ -160,43 +172,55 @@
     .edge.right { right:0; --mask-dir:to left; }
     .edge.left  { left:0;  --mask-dir:to right; }
     .fx { position:absolute; inset:0; }
+    /* immersive lean: the whole viewport washes toward the side you're choosing */
+    .bg-wash { position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0; transition:opacity .12s ease, background .12s ease; }
 
-    /* gooey glow (right) */
-    .glow-ambient { position:absolute; right:-12%; top:50%; transform:translateY(-50%); width:130%; height:150%;
-        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 85%, transparent), transparent 72%);
-        filter:blur(34px); opacity:calc(var(--p) * .5 * var(--gain)); }
-    .glow-core { position:absolute; right:0; top:0; bottom:0; width:62%;
-        background:radial-gradient(120% 78% at 100% 50%, color-mix(in srgb,var(--gooey-lt) 90%, transparent), color-mix(in srgb,var(--gooey) 60%, transparent) 38%, transparent 64%);
-        filter:blur(12px); opacity:calc(var(--p) * .8 * var(--gain)); }
-    .edge-rim { position:absolute; right:0; top:0; bottom:0; width:6px;
-        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), transparent);
-        filter:blur(2px); opacity:var(--p); }
-    .bubble { position:absolute; transform:translateY(calc(var(--p) * var(--rise))) translateX(calc(var(--p) * -8px)); will-change:transform;
-        opacity:clamp(0, (var(--p) - var(--d)) / .35, 1); filter:blur(calc((1 - var(--depth)) * 3px)); }
-    .bubble .ball { display:block; width:var(--s); height:var(--s); border-radius:50%;
-        background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(255,255,255,.25) 26%, var(--gooey) 58%, var(--gooey-2) 100%);
-        box-shadow: 0 0 calc(var(--s) * .55) color-mix(in srgb,var(--gooey) 65%, transparent), inset 0 calc(var(--s) * -.12) calc(var(--s) * .18) rgba(0,0,0,.18);
-        animation: floatwob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
-    @keyframes floatwob { 0%,100% { transform:translate(0,0); } 50% { transform:translate(-7px,-9px); } }
+    /* gooey — molten ooze (right): real metaball liquid with molten gloss */
+    .goo-warm { position:absolute; right:-10%; top:50%; transform:translateY(-50%); width:120%; height:150%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--gooey) 60%, transparent), transparent 70%);
+        filter:blur(40px); opacity:calc(var(--p) * .55 * var(--gain)); }
+    .ooze { position:absolute; inset:0; filter:url(#gooFilter); }
+    .blob { position:absolute; border-radius:50%;
+        background:
+            radial-gradient(38% 32% at 34% 28%, rgba(255,255,255,.95), rgba(255,255,255,0) 60%),
+            radial-gradient(120% 120% at 60% 40%, var(--gooey-lt), var(--gooey) 46%, var(--gooey-2) 100%);
+        width:var(--s); height:var(--s);
+        transform:translateX(calc(var(--tx) - var(--p) * var(--reach))) translateY(calc(var(--p) * var(--rise))) scale(calc(.3 + var(--p)*.7));
+        opacity:clamp(0, calc(var(--p) * 3 - var(--d)), 1);
+        animation:blobwob var(--dur) ease-in-out infinite; animation-delay:var(--ad); }
+    @keyframes blobwob { 0%,100% { translate:0 0; } 50% { translate:-6px -10px; } }
+    .meniscus { position:absolute; right:0; top:0; bottom:0; width:10px;
+        background:linear-gradient(180deg, transparent, var(--gooey-lt), var(--gooey), var(--gooey-lt), transparent);
+        filter:blur(1px); opacity:var(--p); }
+    .sheen { position:absolute; inset:0; mix-blend-mode:screen; opacity:calc(var(--p)*.5);
+        background:radial-gradient(60% 40% at 92% 38%, rgba(255,255,255,.5), transparent 60%); }
 
-    /* prickly shards (left) */
-    .prk-ambient { position:absolute; left:-12%; top:50%; transform:translateY(-50%); width:128%; height:135%;
-        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly) 60%, transparent), transparent 72%);
-        filter:blur(30px); opacity:calc(var(--p) * .34 * var(--gain)); }
-    /* a polished crystal facet, not a broken shard: clean symmetric taper, a glassy
-       prismatic fill, a bright specular glint instead of a debris drop-shadow. */
-    .shard { position:absolute; left:0; top:var(--y); height:var(--h);
-        width:calc(clamp(0, (var(--p) - var(--d)) / .4, 1) * var(--len));
+    /* prickly — faceted amethyst (left): aspirational cut gem, luminous, not a weapon */
+    .prk-cold { position:absolute; left:-10%; top:50%; transform:translateY(-50%); width:120%; height:140%;
+        background:radial-gradient(closest-side, color-mix(in srgb,var(--prickly-lt) 50%, transparent), transparent 70%);
+        filter:blur(36px); opacity:calc(var(--p) * .42 * var(--gain)); }
+    .crystal { position:absolute; left:0; top:var(--y); height:var(--h);
+        width:calc(clamp(0, var(--p)*1.1 - var(--d), 1) * var(--len));
         transform:rotate(var(--a)); transform-origin:left center;
-        background:linear-gradient(100deg, color-mix(in srgb,var(--prickly-lt) 88%, transparent), color-mix(in srgb,var(--prickly) 82%, transparent) 46%, color-mix(in srgb,var(--prickly-2) 52%, transparent));
-        clip-path:polygon(0 8%, 100% 42%, 100% 58%, 0 92%);
-        filter:drop-shadow(0 0 5px color-mix(in srgb,var(--prickly-lt) 55%, transparent));
-        opacity:clamp(0, (var(--p) - var(--d)) / .3, 1); }
-    .shard::before { content:""; position:absolute; inset:0; clip-path:inherit;   /* top-facet gloss */
-        background:linear-gradient(168deg, color-mix(in srgb,var(--prickly-lt) 98%, transparent), transparent 30%); }
-    .shard::after { content:""; position:absolute; inset:0; clip-path:inherit;    /* specular glint along the spine */
-        background:linear-gradient(100deg, rgba(255,255,255,.72), rgba(255,255,255,.12) 22%, transparent 40%); }
-    .shard.back { filter:drop-shadow(0 0 4px color-mix(in srgb,var(--prickly-lt) 38%, transparent)) blur(1.2px); }
+        opacity:clamp(0, calc(var(--p)*2 - var(--d)), 1);
+        filter:drop-shadow(0 4px 10px color-mix(in srgb,var(--prickly) 40%, transparent))
+               drop-shadow(0 0 7px color-mix(in srgb,var(--prickly-lt) 55%, transparent)); }
+    .crystal .f { position:absolute; inset:0; }
+    .crystal .top  { clip-path:polygon(0 0, 100% 50%, 0 50%);
+        background:linear-gradient(118deg, color-mix(in srgb,var(--prickly-lt) 80%, #fff), var(--prickly) 78%); }
+    .crystal .bot  { clip-path:polygon(0 50%, 100% 50%, 0 100%);
+        background:linear-gradient(62deg, var(--prickly-2), var(--prickly) 88%); }
+    .crystal .core { clip-path:polygon(0 30%, 66% 50%, 0 70%);
+        background:linear-gradient(100deg, color-mix(in srgb,#fff 55%, var(--prickly-lt)), transparent 72%); opacity:.7; }
+    .crystal .spine { position:absolute; left:0; right:0; top:50%; height:1.5px; transform:translateY(-.75px);
+        background:linear-gradient(90deg, #fff, color-mix(in srgb,var(--prickly-lt) 80%, #fff) 35%, transparent 78%); }
+    .crystal .edge { position:absolute; inset:0; clip-path:polygon(0 0, 100% 50%, 0 0);
+        border-top:1.5px solid rgba(255,255,255,.85); opacity:.5; }
+    .crystal .spark { position:absolute; width:7px; height:7px; background:#fff; border-radius:50%;
+        left:var(--sx,14%); top:var(--sy,40%); filter:blur(.3px);
+        box-shadow:0 0 6px 1px rgba(255,255,255,.9); animation:twinkle var(--tw,2.6s) ease-in-out infinite var(--td,0s); }
+    @keyframes twinkle { 0%,100% { opacity:.25; transform:scale(.7); } 50% { opacity:1; transform:scale(1.15); } }
+    .crystal.back { filter:blur(2px); opacity:calc(var(--p)*.45); }
 
     /* quiet oversized word cue */
     .word { position:fixed; top:50%; transform:translateY(-50%); z-index:4; pointer-events:none;
@@ -207,6 +231,13 @@
     .swipe-hint { display:flex; justify-content:center; align-items:center; gap:18px; width:min(460px,94vw); margin:18px auto 0; position:relative; z-index:10; }
     .swipe-hint span { font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
     .swipe-hint .l { color:var(--prickly); } .swipe-hint .r { color:var(--gooey); } .swipe-hint .m { color:var(--ink-soft); }
+    /* live lean gauge — fills outward from the centre the moment you start to drag,
+       so even a small move reads as "a little prickly / a little gooey". */
+    .lean-gauge { position:relative; width:min(300px,72vw); height:7px; margin:14px auto 0; border-radius:999px;
+        background:var(--hairline); overflow:hidden; z-index:10; }
+    .lean-gauge::after { content:""; position:absolute; left:50%; top:-2px; bottom:-2px; width:2px;
+        background:var(--ink-soft); opacity:.45; transform:translateX(-1px); }
+    .lg-fill { position:absolute; top:0; bottom:0; width:0; transition:width .04s linear, background .1s; }
     .swipe-buttons { display:flex; gap:12px; justify-content:center; margin-top:26px; flex-wrap:wrap; position:relative; z-index:10; }
     .btn.dim { opacity:.4; }
 
@@ -233,12 +264,20 @@
     .result h3, .results-head { font-family:var(--serif); font-weight:700; color:var(--ink-soft); }
     .result h3 { font-size:1.1rem; margin:0 0 22px; }
     .results-head { font-size:1rem; margin:0 0 6px; }
-    .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 26px; }
-    .row { margin-bottom:20px; text-align:left; }
-    .row .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px; }
+    .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 14px; }
+    .results-count { font-size:.82rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; margin:0 0 22px; }
+    .results-count b { color:var(--ink); font-weight:700; }
+    .results-count .dim { opacity:.6; }
+    .row { margin-bottom:22px; text-align:left; }
+    .row.row-in { animation:rowin .5s cubic-bezier(.2,.7,.2,1) both; animation-delay:var(--d,0ms); }
+    @keyframes rowin { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion: reduce) { .row.row-in { animation:none; } }
+    .row .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:8px; }
     .row .nm-wrap { display:flex; align-items:center; gap:10px; min-width:0; }
     .row .nm { font-family:var(--serif); font-size:1.2rem; }
     .row .pct { font-variant-numeric:tabular-nums; font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
+    .row .pct b { font-weight:700; font-size:.98rem; color:var(--ink); }   /* the gooey% is the hero number */
+    .row .pct .dim { opacity:.62; }
     .row .pct .low { color:var(--ink-soft); font-style:italic; font-weight:400; }
     /* results: sort chips, "you" marker, cold-start CTA */
     .sort-bar { display:flex; gap:6px; flex-wrap:wrap; margin:2px 0 14px; }
@@ -260,6 +299,10 @@
     .taste-line { font-family:var(--serif); font-size:1.1rem; line-height:1.45; margin:0 0 10px; }
     .taste-cats { margin-top:18px; }
     .taste-cat { margin-bottom:14px; }
+    .taste-cat.is-thin { opacity:.55; }                         /* few votes → visually recede */
+    .taste-cat .pct .low { color:var(--ink-soft); font-style:italic; }
+    .taste-untouched { margin-top:16px; font-size:.85rem; color:var(--ink-soft); line-height:1.7; }
+    .taste-untouched .n { opacity:.6; }
     .taste-cat-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; font-size:.95rem; }
     .taste-cat-top .pct { font-size:.8rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
     /* daily ballot recap */
@@ -268,6 +311,22 @@
     .recap-line b, .recap-bold b { font-variant-numeric:tabular-nums; }
     .recap-bold { color:var(--ink-soft); font-style:italic; margin:0 0 4px; }
     .recap-glyphs { font-size:1.5rem; letter-spacing:.12em; line-height:1.2; margin:12px 0 2px; word-break:break-word; }
+    /* spectrum recap (weekly themes): items on one prickly→gooey axis */
+    .axis-cap { display:flex; justify-content:space-between; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-top:8px; }
+    .axis-cap .p { color:var(--prickly); } .axis-cap .g { color:var(--gooey); }
+    .spectrum { position:relative; margin:6px 0 4px; border-radius:12px; border:1px solid var(--hairline);
+        background:linear-gradient(90deg, var(--prickly-soft), var(--surface-2) 50%, var(--gooey-soft)); }
+    .sp-mid { position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--ink-soft); opacity:.35; }
+    .sp-midcap { position:absolute; left:50%; transform:translateX(-50%); bottom:6px; font-size:.64rem; color:var(--ink-soft); white-space:nowrap; }
+    .sp-conn { position:absolute; height:2px; background:var(--ink); opacity:.32; transform:translateY(-50%); }
+    .sp-dot { position:absolute; transform:translate(-50%,-50%); }
+    .sp-bead { display:block; width:13px; height:13px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 2px 6px rgba(20,14,10,.18); }
+    .sp-lbl { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:.68rem; color:var(--ink); background:color-mix(in srgb,var(--surface) 88%, transparent); padding:1px 5px; border-radius:6px; }
+    .sp-lbl.above { bottom:15px; } .sp-lbl.below { top:15px; }
+    .sp-you { position:absolute; transform:translate(-50%,-50%); }
+    .sp-mk { display:block; width:11px; height:11px; background:var(--ink); border:2px solid var(--surface); transform:rotate(45deg); }
+    .sp-mk.approx { background:transparent; border:2px solid var(--ink-soft); opacity:.65; }   /* side-only call, strength unknown */
+    .sp-tick { position:absolute; left:50%; top:-19px; transform:translateX(-50%); font-size:.58rem; font-weight:700; color:var(--ink); }
     /* ---------- Crowd reveal (post-vote payoff) ---------- */
     .reveal { max-width:440px; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 14px; cursor:pointer; animation:revealIn .32s cubic-bezier(.2,.9,.3,1.2); }
     @keyframes revealIn { from { opacity:0; transform:scale(.92) translateY(8px); } to { opacity:1; transform:none; } }
@@ -314,16 +373,50 @@
     @keyframes sk { 0%{background-position:100% 0} 100%{background-position:0 0} }
     @media (prefers-reduced-motion: reduce) { .sk-line { animation:none; } }
     .row .pct.muted { font-style:italic; opacity:.75; }
-    .bar { display:flex; height:12px; border-radius:999px; overflow:hidden; background:var(--hairline); }
+    .bar { display:flex; height:8px; border-radius:999px; overflow:hidden; background:var(--hairline); }
     .bar .g { background:var(--gooey); } .bar .p { background:var(--prickly); }
     .bar .g, .bar .p { transition:width .6s cubic-bezier(.2,.7,.2,1); }
-    .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; }
-    .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+    /* position track: each row is its own prickly→gooey spectrum — ● crowd, ◆ you, with the gap drawn */
+    .track { position:relative; height:14px; margin-top:2px; }
+    .track .t-rail { position:absolute; top:50%; left:0; right:0; height:3px; transform:translateY(-50%); border-radius:2px;
+        background:linear-gradient(90deg, color-mix(in srgb,var(--prickly) 38%,var(--hairline)), var(--hairline) 50%, color-mix(in srgb,var(--gooey) 38%,var(--hairline))); }
+    .track .t-gap { position:absolute; top:50%; height:2px; transform:translateY(-50%); background:var(--ink); opacity:.26; }
+    .track .t-crowd { position:absolute; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 1px 3px rgba(20,14,10,.22); }
+    .track .t-you { position:absolute; top:50%; transform:translate(-50%,-50%) rotate(45deg); width:12px; height:12px; border:2px solid var(--ink); background:var(--paper); }
+    .track .t-you.approx { border-style:dashed; opacity:.7; }      /* side-only call — strength unknown */
+    .track.empty .t-rail { opacity:.55; }
+    /* view toggle: Spectrum ↔ You vs crowd */
+    .view-bar { display:flex; gap:6px; margin:2px 0 18px; }
+    .view-chip { font:inherit; font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
+    .view-chip.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+    /* You vs crowd (Option C) */
+    .cv-summary { background:var(--surface-2); border:1px solid var(--hairline); border-radius:14px; padding:14px 16px; margin:0 0 18px; font-size:.92rem; line-height:1.5; }
+    .cv-summary b { color:var(--ink); }
+    .cv-group { font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin:20px 0 12px; }
+    .cv-row { display:flex; align-items:center; gap:12px; margin-bottom:15px; }
+    .cv-row .nm { font-family:var(--serif); font-size:1rem; flex:0 0 38%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cv-row .track { flex:1; }
+    .cv-empty { color:var(--ink-soft); font-size:.9rem; }
+    .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; align-items:center; }
+    .legend i { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px; border:2px solid var(--surface); }
+    .legend i.you { border-radius:0; transform:rotate(45deg); border:2px solid var(--ink); background:var(--paper); }
     .next-wrap { margin-top:28px; }
 
-    .category-bar { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 26px; }
-    .category-bar .cat { font-size:.85rem; font-weight:600; padding:8px 16px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
-    .category-bar .cat.active { color:var(--ink); border-color:var(--gooey); box-shadow:0 0 0 1px var(--gooey); }
+    .category-bar { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 22px; }      /* all visible — no scroll, no hidden pills */
+    .category-bar .cat { white-space:nowrap; font-size:.82rem; font-weight:600; padding:7px 14px; border-radius:999px;
+        border:1px solid transparent; background:color-mix(in srgb, var(--surface-2) 72%, transparent); color:var(--ink-soft); cursor:pointer;
+        transition:background .15s ease, color .15s ease; }
+    .category-bar .cat:hover { color:var(--ink); }
+    .category-bar .cat.active { background:var(--ink); color:var(--paper); }       /* clean solid fill, neutral (not a teal ring) */
+    .category-bar .cat-dropdown { width:9.6em; font-family:inherit; font-size:.82rem; font-weight:600; padding:7px 32px 7px 14px; border-radius:999px;
+        border:1px solid transparent; background-color:color-mix(in srgb, var(--surface-2) 72%, transparent); color:var(--ink-soft); cursor:pointer;
+        -webkit-appearance:none; appearance:none; transition:background .15s ease, color .15s ease;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%236B6259' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.8 6 6.2 11 1.8'/%3E%3C/svg%3E");
+        background-repeat:no-repeat; background-position:right 13px center; background-size:10px; }
+    .category-bar .cat-dropdown:hover { color:var(--ink); }
+    .category-bar .cat-dropdown.chosen { background-color:var(--ink); color:var(--paper);
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23FFF1E5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.8 6 6.2 11 1.8'/%3E%3C/svg%3E"); }
+    .category-bar .cat-dropdown option { color:var(--ink); background:var(--paper); font-weight:600; }
     /* mobile dropdown alternative (shown < 560px, see media query) */
     .category-select { display:none; width:100%; font:inherit; font-size:1rem; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:13px 42px 13px 16px; margin:0 0 22px; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6259' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; }
 
@@ -408,6 +501,7 @@
         h1.prompt { font-size:1.9rem; margin-bottom:5px; }
         .sub { font-size:.92rem; margin-bottom:16px; }
         .sub .instr { display:none; }            /* keep the definition; the hint row covers the swipe */
+        .arena { min-height:380px; }             /* shorter card stack on phones */
         .swipe-wrap { height:248px; }
         .swipe-hint { margin-top:12px; }
         .swipe-buttons { margin-top:16px; }
@@ -439,6 +533,15 @@
     </nav>
 
     <!-- Glow & Shards effect layer (fixed, viewport-wide; inert until a swipe) -->
+    <!-- SVG goo filter: blur then sharpen alpha so gooey blobs fuse like liquid -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="gooFilter">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/>
+            <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="goo"/>
+            <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+        </filter>
+    </svg>
+    <div class="bg-wash" id="bgwash"></div>
     <div class="edge left"  id="edgeL"><div class="fx" id="fxL"></div></div>
     <div class="edge right" id="edgeR"><div class="fx" id="fxR"></div></div>
     <div class="word prk">Prickly</div>
@@ -448,8 +551,8 @@
         <!-- VIEW: VOTE -->
         <section id="vote-view">
             <p class="kicker" id="vote-kicker">Tech Companies</p>
-            <h1 class="prompt">Prickly or gooey?</h1>
-            <p class="sub"><b>Prickly</b> is sharp and exact. <b>Gooey</b> is soft and warm.<span class="instr"> Swipe left or right — flick up to pass.</span></p>
+            <h1 class="prompt" id="vote-prompt">Prickly or gooey?</h1>
+            <p class="sub" id="vote-sub"><b>Prickly</b> is sharp and exact. <b>Gooey</b> is soft and warm.<span class="instr"> Swipe left or right — flick up to pass.</span></p>
             <div class="category-bar" id="vote-category-bar"></div>
             <select class="category-select" id="vote-category-select" aria-label="Choose a category"></select>
             <div class="arena" id="arena"></div>
@@ -517,7 +620,7 @@
     const RESULTS_EVERY = 5;             // surface the interim top-5 every N swipes
     const TOP_N = 5;                     // how many to show in the interim panel
     const RANK_MIN_VOTES = 5;            // an item needs this many gooey+prickly votes to be ranked
-    const SWIPE_THRESHOLD = 150;         // px drag that maps to full effect intensity
+    const SWIPE_THRESHOLD = 95;          // px drag that maps to full effect intensity — short, so a slight lean already reads
     const SWIPE_COMMIT = 110;            // px past which release commits the vote
     const MAX_PASSES = 5;                // most passes that can be banked
     const START_PASSES = 2;              // passes a new visitor begins with
@@ -533,20 +636,35 @@
         { id: "tech_companies",    label: "Tech Companies" },
         { id: "money_apps",        label: "Money Apps" },
         { id: "trading_terminals", label: "Trading Terminals" },
-        { id: "billionaires",      label: "Billionaires" },
         { id: "presidents",        label: "US Presidents" },
         { id: "ai_models",         label: "AI Models" },
         { id: "languages",         label: "Programming Languages" },
         { id: "social",            label: "Social Platforms" },
-        { id: "alphabet",          label: "The Alphabet" }
+        { id: "alphabet",          label: "The Alphabet" },
+        { id: "emotions",          label: "Emotions & States" },
+        { id: "internet_objects",  label: "Internet Objects" },
+        { id: "animals",           label: "Animals" },
+        { id: "moments",           label: "Moments & Times" }
     ];
     const RANDOM_ID = "random";
     const DAILY_ID = "daily";
     const DAILY_SIZE = 10;                 // cards in a bounded daily ballot
     const PREDICT_ID = "predict";
     const MIN_PREDICT_VOTES = 5;           // an item needs this many votes to be guessable
-    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter" };
+    const WEEKLY_ID = "weekly";
+    // Themed decks surfaced one at a time. The active one rotates by ISO week.
+    const WEEKLY = [
+        { id: "typefaces",        label: "Typefaces" },
+        { id: "cocktails",        label: "Cocktails" },
+        { id: "albums_beatles",   label: "Beatles Albums" },
+        { id: "albums_radiohead", label: "Radiohead Albums" }
+    ];
+    function weekNo() { return Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / (7 * 86400000)); }
+    function activeWeekly() { return WEEKLY[((weekNo() % WEEKLY.length) + WEEKLY.length) % WEEKLY.length]; }
+    function isWeeklyId(id) { return WEEKLY.some(t => t.id === id); }
+    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter", emotions: "Emotion", internet_objects: "Internet", animals: "Animal", moments: "Moment" };
     let dailyMode = false, dailyDeck = [], dailyResults = [];
+    let weeklyMode = false, weeklyDeck = [], weeklyResults = [], weeklyLabel = '';
     let predictMode = false, predictDeck = [], predictPos = 0, predictScore = 0, predictStreak = 0, predictBest = 0;
     let items = [];                       // in-memory view of the category
     let lastShownId = null;
@@ -564,7 +682,7 @@
     const resultsList = document.getElementById('results-list');
     const categoryBar = document.getElementById('category-bar');
     const resultsCategorySelect = document.getElementById('results-category-select');
-    resultsCategorySelect.onchange = () => { currentCategoryId = resultsCategorySelect.value; loadResults(); };
+    resultsCategorySelect.onchange = () => openResultsCategory(resultsCategorySelect.value);
     const voteCategoryBar = document.getElementById('vote-category-bar');
     const voteCategorySelect = document.getElementById('vote-category-select');
     voteCategorySelect.onchange = () => {
@@ -644,26 +762,47 @@
             shown: d.shown || 0,
             gooey: d.gooey || 0,
             prickly: d.prickly || 0,
-            skipped: d.skipped || 0
+            skipped: d.skipped || 0,
+            iVotes: d.iVotes || 0,      // intensity aggregates (additive migration)
+            iSum: d.iSum || 0,          // Σ signed intensity (-100..100); mean = iSum/iVotes
+            iSumSq: d.iSumSq || 0       // Σ intensity² → variance/divisiveness
         };
     }
-    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: PREDICT_ID, label: "Predict" }].concat(CATEGORIES, [{ id: RANDOM_ID, label: "Random" }]); }
-    function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
+    function voteCategories() { return [{ id: DAILY_ID, label: "Daily Ballot" }, { id: WEEKLY_ID, label: "This Week" }, { id: PREDICT_ID, label: "Predict" }, { id: RANDOM_ID, label: "Random" }].concat(CATEGORIES); }
+    function openCategory(id) { if (id === DAILY_ID) loadDaily(); else if (id === WEEKLY_ID) loadWeekly(); else if (id === PREDICT_ID) loadPredict(); else if (id === RANDOM_ID) loadRandom(); else loadCategory(id); }
+    const MODE_IDS = new Set([DAILY_ID, WEEKLY_ID, PREDICT_ID, RANDOM_ID]);
     function renderVoteCategoryBar() {
         voteCategoryBar.innerHTML = '';
         voteCategorySelect.innerHTML = '';
+        const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
+        const ogCats = document.createElement('optgroup'); ogCats.label = 'Other Sets';
+        // Play modes stay as visible pills; the standing topic sets collapse into one "Other Sets" dropdown.
+        const dd = document.createElement('select'); dd.className = 'cat-dropdown'; dd.setAttribute('aria-label', 'Other Sets');
+        const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'Other Sets'; dd.appendChild(ph);
+        let topicActive = false;
         voteCategories().forEach(c => {
-            const b = document.createElement('button');
-            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
-            b.textContent = c.label;
-            b.onclick = () => { if (c.id !== currentCategoryId || c.id === DAILY_ID) openCategory(c.id); };
-            voteCategoryBar.appendChild(b);
-
-            const o = document.createElement('option');     // mirror into the mobile dropdown
-            o.value = c.id; o.textContent = c.label;
-            if (c.id === currentCategoryId) o.selected = true;
-            voteCategorySelect.appendChild(o);
+            const isMode = MODE_IDS.has(c.id);
+            const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
+            if (isMode) {
+                const b = document.createElement('button');
+                b.className = 'cat' + (active ? ' active' : '');
+                b.textContent = c.label;
+                b.onclick = () => { if (!active || c.id === DAILY_ID) openCategory(c.id); };
+                voteCategoryBar.appendChild(b);
+            } else {
+                const o = document.createElement('option'); o.value = c.id; o.textContent = c.label;
+                if (active) topicActive = true;             // reflected by the kicker + solid-ink pill, not the closed label
+                dd.appendChild(o);
+            }
+            const o2 = document.createElement('option');        // mobile full dropdown, grouped
+            o2.value = c.id; o2.textContent = c.label; if (active) o2.selected = true;
+            (isMode ? ogPlay : ogCats).appendChild(o2);
         });
+        ph.selected = true;                                     // closed label always reads "Other Sets" (compact, fixed width)
+        dd.classList.toggle('chosen', topicActive);             // solid-ink when a topic set is the active deck
+        dd.onchange = () => { if (dd.value) openCategory(dd.value); };
+        voteCategoryBar.appendChild(dd);
+        voteCategorySelect.append(ogPlay, ogCats);
     }
     // Fetch every category's items at once, each tagged with its source category.
     async function fetchAllItems() {
@@ -674,12 +813,95 @@
         });
         return all;
     }
-    async function loadCategory(categoryId) {
+    // This Week → the rotating active theme as a bounded deck ending in a spectrum.
+    async function loadWeekly() {
+        const t = activeWeekly();
+        currentCategoryId = t.id; weeklyLabel = t.label;
+        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = true;
+        clearError(views.vote);
+        voteKicker.textContent = 'This Week · ' + t.label;
+        renderVoteCategoryBar(); syncUrl();
+        arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
+        try {
+            const snap = await db.collection('categories').doc(t.id).collection('items').get();
+            const all = snap.docs.map(normalize).filter(i => i.named);
+            all.forEach(i => i.categoryId = t.id);
+            items = all; weeklyDeck = shuffle(all); weeklyResults = []; lastShownId = null;
+            renderPassMeter();
+            if (!weeklyDeck.length) { showError(views.vote, "This week's deck isn't seeded yet — check back soon."); return; }
+            if (introSeen()) weeklyNext(); else showIntro();
+        } catch (err) { console.error('Failed to load weekly:', err); arena.innerHTML = ''; showError(views.vote, describeError(err)); }
+    }
+    function weeklyNext() {
+        if (weeklyResults.length >= weeklyDeck.length) { showSpectrumRecap(); return; }
+        currentItem = weeklyDeck[weeklyResults.length];
+        renderCard(currentItem);
+    }
+    // The payoff: every item laid out on one prickly→gooey axis, your calls overlaid.
+    function showSpectrumRecap() {
+        setSide('none', 0); if (bgwash) bgwash.style.opacity = 0; arena.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'result';
+        const real = weeklyResults.filter(r => r.userPos != null);
+        wrap.innerHTML = '<p class="kicker">This Week · ' + escapeHtml(weeklyLabel) + ' · complete</p>' +
+            '<h3>That’s all ' + weeklyResults.length + '.</h3>' +
+            '<p class="results-sub">Every one on a single prickly→gooey axis — crowd as dots, your calls as ◆ (hollow = a side call, no strength).</p>' +
+            '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>' +
+            '<div class="spectrum" id="recapSpectrum"></div>';
+        const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
+        const again = document.createElement('button'); again.className = 'btn btn-ghost'; again.textContent = 'Free play →';
+        again.onclick = () => loadCategory('tech_companies');
+        nw.appendChild(again); wrap.appendChild(nw);
+        arena.appendChild(wrap);
+        renderSpectrum(document.getElementById('recapSpectrum'), weeklyResults);
+    }
+    function renderSpectrum(host, rows) {
+        if (!host) return;
+        const W = host.clientWidth || 600, PAD = 8, laneH = 34, baseY = 30;
+        const place = p => PAD + (p / 100) * (100 - 2 * PAD);
+        const px = r => (r.pos != null ? r.pos : r.gp);            // position by intensity mean if present, else crowd %
+        const sorted = rows.map(r => ({ r, x: place(px(r)) })).sort((a, b) => a.x - b.x);
+        const placed = [];
+        sorted.forEach(d => {
+            d.xpx = d.x / 100 * W; let lane = 0;
+            while (placed.some(p => p.lane === lane && Math.abs(p.xpx - d.xpx) < (d.r.name.length * 4 + 46))) lane++;
+            d.lane = lane; placed.push(d);
+        });
+        const maxLane = Math.max(0, ...placed.map(d => d.lane));
+        host.style.height = (baseY + (maxLane + 1) * laneH + 26) + 'px';
+        let html = '<div class="sp-mid"></div><div class="sp-midcap">even 50 / 50</div>';
+        placed.forEach(d => {
+            const y = baseY + d.lane * laneH, goo = px(d.r) >= 50, lbl = d.lane % 2 === 0 ? 'above' : 'below';
+            if (d.r.userPos != null) {
+                const yx = place(d.r.userPos), x1 = Math.min(d.x, yx), x2 = Math.max(d.x, yx);
+                html += '<div class="sp-conn" style="left:' + x1 + '%;width:' + (x2 - x1) + '%;top:' + y + 'px"></div>';
+            }
+            html += '<div class="sp-dot" style="left:' + d.x + '%;top:' + y + 'px"><span class="sp-bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></span><span class="sp-lbl ' + lbl + '">' + escapeHtml(d.r.name) + ' · ' + Math.round(px(d.r)) + '% gooey</span></div>';
+            if (d.r.userPos != null) html += '<div class="sp-you" style="left:' + place(d.r.userPos) + '%;top:' + y + 'px"><span class="sp-tick">you</span><span class="sp-mk' + (d.r.userExact === false ? ' approx' : '') + '"></span></div>';
+        });
+        host.innerHTML = html;
+    }
+    function crowdPos(item) {        // 0..100 axis: prefer the intensity mean once enough intensity votes exist
+        if (item.iVotes >= 4) return Math.max(0, Math.min(100, Math.round(50 + (item.iSum / item.iVotes) / 2)));
+        const t = item.gooey + item.prickly; return t ? Math.round(item.gooey / t * 100) : 50;
+    }
+    // Your call as { pos, exact }. exact = a stored swipe lean. A side-only call
+    // (button/keyboard/legacy) gets a moderate representative position, NOT the axis
+    // extreme, and is drawn hollow — so it reads as "your side", not "max conviction".
+    function userLean(cat, id) {
+        const s = priorIntensity(cat, id);
+        if (typeof s === 'number') return { pos: Math.max(0, Math.min(100, Math.round(50 + s / 2))), exact: true };
+        const v = priorVerdict(cat, id);
+        if (v === 'gooey') return { pos: 72, exact: false };
+        if (v === 'prickly') return { pos: 28, exact: false };
+        return null;
+    }
+    async function loadCategory(categoryId, kicker) {
         currentCategoryId = categoryId;
-        votesThisSession = 0; dailyMode = false; predictMode = false;
+        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = false;
         clearError(views.vote);
         const cat = CATEGORIES.find(c => c.id === categoryId);
-        voteKicker.textContent = cat ? cat.label : categoryId;
+        voteKicker.textContent = kicker || (cat ? cat.label : categoryId);
         renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
@@ -697,7 +919,7 @@
     }
     async function loadRandom() {
         currentCategoryId = RANDOM_ID;
-        votesThisSession = 0; dailyMode = false; predictMode = false;
+        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = false;
         clearError(views.vote);
         voteKicker.textContent = "Random — every list";
         renderVoteCategoryBar(); syncUrl();
@@ -728,7 +950,7 @@
     function loadDailyResults() { try { return JSON.parse(localStorage.getItem(dailyKey()) || '[]'); } catch (e) { return []; } }
     function saveDailyResults() { try { localStorage.setItem(dailyKey(), JSON.stringify(dailyResults)); } catch (e) {} }
     async function loadDaily() {
-        currentCategoryId = DAILY_ID; dailyMode = true; predictMode = false; votesThisSession = 0;
+        currentCategoryId = DAILY_ID; dailyMode = true; predictMode = false; weeklyMode = false; votesThisSession = 0;
         clearError(views.vote);
         voteKicker.textContent = "Today's Ballot · No. " + editionNo();
         renderVoteCategoryBar(); syncUrl();
@@ -774,7 +996,7 @@
             ? '<p class="recap-line">You sided with the crowd on <b>' + aligned + ' of ' + real.length + '</b> calls.</p>'
             : '<p class="recap-line">No calls logged today.</p>';
         if (bold) html += '<p class="recap-bold">Boldest call: you said <b>' + bold.verdict + '</b> on <b>' + escapeHtml(bold.name) + '</b> — ' + bold.crowd + '% went gooey.</p>';
-        html += '<div class="recap-glyphs" title="🟩 with the crowd · 🟧 against the grain · ⬜ skipped">' + dailyGlyphRow() + '</div>';
+        html += '<div class="recap-glyphs" title="🟣 prickly · 🔵 gooey · ⚪ skipped">' + dailyGlyphRow() + '</div>';
         wrap.innerHTML = html;
         const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
         const share = document.createElement('button'); share.className = 'btn btn-primary'; share.textContent = 'Share my ballot';
@@ -791,8 +1013,7 @@
     }
     function shareDaily(aligned, total, bold) {
         const n = editionNo();
-        let txt = 'Prickles & Goo — Ballot No. ' + n + ': I sided with the crowd on ' + aligned + '/' + total + ' calls.';
-        if (bold) txt += ' Boldest: ' + bold.verdict + ' on ' + bold.name + '.';
+        const txt = dailyShareBody();                          // the brand bead-row + texture mix (same as Copy)
         const b = bold ? '&b=' + encodeURIComponent(bold.verdict + ' on ' + bold.name) : '';
         const url = location.origin + '/ballot/' + n + '?a=' + aligned + '&t=' + total + b;
         const imgUrl = location.origin + '/og?v=daily&n=' + n + '&a=' + aligned + '&t=' + total + b;
@@ -802,7 +1023,7 @@
     /* ===== 8a2. PREDICT THE CROWD (guess the gooey %) ===== */
     function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
     async function loadPredict() {
-        currentCategoryId = PREDICT_ID; predictMode = true; dailyMode = false; votesThisSession = 0;
+        currentCategoryId = PREDICT_ID; predictMode = true; dailyMode = false; weeklyMode = false; votesThisSession = 0;
         clearError(views.vote);
         voteKicker.textContent = "Predict the crowd";
         renderVoteCategoryBar(); syncUrl();
@@ -826,40 +1047,16 @@
             (predictBest ? ' · best ' + predictBest : '') + '</span>';
     }
     function predictNext() {
+        window.advanceReveal = null;
         setSide('none', 0);
         if (predictPos >= predictDeck.length) { showPredictDone(); return; }
-        renderPredictCard(predictDeck[predictPos]);
+        renderCard(predictDeck[predictPos]);           // same swipe card as voting — you just read the crowd instead
     }
-    function renderPredictCard(item) {
-        setSide('none', 0);
-        arena.innerHTML = '';
-        const itemCat = item.categoryId || currentCategoryId;
-        const isGlyph = IMAGE_KIND[itemCat] === 'glyph';
-        const wrap = document.createElement('div');
-        wrap.className = 'swipe-wrap';
-        wrap.innerHTML =
-            '<div class="swipe-card predict-card">' +
-                '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' +
-                '<div class="card-media" id="cardMedia"></div>' +
-                (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
-                '<span class="meta">how gooey did the crowd find it?</span>' +
-            '</div>';
-        arena.appendChild(wrap);
-        buildCardMedia(wrap.querySelector('#cardMedia'), item);
-
-        const panel = document.createElement('div');
-        panel.className = 'predict-panel';
-        panel.innerHTML =
-            '<div class="predict-val"><span id="pVal">50</span><span class="u">% gooey</span></div>' +
-            '<input type="range" min="0" max="100" value="50" class="predict-slider" id="pSlider" aria-label="Your guess">' +
-            '<button class="btn btn-primary" id="pLock">Lock in</button>';
-        arena.appendChild(panel);
-        const slider = panel.querySelector('#pSlider'), val = panel.querySelector('#pVal');
-        const paint = () => { val.textContent = slider.value; slider.style.setProperty('--fill', slider.value + '%'); };
-        slider.oninput = paint; paint();
-        panel.querySelector('#pLock').onclick = () => lockPredict(item, parseInt(slider.value, 10));
-    }
-    function lockPredict(item, guess) {
+    // Your swipe IS the guess: direction = which way you think the crowd leaned,
+    // strength = how far. Signed -100..100 maps to a gooey-% read.
+    function scorePredict(item, verdict, signed) {
+        if (typeof signed !== 'number') signed = verdict === 'gooey' ? 50 : -50;   // button/keyboard read → a moderate call
+        const guess = Math.max(0, Math.min(100, Math.round(50 + signed / 2)));
         const total = item.gooey + item.prickly;
         const actual = Math.round((item.gooey / total) * 100);
         const delta = Math.abs(guess - actual);
@@ -887,6 +1084,7 @@
         const g = wrap.querySelector('.g'), p = wrap.querySelector('.p');
         requestAnimationFrame(() => { g.style.width = actual + '%'; p.style.width = (100 - actual) + '%'; });
         wrap.querySelector('#pNext').onclick = predictNext;
+        window.advanceReveal = predictNext;                 // Enter/Space/arrow advances, same as the vote reveal
     }
     function showPredictDone() {
         setSide('none', 0); arena.innerHTML = '';
@@ -920,22 +1118,27 @@
 
     // Build the glassy bubbles (right) and faceted shards (left) once.
     function buildEffects() {
-        let R = '<div class="glow-ambient"></div><div class="glow-core"></div><div class="edge-rim"></div>';
-        for (let i = 0; i < 16; i++) {
-            R += '<div class="bubble" style="right:' + rnd(6, 240).toFixed(0) + 'px; bottom:' + rnd(-30, 70).toFixed(0) + 'px;' +
-                 '--s:' + rnd(9, 46).toFixed(0) + 'px; --depth:' + rnd(.25, 1).toFixed(2) + '; --rise:' + rnd(-180, -440).toFixed(0) + 'px;' +
-                 '--d:' + rnd(0, .5).toFixed(2) + '; --dur:' + rnd(3.2, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;">' +
-                 '<span class="ball"></span></div>';
+        // gooey: molten metaball blobs that creep in + a warm glow, gloss sheen, meniscus rim
+        let R = '<div class="goo-warm"></div><div class="ooze">';
+        for (let i = 0; i < 9; i++) {
+            R += '<div class="blob" style="right:' + rnd(-10, 40).toFixed(0) + 'px; top:' + (i * 11 + rnd(-3, 3)).toFixed(0) + '%;' +
+                 '--s:' + rnd(70, 160).toFixed(0) + 'px; --tx:' + rnd(40, 120).toFixed(0) + 'px; --reach:' + rnd(120, 230).toFixed(0) + 'px;' +
+                 '--rise:' + rnd(-30, 30).toFixed(0) + 'px; --d:' + rnd(0, .8).toFixed(2) + '; --dur:' + rnd(3.5, 6).toFixed(1) + 's; --ad:' + rnd(0, 3).toFixed(1) + 's;"></div>';
         }
+        R += '</div><div class="sheen"></div><div class="meniscus"></div>';
         fxR.innerHTML = R;
 
-        let L = '<div class="prk-ambient"></div>';
-        for (let i = 0; i < 12; i++) {
-            const back = Math.random() < .4;
-            L += '<div class="shard' + (back ? ' back' : '') + '" style="' +
-                 '--y:' + (i * 8 + rnd(0, 4)).toFixed(1) + '%; --h:' + (back ? rnd(14, 26) : rnd(26, 50)).toFixed(0) + 'px;' +
-                 '--len:' + (back ? rnd(110, 200) : rnd(180, 340)).toFixed(0) + 'px; --a:' + rnd(-7, 7).toFixed(1) + 'deg;' +
-                 '--d:' + rnd(0, .45).toFixed(2) + ';"></div>';
+        // prickly: faceted amethyst crystals — top/bottom/inner facets, specular spine, sparkle
+        let L = '<div class="prk-cold"></div>';
+        for (let i = 0; i < 8; i++) {
+            const back = Math.random() < .35;
+            L += '<div class="crystal' + (back ? ' back' : '') + '" style="' +
+                 '--y:' + (i * 12 + rnd(-2, 2)).toFixed(1) + '%; --h:' + (back ? rnd(26, 40) : rnd(46, 78)).toFixed(0) + 'px;' +
+                 '--len:' + (back ? rnd(150, 240) : rnd(240, 420)).toFixed(0) + 'px; --a:' + rnd(-11, 11).toFixed(1) + 'deg;' +
+                 '--d:' + rnd(0, .5).toFixed(2) + ';">' +
+                 '<div class="f top"></div><div class="f bot"></div><div class="f core"></div>' +
+                 '<div class="spine"></div><div class="edge"></div>' +
+                 '<span class="spark" style="--sx:' + rnd(8, 22).toFixed(0) + '%;--sy:' + rnd(34, 50).toFixed(0) + '%;--tw:' + rnd(2, 3.4).toFixed(1) + 's;--td:' + rnd(0, 2.5).toFixed(1) + 's"></span></div>';
         }
         fxL.innerHTML = L;
     }
@@ -949,7 +1152,10 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph' };
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'art', albums_radiohead: 'art', animals: 'art' };
+    const NAME_AS_WIKI = new Set(['animals']);   // these use the item name as its Wikipedia title (no seeded `wiki` needed)
+    // Comic Sans needs its real family name; the rest match by display name (fallback if not installed).
+    const TYPEFACE_FONT = { 'Comic Sans': '"Comic Sans MS"', 'Times New Roman': '"Times New Roman"' };
     // Curated app logos: domain + tile treatment, keyed by item id (the seeded slug).
     // fill = app-icon that carries its own background, render edge-to-edge; otherwise a
     // padded mark on a white plate. Clearbit supplies the art (Google favicon fallback).
@@ -1017,7 +1223,7 @@
     function monoHue(name) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
     function monoNode(name, kind, sizeClass) {
         const d = document.createElement('div');
-        d.className = 'card-mono' + (kind === 'logo' ? ' plate' : '') + (sizeClass ? ' ' + sizeClass : '');
+        d.className = 'card-mono' + (kind === 'logo' ? ' plate' : kind === 'art' ? ' art' : '') + (sizeClass ? ' ' + sizeClass : '');
         d.style.background = 'linear-gradient(135deg, hsl(' + monoHue(name) + ' 52% 42%), hsl(' + ((monoHue(name) + 40) % 360) + ' 56% 32%))';
         d.textContent = monoInitials(name);
         return d;
@@ -1037,15 +1243,17 @@
         // faces (presidents / billionaires): Wikimedia thumbnail in a circle
         const mono = monoNode(item.name, kind, sizeClass);
         holder.appendChild(mono);
-        if (!item.wiki) return;                  // no title → monogram stays
-        wikiThumb(item.wiki).then(url => {
+        const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+        const wikiTitle = item.wiki || (NAME_AS_WIKI.has(item.categoryId || currentCategoryId) ? cap(item.name) : null);
+        if (!wikiTitle) return;                  // no title → monogram stays
+        wikiThumb(wikiTitle).then(url => {
             if (!url || !holder.isConnected) return;
             const img = new Image();
             img.referrerPolicy = 'no-referrer'; img.alt = item.name;
             img.onload = () => {                  // swap in only once it has actually loaded
                 if (!holder.isConnected) return;
                 const box = document.createElement('div');
-                box.className = 'card-face' + (sizeClass ? ' ' + sizeClass : '');
+                box.className = (kind === 'art' ? 'card-art' : 'card-face') + (sizeClass ? ' ' + sizeClass : '');
                 box.appendChild(img);
                 mono.replaceWith(box);
             };
@@ -1077,51 +1285,116 @@
     function nextCard() {
         setSide('none', 0);
         if (dailyMode) return dailyNext();
+        if (weeklyMode) return weeklyNext();
         currentItem = pickNext();
         if (!currentItem) return;
         renderCard(currentItem);
     }
 
+    function setVotePrompt() {                          // header copy follows the mode (predict reads the crowd, not yourself)
+        const ph = document.getElementById('vote-prompt'), vsub = document.getElementById('vote-sub');
+        if (predictMode) {
+            if (ph) ph.textContent = 'Read the crowd';
+            if (vsub) { vsub.innerHTML = 'Swipe the way you think <b>the crowd</b> leaned — a harder swipe is a bolder call.'; vsub.style.display = ''; }
+        } else {
+            if (ph) ph.textContent = 'Prickly or gooey?';
+            if (vsub) { vsub.innerHTML = '<b>Prickly</b> is sharp and exact. <b>Gooey</b> is soft and warm.<span class="instr"> Swipe left or right — flick up to pass.</span>'; vsub.style.display = introSeen() ? 'none' : ''; }
+        }
+    }
     function renderCard(item) {
         arena.innerHTML = '';
+        if (bgwash) bgwash.style.opacity = 0;          // clear the lean wash for the new card
+        setVotePrompt();
         const wrap = document.createElement('div');
         wrap.className = 'swipe-wrap';
         const itemCat = item.categoryId || currentCategoryId;
         const isGlyph = IMAGE_KIND[itemCat] === 'glyph';   // letter lives on the plate
-        const mixed = currentCategoryId === RANDOM_ID || dailyMode;   // cross-category decks show each card's category
+        const mixed = currentCategoryId === RANDOM_ID || dailyMode || predictMode;   // cross-category decks show each card's category
         const badge = mixed ? '<span class="card-badge">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         wrap.innerHTML =
             '<div class="peek-card"></div>' +
             '<div class="swipe-card" id="sc">' +
                 badge +
                 '<span class="stamp goo">Gooey</span><span class="stamp prk">Prickly</span>' +
-                '<div class="card-media" id="cardMedia"></div>' +
+                '<div class="card-media' + (NAME_AS_WIKI.has(itemCat) ? ' lg' : '') + '" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
-                '<span class="meta">swipe, or tap below</span>' +
+                '<span class="meta">' + (predictMode ? 'which way did the crowd lean?' : 'swipe to sort — harder is stronger') + '</span>' +
             '</div>';
         arena.appendChild(wrap);
         buildCardMedia(wrap.querySelector('#cardMedia'), item);
+        if (itemCat === 'typefaces') {                     // show the name set in its own typeface
+            const nm = wrap.querySelector('.name');
+            if (nm) { nm.style.fontFamily = (TYPEFACE_FONT[item.name] || ('"' + item.name + '"')) + ', Georgia, serif'; nm.style.fontWeight = '400'; }
+        }
+
+        const gauge = document.createElement('div');
+        gauge.className = 'lean-gauge';
+        gauge.innerHTML = '<span class="lg-fill"></span>';
+        arena.appendChild(gauge);
 
         const hint = document.createElement('div');
         hint.className = 'swipe-hint';
-        hint.innerHTML = '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
+        hint.innerHTML = predictMode
+            ? '<span class="l">← Prickly</span><span class="m">your read</span><span class="r">Gooey →</span>'
+            : '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
         arena.appendChild(hint);
 
+        if (predictMode) {                                 // predict: swipe only — no binary buttons
+            beginCard(wrap.querySelector('#sc'), item);
+            if (swipe) swipe.gfill = gauge.querySelector('.lg-fill');
+            return;
+        }
         const buttons = document.createElement('div');
         buttons.className = 'swipe-buttons';
-        buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button><button class="btn btn-goo">Gooey</button>';
+        buttons.innerHTML = '<button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button>';   // prickly/gooey are swipe-only now — the lean carries the intensity (not a binary tap)
         arena.appendChild(buttons);
 
         beginCard(wrap.querySelector('#sc'), item);
-        buttons.children[0].onclick = () => flySwipe('prickly');
-        buttons.children[1].onclick = () => attemptPass('up');
-        buttons.children[2].onclick = () => flySwipe('gooey');
+        if (swipe) swipe.gfill = gauge.querySelector('.lg-fill');
+        buttons.children[0].onclick = () => attemptPass('up');
     }
 
     /* ----- pointer-driven swipe (one shared window handler set) ----- */
-    let swipe = null;
+    /* ----- immersive wash + pull-to-claim charge (graduated from the lab) ----- */
+    const bgwash = document.getElementById('bgwash');
+    const GOO_WASH = 'radial-gradient(130% 120% at 100% 50%, color-mix(in srgb,var(--gooey) 60%, transparent), color-mix(in srgb,var(--gooey) 14%, transparent) 46%, transparent 74%)';
+    const PRK_WASH = 'radial-gradient(130% 120% at 0% 50%, color-mix(in srgb,var(--prickly) 60%, transparent), color-mix(in srgb,var(--prickly) 14%, transparent) 46%, transparent 74%)';
+    function setWash(dir, amt) { if (!bgwash) return; bgwash.style.background = dir < 0 ? PRK_WASH : GOO_WASH; bgwash.style.opacity = clamp01(amt); }
+    function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+    const DEAD = 14, HOLD_MS = 120, CHARGE_MS = 540;   // dead zone · settle before charging · hold-to-claim — short, so a slight lean commits
+    function stopCharge() {
+        if (!swipe) return;
+        if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
+        swipe.charge = 0; swipe.card.style.scale = 1; swipe.card.style.boxShadow = '';
+    }
+    function renderClaim() {                            // the card gets claimed by the side: fills, lifts, glows
+        if (!swipe) return;
+        const c = swipe.charge, goo = swipe.dx > 0;
+        const col = goo ? 'var(--gooey)' : 'var(--prickly)';
+        swipe.card.style.scale = 1 + c * 0.05;
+        swipe.card.style.boxShadow = c > 0.02
+            ? 'var(--shadow-lift), 0 0 ' + (c * 54) + 'px ' + (c * 12) + 'px color-mix(in srgb,' + col + ' ' + (c * 60) + '%, transparent), inset 0 0 0 ' + (c * 3) + 'px color-mix(in srgb,' + col + ' ' + (c * 85) + '%, transparent)'
+            : '';
+        const pos01 = clamp01(Math.abs(swipe.dx) / SWIPE_THRESHOLD);
+        setWash(goo ? 1 : -1, pos01 * 0.9 + c * 0.5);
+        setSide(goo ? 'goo' : 'prk', clamp01(pos01 + c * 0.6));
+    }
+    function chargeTick(now) {
+        if (!swipe || !swipe.dragging) { if (swipe) swipe.chargeRAF = 0; return; }
+        const dt = now - (swipe.lastTick || now); swipe.lastTick = now;
+        const ax = Math.abs(swipe.dx), ay = Math.abs(swipe.dy);
+        const vertical = ay > ax && ay > 28;
+        const settled = (now - swipe.lastMoveT) > HOLD_MS;
+        if (!vertical && ax > SWIPE_THRESHOLD * 0.45 && settled) swipe.charge = Math.min(1, swipe.charge + dt / CHARGE_MS);   // only a deliberate lean auto-charges (not a hesitant nudge)
+        else swipe.charge = Math.max(0, swipe.charge - dt / 200);
+        if (!vertical) renderClaim();
+        if (swipe.charge >= 1) { const v = swipe.dx > 0 ? 'gooey' : 'prickly'; stopCharge(); flySwipe(v, null, swipeSigned(v)); return; }
+        swipe.chargeRAF = requestAnimationFrame(chargeTick);
+    }
+
+    let swipe = null, onboarding = false;
     function beginCard(card, item) {
-        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0,
+        swipe = { card, item, categoryId: item.categoryId || currentCategoryId, sx: 0, sy: 0, dx: 0, dy: 0, dragging: false, done: false, raf: 0, crossed: false,
                   vx: 0, lastX: 0, lastT: 0, stampG: card.querySelector('.stamp.goo'), stampP: card.querySelector('.stamp.prk') };
         card.addEventListener('mousedown', onDown);
         card.addEventListener('touchstart', onDown, { passive: true });
@@ -1132,6 +1405,8 @@
         swipe.sx = t.clientX; swipe.sy = t.clientY; swipe.dragging = true;
         swipe.lastX = t.clientX; swipe.lastT = performance.now(); swipe.vx = 0;
         swipe.card.style.transition = 'none';
+        swipe.charge = 0; swipe.lastMoveT = performance.now(); swipe.lastTick = 0;
+        swipe.chargeRAF = requestAnimationFrame(chargeTick);
     }
     function paintSwipe() {
         swipe.raf = 0;
@@ -1139,40 +1414,76 @@
         swipe.card.style.transform = 'translate(' + dx + 'px,' + (dy * .28) + 'px) rotate(' + (dx / 26) + 'deg)';
         const ax = Math.abs(dx), ay = Math.abs(dy);
         const verticalLean = ay > ax && ay > 28;
+        const inCommit = !verticalLean && ax > DEAD;            // past here, a release commits
+        if (inCommit && !swipe.crossed) { swipe.crossed = true; haptic(8); }   // a tick as you cross into commit range
+        else if (!inCommit && swipe.crossed) { swipe.crossed = false; }
         if (verticalLean) setSide('none', 0);                   // leaning to pass (up/down): lift only
         else setSide(dx > 0 ? 'goo' : dx < 0 ? 'prk' : 'none', clamp01(ax / SWIPE_THRESHOLD));
-        // verdict stamp fades in past ~a third of the way, so the call is legible before release
-        const sp = clamp01((ax - SWIPE_THRESHOLD * 0.32) / (SWIPE_THRESHOLD * 0.5));
+        // verdict stamp fades in from the first pixel (no dead zone), so direction reads immediately
+        const sp = clamp01(ax / (SWIPE_THRESHOLD * 0.55));
         if (swipe.stampG) swipe.stampG.style.opacity = (!verticalLean && dx > 0) ? sp : 0;
         if (swipe.stampP) swipe.stampP.style.opacity = (!verticalLean && dx < 0) ? sp : 0;
+        // live lean gauge: fills outward from centre toward the side you're leaning
+        if (swipe.gfill) {
+            if (verticalLean || dx === 0) { swipe.gfill.style.width = '0'; }
+            else {
+                const goo = dx > 0;
+                swipe.gfill.style.left = goo ? '50%' : ''; swipe.gfill.style.right = goo ? '' : '50%';
+                swipe.gfill.style.background = goo ? 'var(--gooey)' : 'var(--prickly)';
+                const lean01 = clamp01(Math.max(0, ax - DEAD) / (SWIPE_THRESHOLD - DEAD));   // same reach mapping as the recorded magnitude
+                swipe.gfill.style.width = (lean01 * 50) + '%';
+            }
+        }
+        setWash(verticalLean ? 0 : (dx > 0 ? 1 : dx < 0 ? -1 : 0), verticalLean ? 0 : clamp01(ax / SWIPE_THRESHOLD) * 0.9);
     }
     function onMove(e) {
         if (!swipe || !swipe.dragging) return;
         const t = e.touches ? e.touches[0] : e;
-        swipe.dx = t.clientX - swipe.sx; swipe.dy = t.clientY - swipe.sy;
+        const ndx = t.clientX - swipe.sx, ndy = t.clientY - swipe.sy;
+        if (Math.abs(ndx - swipe.dx) > 3 || Math.abs(ndy - swipe.dy) > 3) swipe.lastMoveT = performance.now();   // a real move resets the hold timer
+        swipe.dx = ndx; swipe.dy = ndy;
         const now = performance.now(), ndt = now - swipe.lastT;
         if (ndt > 0) { swipe.vx = (t.clientX - swipe.lastX) / ndt; swipe.lastX = t.clientX; swipe.lastT = now; }
         if (!swipe.raf) swipe.raf = requestAnimationFrame(paintSwipe);
     }
     function bounceBack() {
         if (!swipe) return;
+        stopCharge();
         swipe.card.style.transition = 'transform .42s cubic-bezier(.2,.85,.25,1)';
         swipe.card.style.transform = 'translate(0,0)';
         if (swipe.stampG) swipe.stampG.style.opacity = 0;
         if (swipe.stampP) swipe.stampP.style.opacity = 0;
+        if (swipe.gfill) swipe.gfill.style.width = '0';
+        if (bgwash) bgwash.style.opacity = 0;
         setSide('none', 0);
     }
     const FLICK = 0.6;                                          // px/ms — a fast flick commits below the distance threshold
     function onUp() {
         if (!swipe || !swipe.dragging) return;
         swipe.dragging = false;
+        if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
         const dx = swipe.dx, dy = swipe.dy;
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_COMMIT) {
             if (!attemptPass(dy < 0 ? 'up' : 'down')) bounceBack();   // denied (no passes) → return card
+            return;
         }
-        else if (dx > SWIPE_COMMIT || swipe.vx > FLICK) flySwipe('gooey');
-        else if (dx < -SWIPE_COMMIT || swipe.vx < -FLICK) flySwipe('prickly');
-        else bounceBack();
+        // No snap-back: any real lean (past the dead zone) or a flick commits at that lean.
+        const ax = Math.abs(dx);
+        if (ax > DEAD || swipe.vx > FLICK || swipe.vx < -FLICK) {
+            const verdict = swipe.vx > FLICK ? 'gooey' : swipe.vx < -FLICK ? 'prickly' : (dx > 0 ? 'gooey' : 'prickly');
+            stopCharge();
+            flySwipe(verdict, null, swipeSigned(verdict));
+        } else bounceBack();
+    }
+    // how far/hard you pushed → signed intensity (-100..100), sign set by the verdict
+    function swipeSigned(verdict) {
+        // Measure the lean from the dead-zone edge, not screen centre, so a barely-past-threshold
+        // nudge reads as a few percent and grows smoothly — a small lean stays a small lean.
+        const reach = Math.max(0, Math.abs(swipe.dx) - DEAD);
+        const pos = clamp01(reach / (SWIPE_THRESHOLD - DEAD));
+        const vel = clamp01(Math.abs(swipe.vx) / 1.2);
+        const mag = Math.round(Math.max(3, Math.min(100, (pos + vel * 0.7) * 100)));
+        return verdict === 'gooey' ? mag : -mag;
     }
     function popBurst(card, verdict) {                 // clean halftone radiate on commit (no comic words)
         if (reduceMotion || !card.parentElement) return;
@@ -1181,18 +1492,20 @@
         card.parentElement.appendChild(d);
         setTimeout(() => d.remove(), 560);
     }
-    function flySwipe(verdict, dir) {
+    function flySwipe(verdict, dir, signed) {
         if (!swipe || swipe.done) return;
         swipe.done = true; swipe.dragging = false;
+        if (swipe.chargeRAF) { cancelAnimationFrame(swipe.chargeRAF); swipe.chargeRAF = 0; }
         const item = swipe.item, card = swipe.card, categoryId = swipe.categoryId;
-        if (verdict === 'gooey') { setSide('goo', 1); popBurst(card, 'gooey'); }
-        else if (verdict === 'prickly') { setSide('prk', 1); popBurst(card, 'prickly'); }
+        card.style.scale = 1; card.style.boxShadow = '';                       // drop the claim transform before flight
+        if (verdict === 'gooey') { setSide('goo', 1); setWash(1, 0.92); popBurst(card, 'gooey'); haptic(18); }
+        else if (verdict === 'prickly') { setSide('prk', 1); setWash(-1, 0.92); popBurst(card, 'prickly'); haptic(18); }
         else setSide('none', 0);
         card.style.transition = 'transform .46s cubic-bezier(.4,0,.2,1)';
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
         const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
         card.style.transform = 'translate(' + offX + 'px,' + offY + 'px) rotate(' + (offX / 26) + 'deg)';
-        setTimeout(() => commitVote(item, verdict, categoryId), 460);
+        setTimeout(() => onboarding ? onboardDone(verdict) : predictMode ? scorePredict(item, verdict, signed) : commitVote(item, verdict, categoryId, signed), 460);
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -1201,7 +1514,7 @@
 
     /* ----- keyboard voting (matches the printed ← Prickly / Gooey → hints) ----- */
     window.keyboardVote = function (e) {
-        if (activeAsk || predictMode) return;              // predict uses a slider, not swipe keys
+        if (activeAsk) return;
         if (views.vote.classList.contains('hidden')) return;
         if (e.target && /^(input|textarea|select)$/i.test(e.target.tagName)) return;
         if (window.advanceReveal && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp')) {
@@ -1224,8 +1537,15 @@
         localStorage.setItem('pg-passes', passes);
         localStorage.setItem('pg-passprog', votesTowardPass);
     }
+    function renderWeeklyMeter() {
+        const size = weeklyDeck.length || 0, done = Math.min(weeklyResults.length, size);
+        let pips = '';
+        for (let i = 0; i < size; i++) pips += '<span class="pip' + (i < done ? ' on' : '') + '"></span>';
+        passMeter.innerHTML = '<span class="lbl">' + escapeHtml(weeklyLabel || 'This Week') + '</span><span class="pips">' + pips + '</span><span class="prog">' + done + ' / ' + size + '</span>';
+    }
     function renderPassMeter() {
         if (predictMode) return renderPredictMeter();      // score/streak replaces passes in predict mode
+        if (weeklyMode) return renderWeeklyMeter();        // weekly is a bounded deck → progress
         if (dailyMode) return renderDailyMeter();          // ballot progress replaces passes in daily mode
         let pips = '';
         for (let i = 0; i < MAX_PASSES; i++) pips += '<span class="pip' + (i < passes ? ' on' : '') + '"></span>';
@@ -1244,6 +1564,7 @@
     function spendPass() { passes = Math.max(0, passes - 1); savePassState(); renderPassMeter(); }
     function denyPass() { passMeter.classList.remove('deny'); void passMeter.offsetWidth; passMeter.classList.add('deny'); }
     function attemptPass(dir) {                 // returns true if a pass was actually spent
+        if (predictMode) return false;          // no passing inside a guess round
         if (!swipe || swipe.done) return false;
         if (passes > 0) { spendPass(); flySwipe('skip', dir); return true; }
         denyPass(); return false;
@@ -1259,6 +1580,8 @@
     function lsGet(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { return {}; } }
     function priorVerdict(cat, id) { return lsGet('pg-voted-' + cat)[id] || null; }
     function rememberVerdict(cat, id, v) { const k = 'pg-voted-' + cat, m = lsGet(k); m[id] = v; localStorage.setItem(k, JSON.stringify(m)); }
+    function priorIntensity(cat, id) { const v = lsGet('pg-int-' + cat)[id]; return typeof v === 'number' ? v : null; }
+    function rememberIntensity(cat, id, s) { const k = 'pg-int-' + cat, m = lsGet(k); m[id] = s; localStorage.setItem(k, JSON.stringify(m)); }
     function hasAsked(cat, id) { return lsGet('pg-asked-' + cat)[id] === true; }
     function markAsked(cat, id) { const k = 'pg-asked-' + cat, m = lsGet(k); m[id] = true; localStorage.setItem(k, JSON.stringify(m)); }
 
@@ -1448,17 +1771,25 @@
     /* ===== 8e. REACTIONS + FIRST-VISIT INTRO ===== */
     const reactionEl = document.getElementById('reaction');
     const REACTIONS = {
-        gooey:   ['Gooey, noted.', 'Soft call.', 'Smooth.', 'Mmm, gooey.'],
-        prickly: ['Prickly, noted.', 'Sharp call.', 'Crisp.', 'Mmm, prickly.'],
-        skip:    ['Passed.', 'We’ll circle back.', 'Skipped.']
+        gooey:   ['Filed under gooey.', 'Gooey — for the record.', 'Noted: gooey.', 'So logged.'],
+        prickly: ['Filed under prickly.', 'Prickly — for the record.', 'Noted: prickly.', 'So logged.'],
+        skip:    ['Abstained.', 'No comment.', 'Recused yourself.']
     };
     let reactionTimer = 0;
-    function showReaction(verdict) {
+    function intensityWord(signed) {       // signed -100..100 → "very gooey" / "a little prickly"
+        const a = Math.abs(signed);
+        if (a < 8) return 'neutral';
+        const deg = a < 34 ? 'a little' : a < 67 ? 'fairly' : 'very';
+        return deg + ' ' + (signed < 0 ? 'prickly' : 'gooey');
+    }
+    function showReaction(verdict, word) {
+        // A swipe carries strength → say it back ("Very gooey — filed."), so the user
+        // sees the conviction signal was heard. Button/keyboard votes use the flat pool.
         const pool = REACTIONS[verdict] || REACTIONS.skip;
-        reactionEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+        reactionEl.textContent = word ? (word.charAt(0).toUpperCase() + word.slice(1) + ' — filed.') : pool[Math.floor(Math.random() * pool.length)];
         reactionEl.className = 'reaction show' + (verdict === 'gooey' ? ' goo' : verdict === 'prickly' ? ' prk' : '');
         clearTimeout(reactionTimer);
-        reactionTimer = setTimeout(() => reactionEl.classList.remove('show'), 1000);
+        reactionTimer = setTimeout(() => reactionEl.classList.remove('show'), 1100);
     }
     const toastEl = document.getElementById('toast');
     let toastTimer;
@@ -1498,21 +1829,24 @@
             showToast('Press and hold to copy');
         }
     }
-    /* Wordle-style, spoiler-free: a glyph row encoding the SHAPE of your calls
-       (with the crowd / against it / skipped) — never which way you voted or on what. */
+    /* Your texture fingerprint: each call as a brand bead — 🟣 prickly, 🔵 gooey, ⚪ skipped.
+       Reads as Prickles & Goo, not a Wordle grid; the crowd stat rides alongside as text. */
     function dailyGlyphRow() {
         return dailyResults.map(r =>
-            (r.verdict === 'skip' || r.crowd == null) ? '⬜'
-                : (((r.crowd >= 50) === (r.verdict === 'gooey')) ? '🟩' : '🟧')
+            r.verdict === 'skip' ? '⚪' : (r.verdict === 'gooey' ? '🔵' : '🟣')
         ).join('');
     }
-    function dailyResultString() {
+    function dailyShareBody() {
         const n = editionNo();
         const real = dailyResults.filter(r => r.verdict !== 'skip' && r.crowd != null);
         const aligned = real.filter(r => (r.crowd >= 50) === (r.verdict === 'gooey')).length;
-        const score = real.length ? aligned + '/' + real.length + ' with the crowd' : 'no calls logged';
-        return 'Prickles & Goo · No. ' + n + '\n' + dailyGlyphRow() + '\n' + score + '\n' + location.origin + '/ballot/' + n;
+        const goo = dailyResults.filter(r => r.verdict === 'gooey').length;
+        const prk = dailyResults.filter(r => r.verdict === 'prickly').length;
+        const mix = (goo || prk) ? goo + ' gooey · ' + prk + ' prickly' : 'all skipped';
+        const score = real.length ? ' · ' + aligned + '/' + real.length + ' with the crowd' : '';
+        return 'Prickles & Goo · No. ' + n + '\n' + dailyGlyphRow() + '\n' + mix + score;
     }
+    function dailyResultString() { return dailyShareBody() + '\n' + location.origin + '/ballot/' + editionNo(); }
     function introSeen() { try { return localStorage.getItem('pg-intro') === '1'; } catch (e) { return false; } }
     function markIntroSeen() { try { localStorage.setItem('pg-intro', '1'); } catch (e) {} }
     function showIntro() {
@@ -1527,12 +1861,35 @@
             '<p class="intro-task">Your job: trust your gut and sort them.</p>' +
             '<button class="btn btn-primary" id="introStart">Start sorting →</button>';
         arena.appendChild(w);
-        w.querySelector('#introStart').onclick = () => { markIntroSeen(); nextCard(); };
+        w.querySelector('#introStart').onclick = () => { markIntroSeen(); showOnboard(); };
+    }
+    // A near-unanimous warm-up so the axis is felt on swipe one (before any real card).
+    function showOnboard() {
+        onboarding = true;
+        const item = { name: 'A cactus', id: '__tutorial', categoryId: '__tutorial', shown: 0, gooey: 0, prickly: 0, skipped: 0, iVotes: 0, iSum: 0, iSumSq: 0 };
+        currentItem = item;
+        renderCard(item);
+        voteKicker.textContent = 'First, a warm-up';
+        const meta = arena.querySelector('.meta'); if (meta) meta.textContent = 'Prickly or gooey? Swipe whichever way feels right.';
+    }
+    function onboardDone(verdict) {
+        onboarding = false;
+        if (verdict === 'skip') { nextCard(); return; }     // passed the warm-up → just begin
+        setSide('none', 0); if (bgwash) bgwash.style.opacity = 0; arena.innerHTML = '';
+        const obvious = verdict === 'prickly';
+        const w = document.createElement('div'); w.className = 'reveal ' + (verdict === 'gooey' ? 'goo' : 'prk');
+        w.innerHTML = '<div class="reveal-verdict">' + (verdict === 'gooey' ? 'GOOEY' : 'PRICKLY') + '</div>' +
+            '<div class="reveal-nm">A cactus</div>' +
+            '<div class="reveal-head">' + (obvious ? 'Exactly. About as prickly as it gets.' : 'Bold — most would say prickly. But it’s your call.') + '</div>' +
+            '<div class="reveal-quote">That’s the whole game. Now the real ones.</div>' +
+            '<div class="reveal-actions"><button class="btn btn-primary" id="obBegin">Begin →</button></div>';
+        arena.appendChild(w);
+        document.getElementById('obBegin').onclick = () => nextCard();
     }
 
     /* ===== 9. RECORD VOTE ===== */
-    async function commitVote(item, verdict, categoryId) {
-        showReaction(verdict);
+    async function commitVote(item, verdict, categoryId, signed) {
+        showReaction(verdict, (verdict !== 'skip' && typeof signed === 'number') ? intensityWord(signed) : null);
         // optimistic local update keeps selection balanced within the session
         item.shown += 1;
         if (verdict === 'gooey') item.gooey += 1;
@@ -1544,6 +1901,18 @@
         if (verdict === 'gooey') update.gooey = inc(1);
         else if (verdict === 'prickly') update.prickly = inc(1);
         else update.skipped = inc(1);
+
+        // Intensity (additive migration): record the lean's magnitude, sign = verdict.
+        // Only SWIPE votes carry a real lean (signed). Button/keyboard votes don't —
+        // recording them as ±100 would skew the distribution by input method, so they
+        // stay verdict-only. Skips carry none.
+        if (verdict !== 'skip' && typeof signed === 'number') {
+            const mag = Math.max(8, Math.min(100, Math.round(Math.abs(signed))));
+            const s = verdict === 'gooey' ? mag : -mag;
+            update.iVotes = inc(1); update.iSum = inc(s); update.iSumSq = inc(s * s);
+            item.iVotes = (item.iVotes || 0) + 1; item.iSum = (item.iSum || 0) + s; item.iSumSq = (item.iSumSq || 0) + s * s;
+            rememberIntensity(categoryId, item.id, s);     // your own lean, for the Results spectrum
+        }
 
         const ref = db.collection('categories').doc(categoryId).collection('items').doc(item.id);
         ref.update(update).catch(async (err) => {
@@ -1562,6 +1931,21 @@
             rememberVerdict(categoryId, item.id, verdict);
             if (verdict !== 'skip') showReveal(item, verdict, categoryId); else maybeShowResults();
             return;                                  // no commentary prompt inside a ballot
+        }
+
+        if (weeklyMode) {                            // bounded themed deck → spectrum recap at the end
+            const t = item.gooey + item.prickly;
+            const gp = t ? Math.round(item.gooey / t * 100) : 50;
+            let userPos = null, userExact = true;
+            if (verdict !== 'skip') {
+                if (typeof signed === 'number') { const mag = Math.max(8, Math.min(100, Math.round(Math.abs(signed)))); userPos = Math.max(0, Math.min(100, Math.round(50 + (verdict === 'gooey' ? mag : -mag) / 2))); }
+                else { userPos = verdict === 'gooey' ? 72 : 28; userExact = false; }   // button/keyboard: side only
+            }
+            weeklyResults.push({ name: item.name, gp, userPos, userExact });
+            renderWeeklyMeter();
+            rememberVerdict(categoryId, item.id, verdict);
+            if (verdict !== 'skip') showReveal(item, verdict, categoryId); else maybeShowResults();
+            return;
         }
 
         // Ask *why* on a real vote — including first-time votes, so comments actually
@@ -1593,15 +1977,26 @@
             if (p < 1) requestAnimationFrame(tick);
         })(performance.now());
     }
+    const pick = a => a[Math.floor(Math.random() * a.length)];
+    // Deadpan register: a texture swipe, reported as if it were the public record.
+    // Neutral by construction — it's about agreement/dissent on the call, never good/bad.
+    function revealHead(lonely, pct) {
+        if (lonely) return pick(['First on the record.', 'Uncontested — you got here first.', 'No one else has weighed in. Bold.']);
+        if (pct >= 70) return pick(['The consensus agrees. Comfortably.', 'A popular reading. Filed.', 'You and the crowd: aligned.']);
+        if (pct >= 50) return pick(['The record concurs.', 'You’re with the majority.', 'Broadly, the crowd agrees.']);
+        if (pct >= 30) return pick(['A minority position. Noted.', 'You dissent. Duly logged.', 'The crowd leans the other way.']);
+        return pick(['A formal dissent.', 'You, against the internet. Bold.', 'The record disagrees. Emphatically.']);
+    }
     function showReveal(item, verdict, categoryId) {
         setSide('none', 0);
+        if (bgwash) bgwash.style.opacity = 0;
         const goo = verdict === 'gooey';
         const total = item.gooey + item.prickly;
         const mine = goo ? item.gooey : item.prickly;
         const pct = total > 0 ? Math.round((mine / total) * 100) : 100;
         const lonely = total <= 1;                         // your vote is the only one
         const hot = !lonely && total >= 5 && pct <= 40;    // a clear minority (not a near-tie) — a real "hot take"
-        const head = lonely ? 'You called it first.' : (pct >= 50 ? "You're with the crowd." : 'Against the grain.');
+        const head = revealHead(lonely, pct);
 
         arena.innerHTML = '';
         const wrap = document.createElement('div');
@@ -1613,7 +2008,7 @@
                            '<div class="reveal-sub">also said ' + verdict + ' · ' + total + ' votes</div>') +
             '<div class="reveal-head">' + head + '</div>' +
             '<div class="reveal-quote" id="revQuote"></div>' +
-            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">' + (hot ? 'Share the hot take 🌶' : 'Share') + '</button>' +
+            '<div class="reveal-actions"><button class="btn btn-ghost reveal-share" id="revShare">' + (hot ? 'Share the dissent' : 'Share') + '</button>' +
             '<button class="btn btn-ghost reveal-next" id="revNext">Keep swiping →</button></div>';
         arena.appendChild(wrap);
         document.getElementById('revShare').onclick = (e) => { e.stopPropagation(); shareItem(item, verdict, categoryId, hot); };
@@ -1634,13 +2029,9 @@
     /* Show the interim top-5 only on the cadence AND once a full top-5 worth
        of items has crossed the vote threshold; otherwise keep swiping. */
     function maybeShowResults() {
-        if (dailyMode) return nextCard();              // the ballot has its own end recap
-        const ranked = rankedQualifiers();
-        if (votesThisSession % RESULTS_EVERY === 0 && ranked.length >= TOP_N) {
-            showTopResults(ranked.slice(0, TOP_N));
-        } else {
-            nextCard();
-        }
+        // No mid-vote leaderboard: it surfaced crowd standings for items you hadn't swiped yet,
+        // which reads as a spoiler. The per-card reveal stays; full standings live on Results.
+        nextCard();
     }
     function shareGooey(item) {
         const t = item.gooey + item.prickly;
@@ -1663,26 +2054,36 @@
         const row = document.createElement('div');
         row.className = 'row';
         row.dataset.id = item.id;
-        const lowTag = s.low ? ' · <span class="low">few votes</span>' : '';
         const itemCat = item.categoryId || currentCategoryId;
         const kind = IMAGE_KIND[itemCat];
-        const hasAvatar = kind === 'logo' || kind === 'face';   // glyph letters would duplicate the name
+        const hasAvatar = kind === 'logo' || kind === 'face' || kind === 'art';   // glyph letters would duplicate the name
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
-        const tag = currentCategoryId === RANDOM_ID ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
+        const tag = (currentCategoryId === RANDOM_ID || currentCategoryId === DAILY_ID) ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         const mine = priorVerdict(itemCat, item.id);   // mark where *you* stand
         const youChip = (mine === 'gooey' || mine === 'prickly') ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
         const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
+        const tail = s.low ? '<span class="low"> · few votes</span>' : '<span class="dim"> · ' + votes + '</span>';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
-                          : '<span class="pct">' + s.gp + '% gooey · ' + s.pp + '% prickly · ' + votes + lowTag + '</span>';
+                          : '<span class="pct"><b>' + s.gp + '%</b> gooey' + tail + '</span>';   // gooey% is the hero; bar carries the prickly split
+        const lean = empty ? null : userLean(itemCat, item.id);   // where you landed on this item
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
             pct + '</div>' +
-            '<div class="bar"><span class="p" style="width:0%"></span><span class="g" style="width:0%"></span></div>';
-        const g = row.querySelector('.g'), p = row.querySelector('.p');
-        requestAnimationFrame(() => { g.style.width = (empty ? 0 : s.gp) + '%'; p.style.width = (empty ? 0 : s.pp) + '%'; });
+            trackHtml(s.gp, lean, empty);
         if (hasAvatar) buildMedia(row.querySelector('.row-avatar'), item, kind, 'sm');
         return row;
+    }
+    // One row's prickly→gooey rail: ● the crowd at its position, ◆ you at yours, a faint gap between.
+    function trackHtml(crowdPct, lean, empty) {
+        let h = '<div class="track' + (empty ? ' empty' : '') + '"><span class="t-rail"></span>';
+        if (!empty) {
+            if (lean) { const a = Math.min(crowdPct, lean.pos), b = Math.max(crowdPct, lean.pos);
+                h += '<span class="t-gap" style="left:' + a + '%;width:' + (b - a) + '%"></span>'; }
+            h += '<span class="t-crowd" style="left:' + crowdPct + '%;background:' + (crowdPct >= 50 ? 'var(--gooey)' : 'var(--prickly)') + '"></span>';
+            if (lean) h += '<span class="t-you' + (lean.exact === false ? ' approx' : '') + '" style="left:' + lean.pos + '%"></span>';
+        }
+        return h + '</div>';
     }
     function showTopResults(top) {
         setSide('none', 0);
@@ -1712,32 +2113,67 @@
     }
 
     /* ===== 11. FULL RESULTS ===== */
+    // Predict is a scoring game with no standings — it routes to play. Everything else (incl.
+    // Daily Ballot = today's deck) shows results right here, sorted like any other set.
+    function openResultsCategory(id) {
+        if (id === PREDICT_ID) { showView('vote'); loadPredict(); return; }
+        currentCategoryId = (id === WEEKLY_ID) ? activeWeekly().id : id;
+        loadResults();
+    }
+    // Same structure as the vote bar: mode pills + an "Other Sets" dropdown for the topic categories.
     function renderCategoryBar() {
         categoryBar.innerHTML = '';
         resultsCategorySelect.innerHTML = '';
-        // Daily Ballot is a play mode, not a results category — show it only in the vote bar.
-        if (currentCategoryId === DAILY_ID || currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;
-        voteCategories().filter(c => c.id !== DAILY_ID && c.id !== PREDICT_ID).forEach(c => {
+        if (currentCategoryId === PREDICT_ID) currentCategoryId = RANDOM_ID;   // predict has no standings → land on All
+        const ogPlay = document.createElement('optgroup'); ogPlay.label = 'Play';
+        const ogCats = document.createElement('optgroup'); ogCats.label = 'Other Sets';
+        const dd = document.createElement('select'); dd.className = 'cat-dropdown'; dd.setAttribute('aria-label', 'Other Sets');
+        const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'Other Sets'; dd.appendChild(ph);
+        let topicActive = false;
+        voteCategories().forEach(c => {
+            const isMode = MODE_IDS.has(c.id);
             const label = c.id === RANDOM_ID ? 'All' : c.label;    // results: "All", not "Random"
-            const b = document.createElement('button');
-            b.className = 'cat' + (c.id === currentCategoryId ? ' active' : '');
-            b.textContent = label;
-            b.onclick = () => { currentCategoryId = c.id; loadResults(); };
-            categoryBar.appendChild(b);
-
-            const o = document.createElement('option');            // mirror into the mobile dropdown
-            o.value = c.id; o.textContent = label;
-            if (c.id === currentCategoryId) o.selected = true;
-            resultsCategorySelect.appendChild(o);
+            const active = c.id === currentCategoryId || (c.id === WEEKLY_ID && isWeeklyId(currentCategoryId));
+            if (isMode) {
+                const b = document.createElement('button');
+                b.className = 'cat' + (active ? ' active' : '');
+                b.textContent = label;
+                b.onclick = () => openResultsCategory(c.id);
+                categoryBar.appendChild(b);
+            } else {
+                const o = document.createElement('option'); o.value = c.id; o.textContent = c.label;
+                if (active) topicActive = true;
+                dd.appendChild(o);
+            }
+            const o2 = document.createElement('option'); o2.value = c.id; o2.textContent = label; if (active) o2.selected = true;
+            (isMode ? ogPlay : ogCats).appendChild(o2);
         });
+        ph.selected = true;
+        dd.classList.toggle('chosen', topicActive);
+        dd.onchange = () => { if (dd.value) openResultsCategory(dd.value); };
+        categoryBar.appendChild(dd);
+        resultsCategorySelect.append(ogPlay, ogCats);
     }
     let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
+    let resultsView = 'spectrum';                  // 'spectrum' = the set + you on every item · 'mine' = you vs the crowd
     const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
     const SORT_HEAD = { divisive: 'The closest calls', gooey: 'Most gooey to most prickly', prickly: 'Most prickly to most gooey', voted: 'Most judged' };
+    // intensity reads (from the additive aggregates; null until enough intensity votes)
+    function meanIntensity(i) { return i.iVotes ? i.iSum / i.iVotes : null; }
+    function intensityStd(i) { if (!i.iVotes) return 0; const m = i.iSum / i.iVotes; return Math.sqrt(Math.max(0, i.iSumSq / i.iVotes - m * m)); }
     function sortVoted(arr, mode) {
         const share = i => { const t = i.gooey + i.prickly; return t ? i.gooey / t : 0; };
         if (mode === 'voted') return arr.slice().sort((a, b) => (b.gooey + b.prickly) - (a.gooey + a.prickly));
-        if (mode === 'divisive') return arr.filter(i => (i.gooey + i.prickly) >= 4).sort((a, b) => Math.abs(share(a) - .5) - Math.abs(share(b) - .5));
+        if (mode === 'divisive') {
+            // Rank by how split the crowd is, weighted by how much we've heard — so a near-50/50
+            // leads, a unanimous item (0% or 100%) sinks to the bottom, and a 2-vote coin-flip
+            // can't outrank a well-voted contested one. Every voted item shows (no hard cutoff).
+            const conf = i => Math.min(1, (i.gooey + i.prickly) / 8);          // confidence ramps to full by ~8 votes
+            const split = i => 1 - 2 * Math.abs(share(i) - 0.5);               // 1 at 50/50, 0 at unanimous
+            const useVar = arr.length > 0 && arr.every(i => i.iVotes >= 4);    // real divisiveness once intensity is dense
+            const score = i => (useVar ? Math.min(1, intensityStd(i) / 50) : split(i)) * conf(i);
+            return arr.slice().sort((a, b) => score(b) - score(a));
+        }
         if (mode === 'prickly') return arr.slice().sort((a, b) => share(a) - share(b));
         return arr.slice().sort((a, b) => share(b) - share(a));
     }
@@ -1749,21 +2185,64 @@
             '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         try {
             const random = currentCategoryId === RANDOM_ID;
-            const all = random ? await fetchAllItems()
-                               : (await db.collection('categories').doc(currentCategoryId).collection('items').get())
-                                   .docs.map(normalize).filter(i => i.named);
-            if (!random) all.forEach(i => i.categoryId = currentCategoryId);
-            const voted = all.filter(i => (i.gooey + i.prickly) > 0);
-            const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
-            const rows = sortVoted(voted, resultsSort);
-            const subs = {
+            const daily = currentCategoryId === DAILY_ID;
+            let all;
+            if (daily) {                                       // today's ballot, ranked like any set (same deterministic deck as play)
+                const pool = await fetchAllItems();
+                all = seededDeck(pool, Math.min(DAILY_SIZE, pool.length), hashStr(todayStr()));
+            } else if (random) {
+                all = await fetchAllItems();
+            } else {
+                all = (await db.collection('categories').doc(currentCategoryId).collection('items').get())
+                        .docs.map(normalize).filter(i => i.named);
+                all.forEach(i => i.categoryId = currentCategoryId);
+            }
+            paintResults(all, highlight);
+        } catch (err) {
+            console.error("Failed to load results:", err);
+            resultsList.innerHTML = '';
+            showError(views.results, describeError(err));
+        }
+    }
+    // Render (and re-sort) from already-fetched items — sort chips no longer refetch.
+    function paintResults(all, highlight) {
+        const random = currentCategoryId === RANDOM_ID;
+        const mixed = random || currentCategoryId === DAILY_ID;     // cross-category sets show per-item badges
+        const voted = all.filter(i => (i.gooey + i.prickly) > 0);
+        const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
+        const rows = sortVoted(voted, resultsSort);
+        const subs = {
                 divisive: 'The closest calls, where the crowd splits hardest.',
                 gooey: (random ? 'Every list, mixed — ' : '') + 'ranked from most gooey to most prickly.',
                 prickly: (random ? 'Every list, mixed — ' : '') + 'ranked from most prickly to most gooey.',
                 voted: 'The most-judged so far.'
             };
+            // set size + coverage, up front — never buried
+            const setN = all.length, votedN = voted.length;
+            const count = setN ? '<p class="results-count"><b>' + setN + '</b> in this set · <b>' + votedN + '</b> with votes' +
+                (setN - votedN > 0 ? ' · <span class="dim">' + (setN - votedN) + ' not yet</span>' : '') + '</p>' : '';
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
-                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>';
+                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count;
+
+            // view toggle: the spectrum (the whole set + where you sit) vs your map against the crowd
+            const viewBar = document.createElement('div');
+            viewBar.className = 'view-bar';
+            [['spectrum', 'Spectrum'], ['mine', 'You vs crowd']].forEach(([v, label]) => {
+                const b = document.createElement('button');
+                b.className = 'view-chip' + (v === resultsView ? ' active' : '');
+                b.textContent = label;
+                b.onclick = () => { if (v !== resultsView) { resultsView = v; paintResults(all, highlight); } };
+                viewBar.appendChild(b);
+            });
+            resultsList.appendChild(viewBar);
+
+            if (resultsView === 'mine') {                       // Option C — your calls vs the crowd
+                const w = document.createElement('div');
+                w.innerHTML = renderYouVsCrowd(all);
+                resultsList.appendChild(w);
+                if (unvoted.length) appendColdCta(unvoted.length);
+                return;
+            }
 
             const sortBar = document.createElement('div');
             sortBar.className = 'sort-bar';
@@ -1771,14 +2250,14 @@
                 const b = document.createElement('button');
                 b.className = 'sortchip' + (v === resultsSort ? ' active' : '');
                 b.textContent = label;
-                b.onclick = () => { resultsSort = v; loadResults(); };
+                b.onclick = () => { if (v !== resultsSort) { resultsSort = v; paintResults(all, highlight); } };
                 sortBar.appendChild(b);
             });
             resultsList.appendChild(sortBar);
 
             const legend = document.createElement('div');
             legend.className = 'legend';
-            legend.innerHTML = '<span><i style="background:var(--prickly)"></i>Prickly</span><span><i style="background:var(--gooey)"></i>Gooey</span>';
+            legend.innerHTML = '<span><i style="background:var(--gooey)"></i>the crowd</span><span><i class="you"></i>your call</span>';
             resultsList.appendChild(legend);
 
             if (!rows.length) {
@@ -1787,24 +2266,53 @@
                 e.textContent = resultsSort === 'divisive' ? 'Nothing contested enough yet — keep voting.' : 'No votes here yet. Be the first to judge.';
                 resultsList.appendChild(e);
             }
-            rows.forEach((it, idx) => { const r = resultRow(it); resultsList.appendChild(r); const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat); if (idx < 12) attachReasons(r, it, cat); });
+            // Reasons are lazy: fetch a row's "why" only when it scrolls into view, so
+            // opening Results no longer fires ~24 Firestore reads up front.
+            const io = ('IntersectionObserver' in window) ? new IntersectionObserver((ents, ob) => {
+                ents.forEach(en => { if (en.isIntersecting) { ob.unobserve(en.target); attachReasons(en.target, en.target.__it, en.target.__cat); } });
+            }, { rootMargin: '250px' }) : null;
+            rows.forEach((it, idx) => {
+                const r = resultRow(it); r.classList.add('row-in'); r.style.setProperty('--d', Math.min(idx, 14) * 35 + 'ms');   // gentle staggered entrance
+                resultsList.appendChild(r);
+                const cat = it.categoryId || currentCategoryId; addReasonButton(r, it, cat);
+                if (io) { r.__it = it; r.__cat = cat; io.observe(r); } else { attachReasons(r, it, cat); }
+            });
 
             if (highlight) {     // deep-linked item: scroll to it and flash
                 const target = resultsList.querySelector('.row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(highlight) : highlight) + '"]');
                 if (target) { if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.classList.add('flash'); }
             }
-            if (unvoted.length) {     // cold start becomes an invitation, not an empty scoreboard
-                const cta = document.createElement('button');
-                cta.className = 'cold-cta';
-                cta.innerHTML = '<b>' + unvoted.length + '</b> awaiting their first vote — be the judge →';
-                cta.onclick = () => { showView('vote'); if (currentCategoryId === RANDOM_ID) loadRandom(); else loadCategory(currentCategoryId); };
-                resultsList.appendChild(cta);
-            }
-        } catch (err) {
-            console.error("Failed to load results:", err);
-            resultsList.innerHTML = '';
-            showError(views.results, describeError(err));
-        }
+            if (unvoted.length) appendColdCta(unvoted.length);
+    }
+    function appendColdCta(n) {     // cold start becomes an invitation, not an empty scoreboard
+        const cta = document.createElement('button');
+        cta.className = 'cold-cta';
+        cta.innerHTML = '<b>' + n + '</b> awaiting their first vote — be the judge →';
+        cta.onclick = () => { showView('vote'); openCategory(currentCategoryId); };
+        resultsList.appendChild(cta);
+    }
+    // Option C: your calls laid against the crowd — a self-portrait + where you break from the pack.
+    function renderYouVsCrowd(all) {
+        const cat0 = currentCategoryId;
+        const mine = all.map(it => {
+            const lean = userLean(it.categoryId || cat0, it.id);
+            if (!lean) return null;
+            const s = stats(it);
+            return { name: it.name, gp: s.gp, pos: lean.pos, exact: lean.exact };
+        }).filter(Boolean);
+        if (!mine.length) return '<p class="cv-empty">You haven’t voted in this set yet — swipe a few and your map against the crowd appears here.</p>';
+        const myAvg = Math.round(mine.reduce((s, m) => s + m.pos, 0) / mine.length);
+        const votedAll = all.filter(i => (i.gooey + i.prickly) > 0);
+        const setAvg = votedAll.length ? Math.round(votedAll.reduce((s, i) => s + stats(i).gp, 0) / votedAll.length) : 50;
+        const gap = m => Math.abs(m.pos - m.gp);
+        const against = mine.filter(m => gap(m) > 20).sort((a, b) => gap(b) - gap(a));
+        const withC = mine.filter(m => gap(m) <= 20).sort((a, b) => gap(a) - gap(b));
+        let h = '<div class="cv-summary">You run <b>' + myAvg + '% gooey</b> on this set; the crowd averages <b>' + setAvg + '%</b>. ' +
+            (against.length ? 'You broke from them on <b>' + against.length + '</b> of ' + mine.length + ' call' + (mine.length === 1 ? '' : 's') + '.' : 'You’re riding with the crowd across the board.') + '</div>';
+        const rowHtml = m => '<div class="cv-row"><span class="nm">' + escapeHtml(m.name) + '</span>' + trackHtml(m.gp, { pos: m.pos, exact: m.exact }, false) + '</div>';
+        if (against.length) h += '<div class="cv-group">Against the grain</div>' + against.map(rowHtml).join('');
+        if (withC.length) h += '<div class="cv-group">With the crowd</div>' + withC.map(rowHtml).join('');
+        return h;
     }
 
     /* ===== 11b. ROUTING + SHARE (deep links) ===== */
@@ -1822,7 +2330,7 @@
         const qs = p.toString();
         try { history.replaceState(null, '', qs ? ('?' + qs) : location.pathname); } catch (e) {}
     }
-    function knownCat(c) { return c && (c === RANDOM_ID || c === DAILY_ID || CATEGORIES.some(x => x.id === c)); }
+    function knownCat(c) { return c && (c === RANDOM_ID || c === DAILY_ID || isWeeklyId(c) || CATEGORIES.some(x => x.id === c)); }
     function applyInitialRoute() {
         const p = new URLSearchParams(location.search);
         let cat = p.get('c'); const view = p.get('v'); let item = p.get('i');
@@ -1844,8 +2352,8 @@
         const url = location.origin + path + extra;
         const imgUrl = location.origin + '/og?c=' + encodeURIComponent(categoryId) + '&i=' + encodeURIComponent(item.id) + imgExtra;
         const txt = hot
-            ? 'The internet says ' + item.name + ' is ' + crowd + ' (' + gp + '% gooey). I said ' + verdict + '. I’m not on the internet’s side.'
-            : gp + '% say ' + item.name + ' is gooey — I said ' + verdict + '. Prickles & Goo:';
+            ? gp + '% of the internet has ruled ' + item.name + ' ' + crowd + '. I am filing a dissent.'
+            : 'The internet has ' + item.name + ' at ' + gp + '% gooey. For the record, I said ' + verdict + '.';
         smartShare({ text: txt, url, imgUrl });
     }
 
@@ -1854,17 +2362,24 @@
         const body = document.getElementById('taste-body');
         body.innerHTML = Array.from({ length: 3 }, () => '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
         let total = 0, gooey = 0;
-        const per = CATEGORIES.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
+        // standing sets + any weekly theme you've actually played, so weekly coverage shows up here too
+        const hasVotes = id => { const v = lsGet('pg-voted-' + id); return Object.keys(v).some(k => v[k] === 'gooey' || v[k] === 'prickly'); };
+        const cats = CATEGORIES.concat(WEEKLY.filter(t => hasVotes(t.id)));
+        const per = cats.map(c => ({ id: c.id, label: c.label, g: 0, t: 0, diverg: 0, compared: 0 }));
         const byId = {}; per.forEach(p => byId[p.id] = p);
-        CATEGORIES.forEach(c => {
+        cats.forEach(c => {
             const voted = lsGet('pg-voted-' + c.id);
             Object.keys(voted).forEach(id => { const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return; total++; byId[c.id].t++; if (v === 'gooey') { gooey++; byId[c.id].g++; } });
         });
         if (!total) { body.innerHTML = '<p class="results-sub">Vote on a few things and your taste takes shape here — how gooey you run, where you lean soft, and where you go against the grain.</p>'; return; }
         try {                                          // best-effort crowd comparison
             const all = await fetchAllItems();
+            const weeklyPlayed = WEEKLY.filter(t => hasVotes(t.id));   // pull their items too, for totals + comparison
+            const wsnaps = await Promise.all(weeklyPlayed.map(t => db.collection('categories').doc(t.id).collection('items').get()));
+            wsnaps.forEach((snap, i) => snap.docs.map(normalize).filter(x => x.named).forEach(x => { x.categoryId = weeklyPlayed[i].id; all.push(x); }));
             const key = {}; all.forEach(it => key[it.categoryId + '/' + it.id] = it);
-            CATEGORIES.forEach(c => {
+            all.forEach(it => { const p = byId[it.categoryId]; if (p) p.itemsTotal = (p.itemsTotal || 0) + 1; });   // total items per category, for coverage
+            cats.forEach(c => {
                 const voted = lsGet('pg-voted-' + c.id);
                 Object.keys(voted).forEach(id => {
                     const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return;
@@ -1911,21 +2426,35 @@
         html += '<div class="taste-cats">';
         ranked.forEach(p => {
             const cp = Math.round(p.g / p.t * 100);
-            html += '<div class="taste-cat"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span><span class="pct">' + cp + '% gooey · ' + (100 - cp) + '% prickly</span></div>' +
+            const cover = p.itemsTotal ? p.t + ' of ' + p.itemsTotal + ' voted' : p.t + ' vote' + (p.t === 1 ? '' : 's');
+            const thin = p.t < 3 ? ' <span class="low">· thin</span>' : '';
+            html += '<div class="taste-cat' + (p.t < 3 ? ' is-thin' : '') + '"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span>' +
+                '<span class="pct">' + cp + '% gooey · ' + cover + thin + '</span></div>' +
                 '<div class="bar"><span class="p" style="width:' + (100 - cp) + '%"></span><span class="g" style="width:' + cp + '%"></span></div></div>';
         });
         html += '</div>';
+        const untouched = d.per.filter(p => p.t === 0 && p.itemsTotal > 0);
+        if (untouched.length) {
+            html += '<p class="taste-untouched">Not started: ' +
+                untouched.map(p => escapeHtml(p.label) + ' <span class="n">(' + p.itemsTotal + ')</span>').join(' · ') + '</p>';
+        }
         body.innerHTML = html;
+        let outlier = '';
+        if (contrarian && Math.abs(contrarian.diverg / contrarian.compared) > 0.12) outlier = 'You buck the crowd on ' + contrarian.label + '.';
+        else if (prickliest && prickliest !== gooiest) outlier = 'Sharpest on ' + prickliest.label + '.';
+        else if (gooiest) outlier = 'Softest on ' + gooiest.label + '.';
         const sh = document.createElement('button'); sh.className = 'btn btn-primary'; sh.style.marginTop = '18px';
-        sh.textContent = 'Share my taste'; sh.onclick = () => shareTaste(pct, d.total);
+        sh.textContent = 'Share my taste'; sh.onclick = () => shareTaste(pct, d.total, outlier);
         body.appendChild(sh);
     }
-    function shareTaste(pct, total) {
+    function shareTaste(pct, total, outlier) {
         const arch = archetypeFor(pct);
         const a = '&a=' + encodeURIComponent(arch.name);
+        const o = outlier ? '&o=' + encodeURIComponent(outlier) : '';
         const txt = "I'm " + arch.name + " on Prickles & Goo — " + pct + "% gooey (" + total + " votes). What are you?";
         const url = location.origin + '/you?g=' + pct + '&n=' + total + a;
-        const imgUrl = location.origin + '/og?v=taste&g=' + pct + '&n=' + total + a;
+        // The shared file is the vertical "You, sorted" card (Stories/TikTok); the link still unfurls the horizontal OG.
+        const imgUrl = location.origin + '/og?v=taste&shape=story&g=' + pct + '&n=' + total + a + o;
         smartShare({ text: txt, url, imgUrl });
     }
 
