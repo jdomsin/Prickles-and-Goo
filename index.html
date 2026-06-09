@@ -283,8 +283,6 @@
     .sort-bar { display:flex; gap:6px; flex-wrap:wrap; margin:2px 0 14px; }
     .sortchip { font:inherit; font-size:.8rem; font-weight:600; padding:6px 13px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
     .sortchip.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
-    .you-chip { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; padding:2px 6px; border-radius:999px; color:#fff; vertical-align:middle; }
-    .you-chip.goo { background:var(--gooey); } .you-chip.prk { background:var(--prickly); }
     .cold-cta { display:block; width:100%; text-align:left; margin-top:18px; font:inherit; font-size:.92rem; color:var(--ink); background:var(--surface-2); border:1px dashed var(--hairline); border-radius:14px; padding:14px 16px; cursor:pointer; transition:border-color .2s; }
     .cold-cta:hover { border-color:var(--gooey); }
     .cold-cta b { font-variant-numeric:tabular-nums; }
@@ -380,10 +378,11 @@
     .track { position:relative; height:14px; margin-top:2px; }
     .track .t-rail { position:absolute; top:50%; left:0; right:0; height:3px; transform:translateY(-50%); border-radius:2px;
         background:linear-gradient(90deg, color-mix(in srgb,var(--prickly) 38%,var(--hairline)), var(--hairline) 50%, color-mix(in srgb,var(--gooey) 38%,var(--hairline))); }
-    .track .t-gap { position:absolute; top:50%; height:2px; transform:translateY(-50%); background:var(--ink); opacity:.26; }
+    .track .t-gap { position:absolute; top:50%; height:3px; transform:translateY(-50%); background:var(--ink); opacity:.34; border-radius:2px; }
     .track .t-crowd { position:absolute; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 1px 3px rgba(20,14,10,.22); }
-    .track .t-you { position:absolute; top:50%; transform:translate(-50%,-50%) rotate(45deg); width:12px; height:12px; border:2px solid var(--ink); background:var(--paper); }
-    .track .t-you.approx { border-style:dashed; opacity:.7; }      /* side-only call — strength unknown */
+    /* your call = a solid ink ◆ (matches the "you" glyph on every other lens), with a paper halo so it stays distinct even when it sits right on the crowd dot */
+    .track .t-you { position:absolute; top:50%; transform:translate(-50%,-50%) rotate(45deg); width:13px; height:13px; background:var(--ink); box-shadow:0 0 0 2px var(--surface), 0 1px 3px rgba(20,14,10,.22); }
+    .track .t-you.approx { background:var(--paper); border:2px dashed var(--ink); }   /* side-only call — strength unknown */
     .track.empty .t-rail { opacity:.55; }
     /* view toggle: Spectrum ↔ You vs crowd */
     .view-bar { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 18px; }
@@ -439,7 +438,7 @@
     .cv-empty { color:var(--ink-soft); font-size:.9rem; }
     .legend { display:flex; gap:18px; font-size:.78rem; color:var(--ink-soft); margin:14px 0 30px; align-items:center; }
     .legend i { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px; border:2px solid var(--surface); }
-    .legend i.you { border-radius:0; transform:rotate(45deg); border:2px solid var(--ink); background:var(--paper); }
+    .legend i.you { border-radius:0; transform:rotate(45deg); border:0; background:var(--ink); }
     .next-wrap { margin-top:28px; }
 
     .category-bar { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 22px; }      /* all visible — no scroll, no hidden pills */
@@ -2110,8 +2109,6 @@
         const hasAvatar = kind === 'logo' || kind === 'face' || kind === 'art';   // glyph letters would duplicate the name
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
         const tag = (currentCategoryId === RANDOM_ID) ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
-        const mine = priorVerdict(itemCat, item.id);   // mark where *you* stand
-        const youChip = (showMine && (mine === 'gooey' || mine === 'prickly')) ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
         const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
         const tail = s.low ? '<span class="low"> · few votes</span>' : '<span class="dim"> · ' + votes + '</span>';
@@ -2119,7 +2116,7 @@
                           : '<span class="pct"><b>' + s.gp + '%</b> gooey' + tail + '</span>';   // gooey% is the hero; bar carries the prickly split
         const lean = (empty || !showMine) ? null : userLean(itemCat, item.id);   // where you landed (only when the "you" overlay is on)
         row.innerHTML =
-            '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
+            '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + tag + '</span>' +
             pct + '</div>' +
             trackHtml(s.gp, lean, empty);
         if (hasAvatar) buildMedia(row.querySelector('.row-avatar'), item, kind, 'sm');
@@ -2328,7 +2325,8 @@
 
             const legend = document.createElement('div');
             legend.className = 'legend';
-            legend.innerHTML = '<span><i style="background:var(--gooey)"></i>the crowd</span><span><i class="you"></i>your call</span>';
+            legend.innerHTML = '<span><i style="background:var(--gooey)"></i>the crowd</span>' +
+                ((showMine && hasMine) ? '<span><i class="you"></i>your call</span>' : '');
             resultsList.appendChild(legend);
 
             if (!rows.length) {
