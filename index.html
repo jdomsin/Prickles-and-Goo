@@ -389,6 +389,15 @@
     .view-bar { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 18px; }
     .view-chip { font:inherit; font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
     .view-chip.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+    /* "My votes" overlay — a switch (not a view) that layers your call onto any lens */
+    .mine-toggle { font:inherit; font-size:.8rem; font-weight:600; padding:6px 13px 6px 11px; border-radius:999px; border:1px dashed var(--ink-soft); background:transparent; color:var(--ink-soft); cursor:pointer; margin-left:auto; display:inline-flex; align-items:center; gap:7px; }
+    .mine-toggle.on { border-style:solid; border-color:var(--ink); background:var(--ink); color:var(--paper); }
+    .mt-dot { display:inline-block; width:10px; height:10px; transform:rotate(45deg); border:2px solid currentColor; background:transparent; }
+    .mine-toggle.on .mt-dot { background:var(--paper); border-color:var(--paper); }
+    .cv-summary .mt-dot { border-color:var(--ink); background:var(--paper); margin-right:8px; vertical-align:-1px; }
+    .you-tag { font-size:.62rem; font-weight:700; letter-spacing:.03em; padding:1px 7px; border-radius:999px; color:#fff; white-space:nowrap; vertical-align:middle; }
+    .you-tag.g { background:var(--gooey); } .you-tag.p { background:var(--prickly); }
+    .hmine { color:var(--ink); font-weight:700; }
     /* Lane (Option A) — constellation on one axis */
     .lane { position:relative; border-radius:14px; border:1px solid var(--hairline); margin:6px 0 2px;
         background:linear-gradient(90deg, color-mix(in srgb,var(--prickly) 15%,transparent), transparent 44%, transparent 56%, color-mix(in srgb,var(--gooey) 15%,transparent)); }
@@ -2102,13 +2111,13 @@
         const avatar = hasAvatar ? '<span class="row-avatar"></span>' : '';
         const tag = (currentCategoryId === RANDOM_ID) ? ' <span class="row-cat">' + (CAT_BADGE[itemCat] || itemCat) + '</span>' : '';
         const mine = priorVerdict(itemCat, item.id);   // mark where *you* stand
-        const youChip = (mine === 'gooey' || mine === 'prickly') ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
+        const youChip = (showMine && (mine === 'gooey' || mine === 'prickly')) ? ' <span class="you-chip ' + (mine === 'gooey' ? 'goo' : 'prk') + '">you</span>' : '';
         const empty = s.total === 0;   // no votes yet → neutral grey, not a 100%-prickly bar
         const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
         const tail = s.low ? '<span class="low"> · few votes</span>' : '<span class="dim"> · ' + votes + '</span>';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
                           : '<span class="pct"><b>' + s.gp + '%</b> gooey' + tail + '</span>';   // gooey% is the hero; bar carries the prickly split
-        const lean = empty ? null : userLean(itemCat, item.id);   // where you landed on this item
+        const lean = (empty || !showMine) ? null : userLean(itemCat, item.id);   // where you landed (only when the "you" overlay is on)
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + youChip + tag + '</span>' +
             pct + '</div>' +
@@ -2197,7 +2206,8 @@
         resultsCategorySelect.append(ogPlay, ogCats);
     }
     let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
-    let resultsView = 'spectrum';                  // 'spectrum' = the set + you on every item · 'mine' = you vs the crowd
+    let resultsView = 'spectrum';                  // which lens: spectrum · poles · shape · paper · lane
+    let showMine = true;                            // overlay: layer YOUR vote (◆ + gap) on top of whichever lens
     const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
     const SORT_HEAD = { divisive: 'The closest calls', gooey: 'Most gooey to most prickly', prickly: 'Most prickly to most gooey', voted: 'Most judged' };
     // intensity reads (from the additive aggregates; null until enough intensity votes)
@@ -2266,25 +2276,41 @@
                 '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count;
 
             // view toggle: different lenses on the same set
+            const cat0 = currentCategoryId;
+            const hasMine = all.some(i => userLean(i.categoryId || cat0, i.id));   // did you vote on anything here?
             const viewBar = document.createElement('div');
             viewBar.className = 'view-bar';
-            [['spectrum', 'Spectrum'], ['poles', 'Poles'], ['shape', 'Shape'], ['paper', 'Paper'], ['lane', 'Map'], ['mine', 'You vs crowd']].forEach(([v, label]) => {
+            [['spectrum', 'Spectrum'], ['poles', 'Poles'], ['shape', 'Shape'], ['paper', 'Paper'], ['lane', 'Map']].forEach(([v, label]) => {
                 const b = document.createElement('button');
                 b.className = 'view-chip' + (v === resultsView ? ' active' : '');
                 b.textContent = label;
                 b.onclick = () => { if (v !== resultsView) { resultsView = v; paintResults(all, highlight); } };
                 viewBar.appendChild(b);
             });
+            if (hasMine) {   // the personal layer rides on top of any lens — a switch, not a separate view
+                const t = document.createElement('button');
+                t.className = 'mine-toggle' + (showMine ? ' on' : '');
+                t.innerHTML = '<span class="mt-dot"></span>My votes';
+                t.title = 'Layer where your votes sit against the crowd';
+                t.onclick = () => { showMine = !showMine; paintResults(all, highlight); };
+                viewBar.appendChild(t);
+            }
             resultsList.appendChild(viewBar);
+
+            // the personal one-liner — the best of the old "You vs crowd" view, now part of the overlay
+            if (showMine && hasMine) {
+                const sum = document.createElement('div');
+                sum.innerHTML = mineSummaryHtml(all);
+                if (sum.firstChild) resultsList.appendChild(sum.firstChild);
+            }
 
             if (resultsView !== 'spectrum') {                   // the non-list lenses each render their own block
                 const w = document.createElement('div');
-                if (resultsView === 'mine')       w.innerHTML = renderYouVsCrowd(all);
-                else if (resultsView === 'poles') w.innerHTML = renderPoles(voted);
-                else if (resultsView === 'shape') w.innerHTML = renderShape(voted);
-                else if (resultsView === 'lane')  w.innerHTML = renderLane(voted);
+                if (resultsView === 'poles')      w.innerHTML = renderPoles(voted, showMine);
+                else if (resultsView === 'shape') w.innerHTML = renderShape(voted, showMine);
+                else if (resultsView === 'lane')  w.innerHTML = renderLane(voted, showMine);
                 resultsList.appendChild(w);
-                if (resultsView === 'paper') renderPaper(voted);   // async — appends rows + lazy quotes itself
+                if (resultsView === 'paper') renderPaper(voted, showMine);   // async — appends rows + lazy quotes itself
                 if (unvoted.length) appendColdCta(unvoted.length);
                 return;
             }
@@ -2336,34 +2362,28 @@
         cta.onclick = () => { showView('vote'); openCategory(currentCategoryId); };
         resultsList.appendChild(cta);
     }
-    // Option C: your calls laid against the crowd — a self-portrait + where you break from the pack.
-    function renderYouVsCrowd(all) {
+    // The personal one-liner for the "My votes" overlay: your average vs the crowd's, and how
+    // often you broke from them — the gist of the old "You vs crowd" view, now a header on any lens.
+    function mineSummaryHtml(all) {
         const cat0 = currentCategoryId;
         const mine = all.map(it => {
             const lean = userLean(it.categoryId || cat0, it.id);
             if (!lean) return null;
-            const s = stats(it);
-            return { name: it.name, gp: s.gp, pos: lean.pos, exact: lean.exact };
+            return { gp: stats(it).gp, pos: lean.pos };
         }).filter(Boolean);
-        if (!mine.length) return '<p class="cv-empty">You haven’t voted in this set yet — swipe a few and your map against the crowd appears here.</p>';
+        if (!mine.length) return '';
         const myAvg = Math.round(mine.reduce((s, m) => s + m.pos, 0) / mine.length);
         const votedAll = all.filter(i => (i.gooey + i.prickly) > 0);
         const setAvg = votedAll.length ? Math.round(votedAll.reduce((s, i) => s + stats(i).gp, 0) / votedAll.length) : 50;
-        const gap = m => Math.abs(m.pos - m.gp);
-        const against = mine.filter(m => gap(m) > 20).sort((a, b) => gap(b) - gap(a));
-        const withC = mine.filter(m => gap(m) <= 20).sort((a, b) => gap(a) - gap(b));
-        let h = '<div class="cv-summary">You run <b>' + myAvg + '% gooey</b> on this set; the crowd averages <b>' + setAvg + '%</b>. ' +
-            (against.length ? 'You broke from them on <b>' + against.length + '</b> of ' + mine.length + ' call' + (mine.length === 1 ? '' : 's') + '.' : 'You’re riding with the crowd across the board.') + '</div>';
-        const rowHtml = m => '<div class="cv-row"><span class="nm">' + escapeHtml(m.name) + '</span>' + trackHtml(m.gp, { pos: m.pos, exact: m.exact }, false) + '</div>';
-        if (against.length) h += '<div class="cv-group">Against the grain</div>' + against.map(rowHtml).join('');
-        if (withC.length) h += '<div class="cv-group">With the crowd</div>' + withC.map(rowHtml).join('');
-        return h;
+        const against = mine.filter(m => Math.abs(m.pos - m.gp) > 20).length;
+        return '<div class="cv-summary"><span class="mt-dot"></span>You run <b>' + myAvg + '% gooey</b> here; the crowd averages <b>' + setAvg + '%</b>. ' +
+            (against ? 'You broke from them on <b>' + against + '</b> of ' + mine.length + ' call' + (mine.length === 1 ? '' : 's') + '.' : 'You’re riding with the crowd across the board.') + '</div>';
     }
     // Option A — The Lane: the whole set as a constellation on one prickly→gooey axis.
-    function renderLane(voted) {
+    function renderLane(voted, mineOn) {
         if (!voted.length) return '<p class="cv-empty">No votes here yet — be the first to judge.</p>';
         const cat0 = currentCategoryId;
-        const pts = voted.map(it => ({ name: it.name, gp: stats(it).gp, you: !!userLean(it.categoryId || cat0, it.id) }))
+        const pts = voted.map(it => ({ name: it.name, gp: stats(it).gp, you: mineOn && !!userLean(it.categoryId || cat0, it.id) }))
             .map(o => ({ ...o, x: 6 + (o.gp / 100) * 88 })).sort((a, b) => a.x - b.x);
         const placed = [];
         pts.forEach(o => { let L = 0; while (placed.some(p => p.lane === L && Math.abs(p.x - o.x) < 7)) L++; o.lane = L; placed.push(o); });
@@ -2377,37 +2397,47 @@
         });
         return '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>' +
             '<div class="lane" style="height:' + H + 'px"><span class="lane-mid"></span>' + dots + '</div>' +
-            '<p class="results-sub" style="margin-top:10px">Each dot is an item at the crowd’s read. <b>Ringed</b> = you voted on it.</p>';
+            '<p class="results-sub" style="margin-top:10px">Each dot is an item at the crowd’s read.' + (mineOn ? ' <b>Ringed</b> = you voted on it.' : '') + '</p>';
     }
     // Option B — Distribution: how the set is shaped across the spectrum.
-    function renderShape(voted) {
+    function renderShape(voted, mineOn) {
         if (!voted.length) return '<p class="cv-empty">No votes here yet — be the first to judge.</p>';
+        const cat0 = currentCategoryId;
         const buckets = [[], [], [], [], [], []];
-        voted.forEach(it => { const gp = stats(it).gp; buckets[Math.min(5, Math.floor(gp / 100 * 6))].push(it.name); });
+        voted.forEach(it => { const gp = stats(it).gp; buckets[Math.min(5, Math.floor(gp / 100 * 6))].push({ name: it.name, mine: mineOn && !!userLean(it.categoryId || cat0, it.id) }); });
         const max = Math.max(1, ...buckets.map(b => b.length));
         const bars = buckets.map((b, i) => {
             const g = (i + 0.5) / 6 * 100;
-            return '<div class="hcol"><div class="hnames">' + b.map(escapeHtml).join('<br>') + '</div>' +
+            const names = b.map(o => o.mine ? '<span class="hmine">◆ ' + escapeHtml(o.name) + '</span>' : escapeHtml(o.name)).join('<br>');
+            return '<div class="hcol"><div class="hnames">' + names + '</div>' +
                 '<div class="hbar" style="height:' + (b.length / max * 120) + 'px;background:' + (g >= 50 ? 'var(--gooey)' : 'var(--prickly)') + '"></div></div>';
         }).join('');
-        return '<div class="hist">' + bars + '</div><div class="hax"><span class="p">Prickly</span><span>even</span><span class="g">Gooey</span></div>';
+        const cap = mineOn ? '<p class="results-sub" style="margin-top:8px"><span class="hmine">◆</span> = your vote.</p>' : '';
+        return '<div class="hist">' + bars + '</div><div class="hax"><span class="p">Prickly</span><span>even</span><span class="g">Gooey</span></div>' + cap;
     }
     // Option C — Poles & contested: the ends and the toss-ups.
-    function renderPoles(voted) {
+    function renderPoles(voted, mineOn) {
         if (!voted.length) return '<p class="cv-empty">No votes here yet — be the first to judge.</p>';
         const cat0 = currentCategoryId;
-        const items = voted.map(it => ({ key: (it.categoryId || cat0) + '/' + it.id, name: it.name, gp: stats(it).gp }));
+        const items = voted.map(it => { const c = it.categoryId || cat0; return { key: c + '/' + it.id, name: it.name, gp: stats(it).gp, lean: mineOn ? userLean(c, it.id) : null }; });
         const byG = items.slice().sort((a, b) => b.gp - a.gp);
         const k = Math.max(1, Math.min(3, Math.floor(items.length / 3)));
         const goo = byG.slice(0, k);
         const prk = byG.slice(-k).reverse();
         const used = new Set([...goo, ...prk].map(o => o.key));
         const mid = items.filter(o => !used.has(o.key)).sort((a, b) => Math.abs(a.gp - 50) - Math.abs(b.gp - 50)).slice(0, k);
-        const row = (o, i) => '<div class="prow"><span class="prk-no">' + (i + 1) + '</span><span class="prk-nm">' + escapeHtml(o.name) + '</span><span class="prk-pc"><b>' + o.gp + '%</b> gooey</span></div>';
+        const row = (o, i) => '<div class="prow"><span class="prk-no">' + (i + 1) + '</span><span class="prk-nm">' + escapeHtml(o.name) + youTag(o.lean) + '</span><span class="prk-pc"><b>' + o.gp + '%</b> gooey</span></div>';
         let h = '<div class="pole g">Gooiest</div>' + goo.map(row).join('');
         if (mid.length) h += '<div class="pole m">Too close to call</div>' + mid.map(row).join('');
         h += '<div class="pole p">Prickliest</div>' + prk.map(row).join('');
         return h;
+    }
+    // Compact "where you landed" tag for the non-rail lenses (Poles, Paper). Shows your % when
+    // you set an intensity, else just your side; coloured by your call, so divergence reads at a glance.
+    function youTag(lean) {
+        if (!lean) return '';
+        const txt = (lean.exact === false) ? (lean.pos >= 50 ? 'gooey' : 'prickly') : (lean.pos + '%');
+        return ' <span class="you-tag ' + (lean.pos >= 50 ? 'g' : 'p') + '">◆ you ' + txt + '</span>';
     }
     // Option D — FT front page: ranked broadsheet index with a pulled crowd quote per item.
     function fetchTease(categoryId, item) {
@@ -2421,17 +2451,18 @@
             return p ? { text: p.text, goo: false } : (g ? { text: g.text, goo: true } : null);
         }).catch(() => null);
     }
-    function renderPaper(voted) {
+    function renderPaper(voted, mineOn) {
         const ranked = sortVoted(voted, 'divisive').slice(0, 8);   // most contested lead, broadsheet-style
         if (!ranked.length) { const e = document.createElement('p'); e.className = 'cv-empty'; e.textContent = 'No votes here yet — be the first to judge.'; resultsList.appendChild(e); return; }
         ranked.forEach(it => {
             const s = stats(it);
+            const cat = it.categoryId || currentCategoryId;
+            const tag = mineOn ? youTag(userLean(cat, it.id)) : '';
             const row = document.createElement('div'); row.className = 'ftrow';
-            row.innerHTML = '<div class="fth"><span class="ftnm">' + escapeHtml(it.name) + '</span>' +
+            row.innerHTML = '<div class="fth"><span class="ftnm">' + escapeHtml(it.name) + tag + '</span>' +
                 '<span class="ftpc"><b>' + s.gp + '%</b> gooey · ' + s.total + (s.total === 1 ? ' vote' : ' votes') + '</span></div>' +
                 '<div class="ftq" hidden></div>';
             resultsList.appendChild(row);
-            const cat = it.categoryId || currentCategoryId;
             fetchTease(cat, it).then(t => { if (!t || !row.isConnected) return; const q = row.querySelector('.ftq'); q.hidden = false; q.className = 'ftq ' + (t.goo ? 'g' : 'p'); q.textContent = '“' + t.text + '”'; });
         });
     }
