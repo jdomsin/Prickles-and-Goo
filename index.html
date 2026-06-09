@@ -1318,7 +1318,7 @@
                 '<span class="stamp goo">Gooey</span><span class="stamp prk">Prickly</span>' +
                 '<div class="card-media' + (NAME_AS_WIKI.has(itemCat) ? ' lg' : '') + '" id="cardMedia"></div>' +
                 (isGlyph ? '' : '<span class="name">' + item.name + '</span>') +
-                '<span class="meta">' + (predictMode ? 'which way did the crowd lean?' : 'swipe, or tap below') + '</span>' +
+                '<span class="meta">' + (predictMode ? 'which way did the crowd lean?' : 'swipe to sort — harder is stronger') + '</span>' +
             '</div>';
         arena.appendChild(wrap);
         buildCardMedia(wrap.querySelector('#cardMedia'), item);
@@ -1339,25 +1339,19 @@
             : '<span class="l">← Prickly</span><span class="m">↕ Pass</span><span class="r">Gooey →</span>';
         arena.appendChild(hint);
 
-        const buttons = document.createElement('div');
-        buttons.className = 'swipe-buttons';
-        if (predictMode) {                                 // predict is a binary read — no pass
-            buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-goo">Gooey</button>';
-            arena.appendChild(buttons);
+        if (predictMode) {                                 // predict: swipe only — no binary buttons
             beginCard(wrap.querySelector('#sc'), item);
             if (swipe) swipe.gfill = gauge.querySelector('.lg-fill');
-            buttons.children[0].onclick = () => flySwipe('prickly');
-            buttons.children[1].onclick = () => flySwipe('gooey');
             return;
         }
-        buttons.innerHTML = '<button class="btn btn-prk">Prickly</button><button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button><button class="btn btn-goo">Gooey</button>';
+        const buttons = document.createElement('div');
+        buttons.className = 'swipe-buttons';
+        buttons.innerHTML = '<button class="btn btn-ghost' + (passes === 0 ? ' dim' : '') + '">Pass</button>';   // prickly/gooey are swipe-only now — the lean carries the intensity (not a binary tap)
         arena.appendChild(buttons);
 
         beginCard(wrap.querySelector('#sc'), item);
         if (swipe) swipe.gfill = gauge.querySelector('.lg-fill');
-        buttons.children[0].onclick = () => flySwipe('prickly');
-        buttons.children[1].onclick = () => attemptPass('up');
-        buttons.children[2].onclick = () => flySwipe('gooey');
+        buttons.children[0].onclick = () => attemptPass('up');
     }
 
     /* ----- pointer-driven swipe (one shared window handler set) ----- */
