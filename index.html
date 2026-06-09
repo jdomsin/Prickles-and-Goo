@@ -386,9 +386,40 @@
     .track .t-you.approx { border-style:dashed; opacity:.7; }      /* side-only call — strength unknown */
     .track.empty .t-rail { opacity:.55; }
     /* view toggle: Spectrum ↔ You vs crowd */
-    .view-bar { display:flex; gap:6px; margin:2px 0 18px; }
+    .view-bar { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 18px; }
     .view-chip { font:inherit; font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
     .view-chip.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+    /* Lane (Option A) — constellation on one axis */
+    .lane { position:relative; border-radius:14px; border:1px solid var(--hairline); margin:6px 0 2px;
+        background:linear-gradient(90deg, color-mix(in srgb,var(--prickly) 15%,transparent), transparent 44%, transparent 56%, color-mix(in srgb,var(--gooey) 15%,transparent)); }
+    .lane .lane-mid { position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--ink-soft); opacity:.2; }
+    .lane .ldot { position:absolute; transform:translate(-50%,-50%); width:13px; height:13px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 1px 2px rgba(20,14,10,.18); }
+    .lane .ldot.you { box-shadow:0 0 0 2.5px var(--ink), 0 1px 2px rgba(20,14,10,.18); }
+    .lane .llab { position:absolute; transform:translateX(-50%); font-size:.58rem; color:var(--ink-soft); white-space:nowrap; pointer-events:none; }
+    /* Distribution (Option B) — histogram */
+    .hist { display:flex; align-items:flex-end; gap:5px; min-height:150px; border-bottom:2px solid var(--hairline); margin-top:8px; }
+    .hcol { flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:4px; }
+    .hcol .hbar { border-radius:5px 5px 0 0; min-height:3px; }
+    .hcol .hnames { font-size:.55rem; color:var(--ink-soft); line-height:1.3; text-align:center; }
+    .hax { display:flex; justify-content:space-between; font-size:.64rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-top:7px; }
+    .hax .p { color:var(--prickly); } .hax .g { color:var(--gooey); }
+    /* Poles & contested (Option C-editorial) */
+    .pole { font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin:18px 0 11px; }
+    .pole.g { color:var(--gooey); } .pole.p { color:var(--prickly); } .pole.m { color:var(--ink-soft); }
+    .prow { display:flex; align-items:baseline; gap:11px; margin-bottom:10px; }
+    .prow .prk-no { font-family:var(--serif); font-size:.9rem; color:var(--ink-soft); width:16px; flex:0 0 auto; }
+    .prow .prk-nm { font-family:var(--serif); font-size:1.1rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .prow .prk-pc { margin-left:auto; font-size:.8rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .prow .prk-pc b { color:var(--ink); }
+    /* FT front page (Option D) */
+    .ftrow { border-top:1px solid var(--hairline); padding:13px 0; }
+    .ftrow:first-of-type { border-top:0; }
+    .ftrow .fth { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .ftrow .ftnm { font-family:var(--serif); font-size:1.3rem; }
+    .ftrow .ftpc { font-size:.78rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .ftrow .ftpc b { color:var(--ink); font-size:.95rem; }
+    .ftrow .ftq { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:.94rem; margin-top:6px; border-left:2px solid var(--hairline); padding-left:11px; }
+    .ftrow .ftq.g { border-left-color:var(--gooey); } .ftrow .ftq.p { border-left-color:var(--prickly); }
     /* You vs crowd (Option C) */
     .cv-summary { background:var(--surface-2); border:1px solid var(--hairline); border-radius:14px; padding:14px 16px; margin:0 0 18px; font-size:.92rem; line-height:1.5; }
     .cv-summary b { color:var(--ink); }
@@ -2234,10 +2265,10 @@
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
                 '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count;
 
-            // view toggle: the spectrum (the whole set + where you sit) vs your map against the crowd
+            // view toggle: different lenses on the same set
             const viewBar = document.createElement('div');
             viewBar.className = 'view-bar';
-            [['spectrum', 'Spectrum'], ['mine', 'You vs crowd']].forEach(([v, label]) => {
+            [['spectrum', 'Spectrum'], ['poles', 'Poles'], ['shape', 'Shape'], ['paper', 'Paper'], ['lane', 'Map'], ['mine', 'You vs crowd']].forEach(([v, label]) => {
                 const b = document.createElement('button');
                 b.className = 'view-chip' + (v === resultsView ? ' active' : '');
                 b.textContent = label;
@@ -2246,10 +2277,14 @@
             });
             resultsList.appendChild(viewBar);
 
-            if (resultsView === 'mine') {                       // Option C — your calls vs the crowd
+            if (resultsView !== 'spectrum') {                   // the non-list lenses each render their own block
                 const w = document.createElement('div');
-                w.innerHTML = renderYouVsCrowd(all);
+                if (resultsView === 'mine')       w.innerHTML = renderYouVsCrowd(all);
+                else if (resultsView === 'poles') w.innerHTML = renderPoles(voted);
+                else if (resultsView === 'shape') w.innerHTML = renderShape(voted);
+                else if (resultsView === 'lane')  w.innerHTML = renderLane(voted);
                 resultsList.appendChild(w);
+                if (resultsView === 'paper') renderPaper(voted);   // async — appends rows + lazy quotes itself
                 if (unvoted.length) appendColdCta(unvoted.length);
                 return;
             }
@@ -2323,6 +2358,82 @@
         if (against.length) h += '<div class="cv-group">Against the grain</div>' + against.map(rowHtml).join('');
         if (withC.length) h += '<div class="cv-group">With the crowd</div>' + withC.map(rowHtml).join('');
         return h;
+    }
+    // Option A — The Lane: the whole set as a constellation on one prickly→gooey axis.
+    function renderLane(voted) {
+        if (!voted.length) return '<p class="cv-empty">No votes here yet — be the first to judge.</p>';
+        const cat0 = currentCategoryId;
+        const pts = voted.map(it => ({ name: it.name, gp: stats(it).gp, you: !!userLean(it.categoryId || cat0, it.id) }))
+            .map(o => ({ ...o, x: 6 + (o.gp / 100) * 88 })).sort((a, b) => a.x - b.x);
+        const placed = [];
+        pts.forEach(o => { let L = 0; while (placed.some(p => p.lane === L && Math.abs(p.x - o.x) < 7)) L++; o.lane = L; placed.push(o); });
+        const maxL = Math.max(0, ...placed.map(o => o.lane));
+        const H = 36 + (maxL + 1) * 30;
+        let dots = '';
+        placed.forEach(o => {
+            const y = 18 + o.lane * ((H - 36) / (maxL + 1));
+            dots += '<span class="ldot' + (o.you ? ' you' : '') + '" style="left:' + o.x + '%;top:' + y + 'px;background:' + (o.gp >= 50 ? 'var(--gooey)' : 'var(--prickly)') + '"></span>' +
+                    '<span class="llab" style="left:' + o.x + '%;top:' + (y + 9) + 'px">' + escapeHtml(o.name) + '</span>';
+        });
+        return '<div class="axis-cap"><span class="p">◀ Prickly</span><span class="g">Gooey ▶</span></div>' +
+            '<div class="lane" style="height:' + H + 'px"><span class="lane-mid"></span>' + dots + '</div>' +
+            '<p class="results-sub" style="margin-top:10px">Each dot is an item at the crowd’s read. <b>Ringed</b> = you voted on it.</p>';
+    }
+    // Option B — Distribution: how the set is shaped across the spectrum.
+    function renderShape(voted) {
+        if (!voted.length) return '<p class="cv-empty">No votes here yet — be the first to judge.</p>';
+        const buckets = [[], [], [], [], [], []];
+        voted.forEach(it => { const gp = stats(it).gp; buckets[Math.min(5, Math.floor(gp / 100 * 6))].push(it.name); });
+        const max = Math.max(1, ...buckets.map(b => b.length));
+        const bars = buckets.map((b, i) => {
+            const g = (i + 0.5) / 6 * 100;
+            return '<div class="hcol"><div class="hnames">' + b.map(escapeHtml).join('<br>') + '</div>' +
+                '<div class="hbar" style="height:' + (b.length / max * 120) + 'px;background:' + (g >= 50 ? 'var(--gooey)' : 'var(--prickly)') + '"></div></div>';
+        }).join('');
+        return '<div class="hist">' + bars + '</div><div class="hax"><span class="p">Prickly</span><span>even</span><span class="g">Gooey</span></div>';
+    }
+    // Option C — Poles & contested: the ends and the toss-ups.
+    function renderPoles(voted) {
+        if (!voted.length) return '<p class="cv-empty">No votes here yet — be the first to judge.</p>';
+        const cat0 = currentCategoryId;
+        const items = voted.map(it => ({ key: (it.categoryId || cat0) + '/' + it.id, name: it.name, gp: stats(it).gp }));
+        const byG = items.slice().sort((a, b) => b.gp - a.gp);
+        const k = Math.max(1, Math.min(3, Math.floor(items.length / 3)));
+        const goo = byG.slice(0, k);
+        const prk = byG.slice(-k).reverse();
+        const used = new Set([...goo, ...prk].map(o => o.key));
+        const mid = items.filter(o => !used.has(o.key)).sort((a, b) => Math.abs(a.gp - 50) - Math.abs(b.gp - 50)).slice(0, k);
+        const row = (o, i) => '<div class="prow"><span class="prk-no">' + (i + 1) + '</span><span class="prk-nm">' + escapeHtml(o.name) + '</span><span class="prk-pc"><b>' + o.gp + '%</b> gooey</span></div>';
+        let h = '<div class="pole g">Gooiest</div>' + goo.map(row).join('');
+        if (mid.length) h += '<div class="pole m">Too close to call</div>' + mid.map(row).join('');
+        h += '<div class="pole p">Prickliest</div>' + prk.map(row).join('');
+        return h;
+    }
+    // Option D — FT front page: ranked broadsheet index with a pulled crowd quote per item.
+    function fetchTease(categoryId, item) {
+        const leanGoo = item.gooey >= item.prickly;
+        return Promise.all([
+            reasonsCol(categoryId, item.id, 'gooey').orderBy('votes', 'desc').limit(1).get(),
+            reasonsCol(categoryId, item.id, 'prickly').orderBy('votes', 'desc').limit(1).get()
+        ]).then(([gs, ps]) => {
+            const g = gs.docs[0] && gs.docs[0].data(), p = ps.docs[0] && ps.docs[0].data();
+            if (leanGoo) return g ? { text: g.text, goo: true } : (p ? { text: p.text, goo: false } : null);
+            return p ? { text: p.text, goo: false } : (g ? { text: g.text, goo: true } : null);
+        }).catch(() => null);
+    }
+    function renderPaper(voted) {
+        const ranked = sortVoted(voted, 'divisive').slice(0, 8);   // most contested lead, broadsheet-style
+        if (!ranked.length) { const e = document.createElement('p'); e.className = 'cv-empty'; e.textContent = 'No votes here yet — be the first to judge.'; resultsList.appendChild(e); return; }
+        ranked.forEach(it => {
+            const s = stats(it);
+            const row = document.createElement('div'); row.className = 'ftrow';
+            row.innerHTML = '<div class="fth"><span class="ftnm">' + escapeHtml(it.name) + '</span>' +
+                '<span class="ftpc"><b>' + s.gp + '%</b> gooey · ' + s.total + (s.total === 1 ? ' vote' : ' votes') + '</span></div>' +
+                '<div class="ftq" hidden></div>';
+            resultsList.appendChild(row);
+            const cat = it.categoryId || currentCategoryId;
+            fetchTease(cat, it).then(t => { if (!t || !row.isConnected) return; const q = row.querySelector('.ftq'); q.hidden = false; q.className = 'ftq ' + (t.goo ? 'g' : 'p'); q.textContent = '“' + t.text + '”'; });
+        });
     }
 
     /* ===== 11b. ROUTING + SHARE (deep links) ===== */
