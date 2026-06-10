@@ -766,6 +766,8 @@
     const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter", emotions: "Emotion", internet_objects: "Internet", animals: "Animal", moments: "Moment", desserts: "Dessert", world_cup: "World Cup" };
     let dailyMode = false, dailyDeck = [], dailyResults = [];
     let weeklyMode = false, weeklyDeck = [], weeklyResults = [], weeklyLabel = '';
+    let finishMode = false;                // "finish the set" from the You page: serve only items you haven't given a real call
+    let finishSkipped = new Set();         // items passed *this session* in finish mode — don't re-loop them, but they still count as unfinished
     let predictMode = false, predictDeck = [], predictPos = 0, predictScore = 0, predictStreak = 0, predictBest = 0;
     let items = [];                       // in-memory view of the category
     let lastShownId = null;
@@ -923,7 +925,7 @@
     async function loadWeekly() {
         const t = activeWeekly();
         currentCategoryId = t.id; weeklyLabel = t.label;
-        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = true;
+        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = true; finishMode = false;
         clearError(views.vote);
         voteKicker.textContent = 'This Week · ' + t.label;
         renderVoteCategoryBar(); syncUrl();
@@ -1002,12 +1004,13 @@
         if (v === 'prickly') return { pos: 28, exact: false };
         return null;
     }
-    async function loadCategory(categoryId, kicker) {
+    async function loadCategory(categoryId, kicker, finish) {
         currentCategoryId = categoryId;
         votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = false;
+        finishMode = !!finish; finishSkipped = new Set();
         clearError(views.vote);
-        const cat = CATEGORIES.find(c => c.id === categoryId);
-        voteKicker.textContent = kicker || (cat ? cat.label : categoryId);
+        const cat = CATEGORIES.find(c => c.id === categoryId) || WEEKLY.find(c => c.id === categoryId);
+        voteKicker.textContent = kicker || (finish ? 'Finishing · ' : '') + (cat ? cat.label : categoryId);
         renderVoteCategoryBar(); syncUrl();
         arena.innerHTML = '<div class="card"><span class="name">Loading…</span></div>';
         try {
@@ -1025,7 +1028,7 @@
     }
     async function loadRandom() {
         currentCategoryId = RANDOM_ID;
-        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = false;
+        votesThisSession = 0; dailyMode = false; predictMode = false; weeklyMode = false; finishMode = false;
         clearError(views.vote);
         voteKicker.textContent = "Random — every list";
         renderVoteCategoryBar(); syncUrl();
@@ -1081,7 +1084,7 @@
     function loadDailyResults() { try { return JSON.parse(localStorage.getItem(dailyKey()) || '[]'); } catch (e) { return []; } }
     function saveDailyResults() { try { localStorage.setItem(dailyKey(), JSON.stringify(dailyResults)); } catch (e) {} }
     async function loadDaily() {
-        currentCategoryId = DAILY_ID; dailyMode = true; predictMode = false; weeklyMode = false; votesThisSession = 0;
+        currentCategoryId = DAILY_ID; dailyMode = true; predictMode = false; weeklyMode = false; votesThisSession = 0; finishMode = false;
         clearError(views.vote);
         voteKicker.textContent = "Today's Set · " + dailyLabel() + " · No. " + editionNo();
         renderVoteCategoryBar(); syncUrl();
@@ -1153,7 +1156,7 @@
     /* ===== 8a2. PREDICT THE CROWD (guess the gooey %) ===== */
     function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
     async function loadPredict() {
-        currentCategoryId = PREDICT_ID; predictMode = true; dailyMode = false; weeklyMode = false; votesThisSession = 0;
+        currentCategoryId = PREDICT_ID; predictMode = true; dailyMode = false; weeklyMode = false; votesThisSession = 0; finishMode = false;
         clearError(views.vote);
         voteKicker.textContent = "Predict the crowd";
         renderVoteCategoryBar(); syncUrl();
@@ -1253,14 +1256,33 @@
     /* ----- least-shown selection with bottom-20% softening ----- */
     function pickNext() {
         if (items.length === 0) return null;
-        const sorted = [...items].sort((a, b) => (a.shown - b.shown) || (Math.random() - 0.5));
-        const poolSize = Math.max(1, Math.ceil(items.length * POOL_FRACTION));
+        let deck = items;
+        if (finishMode) {                                  // "finish the set": only items without a real call yet (skip ≠ a call)
+            deck = items.filter(i => { const v = priorVerdict(i.categoryId || currentCategoryId, i.id); return v !== 'gooey' && v !== 'prickly' && !finishSkipped.has(i.id); });
+            if (!deck.length) { showSetComplete(); return null; }
+        }
+        const sorted = [...deck].sort((a, b) => (a.shown - b.shown) || (Math.random() - 0.5));
+        const poolSize = Math.max(1, Math.ceil(deck.length * POOL_FRACTION));
         let pool = sorted.slice(0, poolSize);
         if (pool.length > 1 && lastShownId !== null) {
             const filtered = pool.filter(i => i.id !== lastShownId);
             if (filtered.length) pool = filtered;
         }
         return pool[Math.floor(Math.random() * pool.length)];
+    }
+    function showSetComplete() {
+        setSide('none', 0);
+        if (typeof bgwash !== 'undefined' && bgwash) bgwash.style.opacity = 0;
+        const cat = CATEGORIES.find(c => c.id === currentCategoryId) || WEEKLY.find(c => c.id === currentCategoryId);
+        const label = cat ? cat.label : currentCategoryId;
+        arena.innerHTML = '<div class="result recap"><p class="kicker">Set complete</p>' +
+            '<h3>That’s all of ' + escapeHtml(label) + '. ✓</h3>' +
+            '<p class="recap-line">Every card in the set now has your call on it.</p>' +
+            '<div class="next-wrap swipe-buttons">' +
+            '<button class="btn btn-primary" id="scResults">See the standings →</button>' +
+            '<button class="btn btn-ghost" id="scYou">Back to your sets</button></div></div>';
+        document.getElementById('scResults').onclick = () => { showView('results'); loadResults(); };
+        document.getElementById('scYou').onclick = () => { showView('you'); loadTaste(); };
     }
 
     /* ===== 8. SWIPE CARD + GLOW & SHARDS EFFECT ===== */
@@ -2155,6 +2177,7 @@
         // than once every COMMENTARY_MIN_GAP votes so a swipe session stays uninterrupted.
         const prior = priorVerdict(categoryId, item.id);
         rememberVerdict(categoryId, item.id, verdict);
+        if (finishMode && verdict === 'skip') finishSkipped.add(item.id);   // passed now → advance past it, but it stays "unfinished"
         const isFlip = prior && prior !== 'skip' && verdict !== 'skip' && prior !== verdict;
         const eligible = verdict !== 'skip' && (isFlip || !hasAsked(categoryId, item.id));
         if (eligible && votesSinceAsk >= COMMENTARY_MIN_GAP) {
@@ -2863,13 +2886,17 @@
             const meta = p.t
                 ? (known(p) ? p.t + ' of ' + p.itemsTotal : p.t + ' vote' + (p.t === 1 ? '' : 's')) + ' · runs ' + leanPct(Math.round(p.g / p.t * 100))
                 : p.itemsTotal + ' to judge';
-            html += '<button class="set-row ' + state + '" data-set="' + escapeHtml(p.id) + '">' +
+            html += '<button class="set-row ' + state + '" data-set="' + escapeHtml(p.id) + '" data-state="' + state + '">' +
                 '<div class="set-top"><span class="set-nm">' + escapeHtml(p.label) + '</span><span class="set-cta">' + cta + '</span></div>' +
                 '<div class="set-prog"><span class="fill" style="width:' + cover + '%"></span></div>' +
                 '<div class="set-meta">' + meta + '</div></button>';
         });
         body.innerHTML = html;
-        body.querySelectorAll('.set-row').forEach(b => b.onclick = () => { showView('vote'); openCategory(b.dataset.set); });
+        body.querySelectorAll('.set-row').forEach(b => b.onclick = () => {
+            const id = b.dataset.set;
+            if (b.dataset.state === 'done') { currentCategoryId = id; showView('results'); loadResults(); }   // already finished → standings
+            else { showView('vote'); loadCategory(id, null, true); }                                          // finish mode: only the remaining
+        });
         const gp = document.getElementById('goPredict');
         if (gp) gp.onclick = (e) => { e.preventDefault(); showView('vote'); loadPredict(); };
         let outlier = '';
