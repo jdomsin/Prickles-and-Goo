@@ -332,7 +332,26 @@
     .taste-pct.goo { color:var(--gooey); } .taste-pct.prk { color:var(--prickly); }
     .taste-cap { font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin-top:6px; }
     .taste-blurb { font-family:var(--serif); font-style:italic; color:var(--ink-soft); font-size:1.02rem; margin-top:10px; }
+    .taste-kin { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:6px; margin-top:12px; }
+    .taste-kin .tk-lbl { font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin-right:2px; }
+    .taste-kin .tk { font-size:.8rem; font-weight:600; padding:3px 10px; border-radius:999px; background:var(--surface-2); border:1px solid var(--hairline); }
     .taste-line { font-family:var(--serif); font-size:1.1rem; line-height:1.45; margin:0 0 10px; }
+    /* completion dashboard */
+    .sets-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin:24px 0 12px; }
+    .sets-head .sets-title { font-family:var(--serif); font-weight:700; font-size:1.2rem; }
+    .sets-head .sets-sum { font-size:.78rem; color:var(--ink-soft); white-space:nowrap; }
+    .set-row { display:block; width:100%; text-align:left; font:inherit; background:var(--surface); border:1px solid var(--hairline); border-radius:13px; padding:12px 14px; margin-bottom:9px; cursor:pointer; transition:border-color .15s, transform .05s; }
+    .set-row:hover { border-color:var(--ink-soft); }
+    .set-row:active { transform:scale(.992); }
+    .set-row.done { background:var(--surface-2); }
+    .set-top { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .set-nm { font-family:var(--serif); font-size:1.08rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .set-cta { font-size:.82rem; font-weight:700; white-space:nowrap; color:var(--gooey); }
+    .set-row.fresh .set-cta { color:var(--ink); } .set-row.done .set-cta { color:var(--ink-soft); }
+    .set-prog { height:6px; border-radius:999px; background:var(--hairline); margin:9px 0 6px; overflow:hidden; }
+    .set-prog .fill { display:block; height:100%; border-radius:999px; background:var(--gooey); }
+    .set-row.done .set-prog .fill { background:var(--ink-soft); }
+    .set-meta { font-size:.76rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
     .taste-cats { margin-top:18px; }
     .taste-cat { margin-bottom:14px; }
     .taste-cat.is-thin { opacity:.55; }                         /* few votes → visually recede */
@@ -2776,15 +2795,20 @@
         renderTaste({ total, gooey, per });
         mountCheckin();                                 // the daily ritual sits above your vote-based taste
     }
-    /* A name beats a number: map a gooey-lean into a shareable archetype. */
+    /* A name beats a number: map a gooey-lean into a shareable archetype. Both poles are desirable
+       — warmth at the gooey end, prestige/brilliance at the prickly end. Each carries "kindred
+       spirits": icons loved across generations (timeless + contemporary, real + fictional) so
+       whatever your age, someone in the trio lands. Prickly legends are admired, never villains. */
     function archetypeFor(pct) {
-        // Both ends are desirable on purpose: appetitive/soft at the gooey pole,
-        // prestige/precise at the prickly pole — neither reads as the "good" answer.
-        if (pct >= 80) return { name: 'The Marshmallow', glyph: '🫧', blurb: 'Soft all the way through.' };
-        if (pct >= 60) return { name: 'The Crème Brûlée', glyph: '🍮', blurb: 'Crisp on top, gooey underneath.' };
-        if (pct >= 40) return { name: 'The Porcupine-in-a-Cardigan', glyph: '🦔', blurb: 'Spikes out, soft within — hard to call.' };
-        if (pct >= 20) return { name: 'The Espresso', glyph: '☕', blurb: 'Sharp, intense, no apologies.' };
-        return { name: 'The Diamond', glyph: '💎', blurb: 'Hard, exact, and brilliant.' };
+        if (pct >= 86) return { name: 'The Marshmallow', glyph: '🫧', blurb: 'Soft all the way through.', kin: ['Mister Rogers', 'Dolly Parton', 'Paddington'] };
+        if (pct >= 72) return { name: 'The Golden Retriever', glyph: '🐕', blurb: 'Warm, open, glad you came.', kin: ['Tom Hanks', 'Keanu Reeves', 'Bob Ross'] };
+        if (pct >= 60) return { name: 'The Crème Brûlée', glyph: '🍮', blurb: 'Warm under a thin crust.', kin: ['Oprah', 'Lin-Manuel Miranda', 'Lizzo'] };
+        if (pct >= 53) return { name: 'The Diplomat', glyph: '🕊️', blurb: 'Reads the room, keeps it warm.', kin: ['Steph Curry', 'David Attenborough', 'Audrey Hepburn'] };
+        if (pct >= 47) return { name: 'The Tightrope', glyph: '🎭', blurb: 'Poised dead-center — impossible to call.', kin: ['Bill Murray', 'Tilda Swinton', 'David Bowie'] };
+        if (pct >= 39) return { name: 'The Velvet Glove', glyph: '🥃', blurb: 'Sharp wit, soft landing.', kin: ['Tina Fey', 'Cary Grant', 'Maya Rudolph'] };
+        if (pct >= 25) return { name: 'The Sommelier', glyph: '🍷', blurb: 'Refined, exacting, exquisite taste.', kin: ['Anna Wintour', 'Sherlock Holmes', 'Stanley Tucci'] };
+        if (pct >= 13) return { name: 'The Espresso', glyph: '☕', blurb: 'Sharp, intense, no apologies.', kin: ['Steve Jobs', 'Gordon Ramsay', 'Miles Davis'] };
+        return { name: 'The Diamond', glyph: '💎', blurb: 'Hard, exact, and brilliant.', kin: ['Spock', 'Miranda Priestly', 'Coco Chanel'] };
     }
     function renderTaste(d) {
         const pct = Math.round(d.gooey / d.total * 100);
@@ -2799,7 +2823,9 @@
             '<div class="taste-arch">' + escapeHtml(arch.name) + '</div>' +
             '<div class="taste-pct ' + (pct >= 50 ? 'goo' : 'prk') + '">' + pct + '%</div>' +
             '<div class="taste-cap">gooey · ' + d.total + ' vote' + (d.total === 1 ? '' : 's') + '</div>' +
-            '<div class="taste-blurb">' + escapeHtml(arch.blurb) + '</div></div>';
+            '<div class="taste-blurb">' + escapeHtml(arch.blurb) + '</div>' +
+            (arch.kin ? '<div class="taste-kin"><span class="tk-lbl">In good company</span>' + arch.kin.map(k => '<span class="tk">' + escapeHtml(k) + '</span>').join('') + '</div>' : '') +
+            '</div>';
         html += '<p class="taste-line">You lean <b>' + (pct >= 50 ? 'gooey' : 'prickly') + '</b>.';
         if (gooiest) html += ' Softest on <b>' + escapeHtml(gooiest.label) + '</b>';
         if (prickliest && prickliest !== gooiest) html += ', sharpest on <b>' + escapeHtml(prickliest.label) + '</b>';
@@ -2812,22 +2838,38 @@
         const cs = predictStats();
         if (cs.n >= 5) html += '<p class="taste-line">You read the room <b>' + cs.pct + '%</b> of the time <span class="dim">· ' + cs.n + ' call' + (cs.n === 1 ? '' : 's') + ', avg miss ' + cs.avgMiss + ' pts</span>.</p>';
         else html += '<p class="taste-line dim">How well do you read the crowd? <a href="#" id="goPredict">Play Predict →</a></p>';
-        html += '<div class="taste-cats">';
-        ranked.forEach(p => {
-            const cp = Math.round(p.g / p.t * 100);
-            const cover = p.itemsTotal ? p.t + ' of ' + p.itemsTotal + ' voted' : p.t + ' vote' + (p.t === 1 ? '' : 's');
-            const thin = p.t < 3 ? ' <span class="low">· thin</span>' : '';
-            html += '<div class="taste-cat' + (p.t < 3 ? ' is-thin' : '') + '"><div class="taste-cat-top"><span>' + escapeHtml(p.label) + '</span>' +
-                '<span class="pct">' + cp + '% gooey · ' + cover + thin + '</span></div>' +
-                '<div class="bar"><span class="p" style="width:' + (100 - cp) + '%"></span><span class="g" style="width:' + cp + '%"></span></div></div>';
+        // Actionable completion dashboard: every set, tappable to continue or start, ordered so the
+        // quickest finishes float up. Coverage bar = how much of the set you've judged.
+        const shown = d.per.filter(p => p.t > 0 || p.itemsTotal > 0);
+        const known = p => p.itemsTotal > 0;
+        const isDone = p => known(p) && p.t >= p.itemsTotal;
+        const inProg = p => p.t > 0 && !isDone(p);
+        const fresh = p => p.t === 0 && known(p);
+        const doneN = shown.filter(isDone).length, progN = shown.filter(inProg).length, freshN = shown.filter(fresh).length;
+        const order = [
+            ...shown.filter(inProg).sort((a, b) => ((a.itemsTotal || 99) - a.t) - ((b.itemsTotal || 99) - b.t)),
+            ...shown.filter(fresh),
+            ...shown.filter(isDone).sort((a, b) => (b.g / b.t) - (a.g / a.t))
+        ];
+        html += '<div class="sets-head"><span class="sets-title">Your sets</span>' +
+            '<span class="sets-sum">' + doneN + ' done · ' + progN + ' going · ' + freshN + ' new</span></div>';
+        order.forEach(p => {
+            const state = isDone(p) ? 'done' : p.t > 0 ? 'prog' : 'fresh';
+            const cover = known(p) ? Math.round(p.t / p.itemsTotal * 100) : (p.t > 0 ? 50 : 0);
+            const cta = state === 'done' ? '✓ complete'
+                : !known(p) ? 'Continue →'
+                : state === 'prog' ? (p.itemsTotal - p.t) + ' left →'
+                : 'Start · ' + p.itemsTotal + ' →';
+            const meta = p.t
+                ? (known(p) ? p.t + ' of ' + p.itemsTotal : p.t + ' vote' + (p.t === 1 ? '' : 's')) + ' · runs ' + leanPct(Math.round(p.g / p.t * 100))
+                : p.itemsTotal + ' to judge';
+            html += '<button class="set-row ' + state + '" data-set="' + escapeHtml(p.id) + '">' +
+                '<div class="set-top"><span class="set-nm">' + escapeHtml(p.label) + '</span><span class="set-cta">' + cta + '</span></div>' +
+                '<div class="set-prog"><span class="fill" style="width:' + cover + '%"></span></div>' +
+                '<div class="set-meta">' + meta + '</div></button>';
         });
-        html += '</div>';
-        const untouched = d.per.filter(p => p.t === 0 && p.itemsTotal > 0);
-        if (untouched.length) {
-            html += '<p class="taste-untouched">Not started: ' +
-                untouched.map(p => escapeHtml(p.label) + ' <span class="n">(' + p.itemsTotal + ')</span>').join(' · ') + '</p>';
-        }
         body.innerHTML = html;
+        body.querySelectorAll('.set-row').forEach(b => b.onclick = () => { showView('vote'); openCategory(b.dataset.set); });
         const gp = document.getElementById('goPredict');
         if (gp) gp.onclick = (e) => { e.preventDefault(); showView('vote'); loadPredict(); };
         let outlier = '';
