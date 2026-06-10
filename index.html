@@ -1203,7 +1203,7 @@
             '<div class="reveal-nm">' + escapeHtml(item.name) + '</div>' +
             '<div class="predict-bar"><span class="g" style="width:0%"></span><span class="p" style="width:0%"></span>' +
                 '<span class="guess-mark" style="left:' + guess + '%"></span></div>' +
-            '<div class="predict-legend"><span>you <b>' + guess + '%</b></span><span>crowd <b>' + actual + '%</b></span></div>' +
+            '<div class="predict-legend"><span>you <b style="color:' + ciColor(guess) + '">' + leanPct(guess) + '</b></span><span>crowd <b style="color:' + ciColor(actual) + '">' + leanPct(actual) + '</b></span></div>' +
             '<div class="predict-grade">' + grade + ' <span class="pts">+' + pts + '</span></div>' +
             (predictStreak >= 2 ? '<div class="predict-streak">🔥 ' + predictStreak + ' in a row</div>' : '') +
             '<button class="btn btn-primary predict-next" id="pNext">Next →</button>';
@@ -2695,6 +2695,8 @@
         const onFence = g >= 48 && g <= 52, side = g >= 50 ? 'gooey' : 'prickly';
         return { phrase: texturePhrase(g), color: ciColor(g), pct: onFence ? 'evenly split' : (g >= 50 ? g : 100 - g) + '% ' + side };
     }
+    // Lean as a number, oriented to the side it leans (a gooey% of 23 reads as "77% prickly", not "23%").
+    function leanPct(g) { g = Math.round(g); return g === 50 ? 'dead even' : g > 50 ? g + '% gooey' : (100 - g) + '% prickly'; }
     function textureHtml(g) { const r = textureReadout(g); return '<b style="color:' + r.color + '">' + r.phrase + '</b> <span class="dim">· ' + r.pct + '</span>'; }
     function mountCheckin(editing) {
         const body = document.getElementById('taste-body');
