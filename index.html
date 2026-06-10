@@ -36,9 +36,11 @@
         --r:14px;
     }
     [data-theme="dark"] {
-        --paper:#1A1715; --surface:#241F1C; --surface-2:#2D2723;
+        /* warm dark, de-muddied: only a whisper of warmth in the ramp so it reads as a clean deep
+           near-black, not chocolate — surfaces pulled toward neutral, hairline de-saturated */
+        --paper:#1A1816; --surface:#242220; --surface-2:#2D2A27;
         /* dark is its own ramp, not dimmed light: secondary text + accents lifted to clear WCAG AA (4.5:1) on the dark bg */
-        --ink:#F3EBE2; --ink-soft:#BEB3A6; --hairline:#3A322C;
+        --ink:#F3EBE2; --ink-soft:#BEB3A6; --hairline:#373330;
         --gooey:#5BC8CF; --gooey-soft:#16302F; --gooey-lt:#A9F4EC; --gooey-2:#0e6a6a;
         --prickly:#D6A0D8; --prickly-soft:#2A1A2C; --prickly-lt:#E6BDE8; --prickly-2:#7A4A7C;
         --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
@@ -742,17 +744,22 @@
 
     /* ===== 4. THEME ===== */
     const themeBtn = document.getElementById('themeToggle');
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    function syncTheme() {
+        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        themeBtn.textContent = dark ? '☀️' : '🌙';
+        if (themeMeta) themeMeta.setAttribute('content', dark ? '#1A1816' : '#FFF1E5');   // so Safari's chrome matches
+    }
     (function initTheme(){
         const saved = localStorage.getItem('pg-theme');
         if (saved) document.documentElement.setAttribute('data-theme', saved);
-        themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+        syncTheme();
     })();
     themeBtn.addEventListener('click', () => {
-        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        const next = dark ? 'light' : 'dark';
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('pg-theme', next);
-        themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+        syncTheme();
     });
 
     /* ===== 5. NAVIGATION ===== */
