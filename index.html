@@ -266,6 +266,8 @@
     .results-head { font-size:1rem; margin:0 0 6px; }
     .results-sub { color:var(--ink-soft); font-size:.85rem; margin:0 0 14px; }
     .results-count { font-size:.82rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; margin:0 0 22px; }
+    .recap-link { display:inline-block; margin:-14px 0 22px; padding:0; font:inherit; font-size:.85rem; font-weight:600; color:var(--gooey); background:none; border:0; cursor:pointer; }
+    .recap-link:hover { text-decoration:underline; }
     .results-count b { color:var(--ink); font-weight:700; }
     .results-count .dim { opacity:.6; }
     .row { margin-bottom:22px; text-align:left; }
@@ -2302,7 +2304,8 @@
     // Render (and re-sort) from already-fetched items — sort chips no longer refetch.
     function paintResults(all, highlight) {
         const random = currentCategoryId === RANDOM_ID;
-        const mixed = random || currentCategoryId === DAILY_ID;     // cross-category sets show per-item badges
+        const daily = currentCategoryId === DAILY_ID;               // a bounded, play-once ballot — not an open standing set
+        const mixed = random || daily;                              // cross-category sets show per-item badges
         const voted = all.filter(i => (i.gooey + i.prickly) > 0);
         const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
         const rows = sortVoted(voted, resultsSort);
@@ -2312,12 +2315,22 @@
                 prickly: (random ? 'Every list, mixed — ' : '') + 'ranked from most prickly to most gooey.',
                 voted: 'The most-judged so far.'
             };
-            // set size + coverage, up front — never buried
+            // set size + coverage, up front — never buried.
+            // The daily is a bounded ballot: frame it as "today's set", and call the gap CROWD coverage,
+            // never "you haven't done these" — the cold "be the judge" CTA is suppressed below too.
             const setN = all.length, votedN = voted.length;
-            const count = setN ? '<p class="results-count"><b>' + setN + '</b> in this set · <b>' + votedN + '</b> with votes' +
-                (setN - votedN > 0 ? ' · <span class="dim">' + (setN - votedN) + ' not yet</span>' : '') + '</p>' : '';
+            const playedToday = daily && loadDailyResults().length >= setN && setN > 0;
+            const count = !setN ? ''
+                : daily
+                    ? '<p class="results-count"><b>Today’s Set</b> · No. ' + editionNo() + ' · ' + setN + ' cards' +
+                      (votedN < setN ? ' · <span class="dim">' + votedN + ' with crowd votes so far</span>' : '') + '</p>'
+                    : '<p class="results-count"><b>' + setN + '</b> in this set · <b>' + votedN + '</b> with votes' +
+                      (setN - votedN > 0 ? ' · <span class="dim">' + (setN - votedN) + ' not yet</span>' : '') + '</p>';
+            const recapLink = playedToday ? '<button class="recap-link" id="seeRecap">See your ballot recap →</button>' : '';
             resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
-                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count;
+                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count + recapLink;
+            const sr = document.getElementById('seeRecap');
+            if (sr) sr.onclick = () => { showView('vote'); loadDaily(); };   // reconnect results → the ballot you played
 
             // view toggle: different lenses on the same set
             const cat0 = currentCategoryId;
@@ -2355,7 +2368,7 @@
                 else if (resultsView === 'lane')  w.innerHTML = renderLane(voted, showMine);
                 resultsList.appendChild(w);
                 if (resultsView === 'paper') renderPaper(voted, showMine);   // async — appends rows + lazy quotes itself
-                if (unvoted.length) appendColdCta(unvoted.length);
+                if (unvoted.length && !daily) appendColdCta(unvoted.length);
                 return;
             }
 
@@ -2398,7 +2411,7 @@
                 const target = resultsList.querySelector('.row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(highlight) : highlight) + '"]');
                 if (target) { if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.classList.add('flash'); }
             }
-            if (unvoted.length) appendColdCta(unvoted.length);
+            if (unvoted.length && !daily) appendColdCta(unvoted.length);
     }
     function appendColdCta(n) {     // cold start becomes an invitation, not an empty scoreboard
         const cta = document.createElement('button');
