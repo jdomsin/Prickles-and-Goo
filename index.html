@@ -961,7 +961,7 @@
                 const yx = place(d.r.userPos), x1 = Math.min(d.x, yx), x2 = Math.max(d.x, yx);
                 html += '<div class="sp-conn" style="left:' + x1 + '%;width:' + (x2 - x1) + '%;top:' + y + 'px"></div>';
             }
-            html += '<div class="sp-dot" style="left:' + d.x + '%;top:' + y + 'px"><span class="sp-bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></span><span class="sp-lbl ' + lbl + '">' + escapeHtml(d.r.name) + ' · ' + Math.round(px(d.r)) + '% gooey</span></div>';
+            html += '<div class="sp-dot" style="left:' + d.x + '%;top:' + y + 'px"><span class="sp-bead" style="background:' + (goo ? 'var(--gooey)' : 'var(--prickly)') + '"></span><span class="sp-lbl ' + lbl + '">' + escapeHtml(d.r.name) + ' · ' + leanPct(px(d.r)) + '</span></div>';
             if (d.r.userPos != null) html += '<div class="sp-you" style="left:' + place(d.r.userPos) + '%;top:' + y + 'px"><span class="sp-tick">you</span><span class="sp-mk' + (d.r.userExact === false ? ' approx' : '') + '"></span></div>';
         });
         host.innerHTML = html;
@@ -2229,7 +2229,7 @@
         const votes = s.total === 1 ? '1 vote' : s.total + ' votes';
         const tail = s.low ? '<span class="low"> · few votes</span>' : '<span class="dim"> · ' + votes + '</span>';
         const pct = empty ? '<span class="pct muted">no votes yet</span>'
-                          : '<span class="pct"><b>' + s.gp + '%</b> gooey' + tail + '</span>';   // gooey% is the hero; bar carries the prickly split
+                          : '<span class="pct">' + leanHtml(s.gp) + tail + '</span>';   // read by lean — prickly items say "% prickly", not a low gooey%
         const lean = (empty || !showMine) ? null : userLean(itemCat, item.id);   // where you landed (only when the "you" overlay is on)
         row.innerHTML =
             '<div class="top"><span class="nm-wrap">' + avatar + '<span class="nm">' + item.name + '</span>' + tag + '</span>' +
@@ -2568,7 +2568,7 @@
         const prk = byG.slice(-k).reverse();
         const used = new Set([...goo, ...prk].map(o => o.key));
         const mid = items.filter(o => !used.has(o.key)).sort((a, b) => Math.abs(a.gp - 50) - Math.abs(b.gp - 50)).slice(0, k);
-        const row = (o, i) => '<div class="prow"><span class="prk-no">' + (i + 1) + '</span><span class="prk-nm">' + escapeHtml(o.name) + youTag(o.lean) + '</span><span class="prk-pc"><b>' + o.gp + '%</b> gooey</span></div>';
+        const row = (o, i) => '<div class="prow"><span class="prk-no">' + (i + 1) + '</span><span class="prk-nm">' + escapeHtml(o.name) + youTag(o.lean) + '</span><span class="prk-pc">' + leanHtml(o.gp) + '</span></div>';
         let h = '<div class="pole g">Gooiest</div>' + goo.map(row).join('');
         if (mid.length) h += '<div class="pole m">Too close to call</div>' + mid.map(row).join('');
         h += '<div class="pole p">Prickliest</div>' + prk.map(row).join('');
@@ -2602,7 +2602,7 @@
             const tag = mineOn ? youTag(userLean(cat, it.id)) : '';
             const row = document.createElement('div'); row.className = 'ftrow';
             row.innerHTML = '<div class="fth"><span class="ftnm">' + escapeHtml(it.name) + tag + '</span>' +
-                '<span class="ftpc"><b>' + s.gp + '%</b> gooey · ' + s.total + (s.total === 1 ? ' vote' : ' votes') + '</span></div>' +
+                '<span class="ftpc">' + leanHtml(s.gp) + ' · ' + s.total + (s.total === 1 ? ' vote' : ' votes') + '</span></div>' +
                 '<div class="ftq" hidden></div>';
             resultsList.appendChild(row);
             fetchTease(cat, it).then(t => { if (!t || !row.isConnected) return; const q = row.querySelector('.ftq'); q.hidden = false; q.className = 'ftq ' + (t.goo ? 'g' : 'p'); q.textContent = '“' + t.text + '”'; });
@@ -2680,6 +2680,8 @@
     }
     // Lean as a number, oriented to the side it leans (a gooey% of 23 reads as "77% prickly", not "23%").
     function leanPct(g) { g = Math.round(g); return g === 50 ? 'dead even' : g > 50 ? g + '% gooey' : (100 - g) + '% prickly'; }
+    // Same, as the bold readout used on result rows/lenses: <b>88%</b> prickly.
+    function leanHtml(g) { g = Math.round(g); return g >= 50 ? '<b>' + g + '%</b> gooey' : '<b>' + (100 - g) + '%</b> prickly'; }
     function textureHtml(g) { const r = textureReadout(g); return '<b style="color:' + r.color + '">' + r.phrase + '</b> <span class="dim">· ' + r.pct + '</span>'; }
     function mountCheckin(editing) {
         const body = document.getElementById('taste-body');
