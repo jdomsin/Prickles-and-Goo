@@ -105,7 +105,21 @@
         "A Hard Day's Night": "A Hard Day's Night (album)", "Help!": "Help! (album)", "Revolver": "Revolver (Beatles album)",
         "Magical Mystery Tour": "Magical Mystery Tour", "The White Album": "The Beatles (album)", "Let It Be": "Let It Be",
         // Radiohead albums
-        "Amnesiac": "Amnesiac (album)", "In Rainbows": "In Rainbows", "The King of Limbs": "The King of Limbs"
+        "Amnesiac": "Amnesiac (album)", "In Rainbows": "In Rainbows", "The King of Limbs": "The King of Limbs",
+        // desserts (disambiguation → the right photo)
+        "Chocolate lava cake": "Molten chocolate cake", "Macarons": "Macaron", "Churros": "Churro",
+        "Flan": "Crème caramel", "Pavlova": "Pavlova (cake)", "Profiteroles": "Profiterole",
+        // World Cup national teams → the national-team page (for the crest)
+        "Brazil": "Brazil national football team", "Argentina": "Argentina national football team",
+        "France": "France national football team", "Germany": "Germany national football team",
+        "Spain": "Spain national football team", "England": "England national football team",
+        "Italy": "Italy national football team", "Netherlands": "Netherlands national football team",
+        "Portugal": "Portugal national football team", "Belgium": "Belgium national football team",
+        "Croatia": "Croatia national football team", "Uruguay": "Uruguay national football team",
+        "USA": "United States men's national soccer team", "Mexico": "Mexico national football team",
+        "Japan": "Japan national football team", "Morocco": "Morocco national football team",
+        "Senegal": "Senegal national football team", "South Korea": "South Korea national football team",
+        "Nigeria": "Nigeria national football team", "Australia": "Australia men's national soccer team"
     };
     function wikiFor(name) { return WIKI_OVERRIDES[name] || name; }
 
@@ -185,6 +199,20 @@
         "the morning after", "midnight", "a rainy Tuesday", "the first warm day of spring",
         "last call", "noon"
     ];
+    // Desserts — universally loved → genuinely polarizing (fruitcake, bread pudding) so the
+    // divisive sort has fuel. Pull Wikipedia photos for imagery.
+    const DESSERTS = [
+        "Tiramisu", "Cheesecake", "Crème brûlée", "Chocolate lava cake", "Apple pie", "Bread pudding",
+        "Panna cotta", "Baklava", "Macarons", "Churros", "Banana pudding", "Key lime pie", "Mochi",
+        "Flan", "Gelato", "Pavlova", "Profiteroles", "Fruitcake", "Trifle", "Rice pudding"
+    ];
+    // World Cup national teams — giants, dark horses and minnows. Names are the short country;
+    // wiki overrides point at the national-team page so the crest comes through.
+    const WORLD_CUP = [
+        "Brazil", "Argentina", "France", "Germany", "Spain", "England", "Italy", "Netherlands",
+        "Portugal", "Belgium", "Croatia", "Uruguay", "USA", "Mexico", "Japan", "Morocco",
+        "Senegal", "South Korea", "Nigeria", "Australia"
+    ];
 
     const CATEGORIES = [
         // images:false → app logos come from the live app's domain map (or letters render
@@ -202,6 +230,8 @@
         { id: "internet_objects",  label: "Internet Objects",  items: INTERNET_OBJECTS, images: false },
         { id: "animals",           label: "Animals",           items: ANIMALS,          images: false },
         { id: "moments",           label: "Moments & Times",   items: MOMENTS,          images: false },
+        { id: "desserts",          label: "Desserts",          items: DESSERTS,         images: true },
+        { id: "world_cup",         label: "World Cup Teams",   items: WORLD_CUP,        images: true },
         // weekly themes (rotated one at a time by "This Week")
         { id: "typefaces",         label: "Typefaces",         items: TYPEFACES,        images: false },
         { id: "cocktails",         label: "Cocktails",         items: COCKTAILS,        images: true },

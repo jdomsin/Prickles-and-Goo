@@ -722,13 +722,15 @@
         { id: "emotions",          label: "Emotions & States" },
         { id: "internet_objects",  label: "Internet Objects" },
         { id: "animals",           label: "Animals" },
-        { id: "moments",           label: "Moments & Times" }
+        { id: "moments",           label: "Moments & Times" },
+        { id: "desserts",          label: "Desserts" },
+        { id: "world_cup",         label: "World Cup Teams" }
     ];
     const RANDOM_ID = "random";
     const DAILY_ID = "daily";
     const DAILY_SIZE = 10;                 // cards in a bounded daily ballot
     // "Set of the Day": one coherent theme per edition, rotating — a fresh, NYT-style daily, not a random mix.
-    const DAILY_ROTATION = ["animals", "emotions", "internet_objects", "moments", "ai_models", "tech_companies", "social", "money_apps", "languages", "presidents", "trading_terminals", "alphabet"];
+    const DAILY_ROTATION = ["animals", "emotions", "internet_objects", "moments", "ai_models", "tech_companies", "social", "money_apps", "languages", "presidents", "trading_terminals", "alphabet", "desserts", "world_cup"];
     const PREDICT_ID = "predict";
     const MIN_PREDICT_VOTES = 5;           // an item needs this many votes to be guessable
     const WEEKLY_ID = "weekly";
@@ -742,7 +744,7 @@
     function weekNo() { return Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / (7 * 86400000)); }
     function activeWeekly() { return WEEKLY[((weekNo() % WEEKLY.length) + WEEKLY.length) % WEEKLY.length]; }
     function isWeeklyId(id) { return WEEKLY.some(t => t.id === id); }
-    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter", emotions: "Emotion", internet_objects: "Internet", animals: "Animal", moments: "Moment" };
+    const CAT_BADGE = { tech_companies: "Tech", money_apps: "Money", trading_terminals: "Terminal", billionaires: "Billionaire", presidents: "President", alphabet: "Letter", emotions: "Emotion", internet_objects: "Internet", animals: "Animal", moments: "Moment", desserts: "Dessert", world_cup: "World Cup" };
     let dailyMode = false, dailyDeck = [], dailyResults = [];
     let weeklyMode = false, weeklyDeck = [], weeklyResults = [], weeklyLabel = '';
     let predictMode = false, predictDeck = [], predictPos = 0, predictScore = 0, predictStreak = 0, predictBest = 0;
@@ -1282,7 +1284,7 @@
     }
 
     /* ----- card imagery: Wikimedia thumbnail by stored title, monogram fallback ----- */
-    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'art', albums_radiohead: 'art', animals: 'art' };
+    const IMAGE_KIND = { tech_companies: 'logo', money_apps: 'logo', trading_terminals: 'logo', billionaires: 'face', presidents: 'face', ai_models: 'logo', languages: 'logo', social: 'logo', alphabet: 'glyph', cocktails: 'face', albums_beatles: 'art', albums_radiohead: 'art', animals: 'art', desserts: 'art', world_cup: 'art' };
     const NAME_AS_WIKI = new Set(['animals']);   // these use the item name as its Wikipedia title (no seeded `wiki` needed)
     // Comic Sans needs its real family name; the rest match by display name (fallback if not installed).
     const TYPEFACE_FONT = { 'Comic Sans': '"Comic Sans MS"', 'Times New Roman': '"Times New Roman"' };
