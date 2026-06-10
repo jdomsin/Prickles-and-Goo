@@ -290,6 +290,13 @@
     .cold-cta { display:block; width:100%; text-align:left; margin-top:18px; font:inherit; font-size:.92rem; color:var(--ink); background:var(--surface-2); border:1px dashed var(--hairline); border-radius:14px; padding:14px 16px; cursor:pointer; transition:border-color .2s; }
     .cold-cta:hover { border-color:var(--gooey); }
     .cold-cta b { font-variant-numeric:tabular-nums; }
+    /* session-open mood gate */
+    .mood-gate { width:min(360px,84vw); margin:8px auto 0; text-align:center; animation:revealIn .3s cubic-bezier(.2,.9,.3,1.2); }
+    .mood-gate .mg-kicker { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 6px; }
+    .mood-gate .mg-q { font-family:var(--serif); font-weight:700; font-size:1.7rem; line-height:1.15; margin:0 0 22px; }
+    .mood-gate .mg-go { width:100%; margin-top:20px; }
+    .mood-gate .mg-skip { display:block; margin:12px auto 0; font:inherit; font-size:.86rem; color:var(--ink-soft); background:none; border:0; cursor:pointer; }
+    .mood-gate .mg-skip:hover { color:var(--ink); text-decoration:underline; }
     /* daily texture check-in (You) */
     .checkin { border:1px solid var(--hairline); border-radius:16px; padding:16px 16px 18px; margin:0 0 22px; background:var(--surface-2); }
     .ci-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:12px; }
@@ -1388,8 +1395,32 @@
     }
     function buildCardMedia(holder, item) { buildMedia(holder, item, IMAGE_KIND[item.categoryId || currentCategoryId], ''); }
 
+    let moodGateDone = false;                            // show the "how are you arriving?" gate at most once per page-load
+    function hasCheckedInToday() { return !!ciAll()[ciDateKey(0)]; }
+    function showMoodGate(proceed) {
+        setSide('none', 0);
+        arena.innerHTML =
+            '<div class="mood-gate">' +
+            '<p class="mg-kicker">Before you judge the world</p>' +
+            '<h2 class="mg-q">How are you arriving today?</h2>' +
+            '<input class="ci-slider" id="mgSlider" type="range" min="0" max="100" value="50">' +
+            '<div class="ci-axis"><span class="p">Prickly</span><span class="ci-live" id="mgLive">50% gooey</span><span class="g">Gooey</span></div>' +
+            '<button class="btn btn-primary mg-go" id="mgGo">Log &amp; start →</button>' +
+            '<button class="mg-skip" id="mgSkip">Skip for now</button>' +
+            '</div>';
+        const sl = document.getElementById('mgSlider'), live = document.getElementById('mgLive');
+        sl.oninput = () => { live.textContent = sl.value + '% gooey'; const c = ciColor(+sl.value); live.style.color = c; sl.style.setProperty('--c', c); };
+        sl.oninput();
+        document.getElementById('mgGo').onclick = () => {
+            const d = ciAll(); d[ciDateKey(0)] = { pos: +sl.value, note: '', ts: Date.now() };
+            try { localStorage.setItem(CHECKIN_KEY, JSON.stringify(d)); } catch (e) {}
+            proceed();
+        };
+        document.getElementById('mgSkip').onclick = () => proceed();
+    }
     function nextCard() {
         setSide('none', 0);
+        if (!predictMode && !moodGateDone && !hasCheckedInToday()) { moodGateDone = true; return showMoodGate(nextCard); }
         if (dailyMode) return dailyNext();
         if (weeklyMode) return weeklyNext();
         currentItem = pickNext();
