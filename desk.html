@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>The Morning Desk — Prickles &amp; Goo</title>
+<style>
+    :root { --paper:#FFF1E5; --surface:#fff; --ink:#1D1B19; --soft:#6B6259; --line:#E6D7C9; --gooey:#0D7680; --prickly:#6D3B6E; --claret:#990F3D; }
+    * { box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--paper); color:var(--ink); margin:0; padding:32px 18px 80px; }
+    .wrap { max-width:760px; margin:0 auto; }
+    h1 { font-family:Georgia,serif; font-size:2rem; margin:0 0 4px; }
+    .kicker { font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--prickly); margin:0 0 4px; }
+    p.lead { color:var(--soft); line-height:1.5; margin:0 0 18px; }
+    label { display:block; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--soft); margin:18px 0 6px; }
+    textarea, input[type=text] { width:100%; font:inherit; font-size:.92rem; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); }
+    textarea { min-height:74px; resize:vertical; line-height:1.5; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:16px; }
+    button { font:inherit; font-weight:600; background:var(--ink); color:var(--paper); border:0; border-radius:999px; padding:12px 22px; cursor:pointer; }
+    button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+    button:disabled { opacity:.45; cursor:default; }
+    .count { font-size:.9rem; color:var(--soft); }
+    .count b { color:var(--ink); }
+    #msg { font-size:.9rem; margin:14px 0; min-height:1.2em; }
+    #msg.err { color:var(--claret); } #msg.ok { color:var(--gooey); }
+    .cards { margin-top:18px; }
+    .card { display:flex; gap:12px; align-items:flex-start; padding:13px 0; border-top:1px solid var(--line); }
+    .card:first-child { border-top:0; }
+    .card input[type=checkbox] { width:20px; height:20px; margin-top:3px; flex:0 0 auto; accent-color:var(--gooey); }
+    .card .body { flex:1; min-width:0; }
+    .card .nm { width:100%; font-family:Georgia,serif; font-size:1.15rem; font-weight:700; border:0; background:transparent; padding:2px 0; color:var(--ink); }
+    .card .why { color:var(--soft); font-size:.9rem; margin:2px 0 6px; }
+    .tags { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .tag { font-size:.64rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:2px 8px; border-radius:999px; background:#F2E7DA; color:var(--soft); }
+    .tag.track { background:var(--prickly); color:#fff; }
+    .tag.kind { background:#EAF1F1; color:var(--gooey); }
+    .dots { font-size:.7rem; color:var(--soft); white-space:nowrap; }
+    .dim { color:var(--soft); opacity:.7; }
+    .bar { position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--line); padding:12px 18px; display:flex; gap:14px; align-items:center; justify-content:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <p class="kicker">Prickles &amp; Goo · Editor</p>
+    <h1>The Morning Desk</h1>
+    <p class="lead">Harvests live market &amp; news signal, asks Claude to surface the entities where the <em>feeling</em> is contested, and lets you ship today's 10. Watchlist names recur day-to-day so their texture can be tracked.</p>
+
+    <label for="watch">Watchlist · recurring trackers (one per line)</label>
+    <textarea id="watch" placeholder="Elon Musk&#10;OpenAI&#10;Bitcoin"></textarea>
+
+    <label for="note">Curator note (optional steer for today)</label>
+    <input id="note" type="text" placeholder="e.g. lean into the AI-lab drama and awards season">
+
+    <div class="row">
+        <button id="gen">Generate candidates</button>
+        <span class="count" id="status"></span>
+    </div>
+
+    <div id="msg"></div>
+    <div class="cards" id="cards"></div>
+</div>
+
+<div class="bar" id="bar" hidden>
+    <span class="count"><b id="selN">0</b> / 10 selected</span>
+    <button id="pub" disabled>Publish today's ballot</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
+        authDomain: "prickles-or-goo.firebaseapp.com",
+        projectId: "prickles-or-goo",
+        storageBucket: "prickles-or-goo.firebasestorage.app",
+        messagingSenderId: "863779147603",
+        appId: "1:863779147603:web:55f24624e9850d30715ba6"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const POOL = "daily_pool";                 // curated items live here so trackers accumulate votes across days
+    const TARGET = 10;
+
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const slugify = s => String(s).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
+    const todayStr = () => new Date().toISOString().slice(0,10);
+    const setMsg = (t, cls) => { const m = $('msg'); m.textContent = t || ''; m.className = cls || ''; };
+
+    const DEFAULT_WATCH = ["Elon Musk","OpenAI","Sam Altman","Anthropic","Bitcoin","NVIDIA","Donald Trump","Taylor Swift","MrBeast","Tesla","the Federal Reserve","ChatGPT"];
+    $('watch').value = (localStorage.getItem('pg-desk-watch') || DEFAULT_WATCH.join('\n'));
+    $('watch').addEventListener('input', () => localStorage.setItem('pg-desk-watch', $('watch').value));
+
+    let candidates = [];
+    const watchlist = () => $('watch').value.split('\n').map(s => s.trim()).filter(Boolean);
+
+    function selected() { return [...document.querySelectorAll('.card input[type=checkbox]:checked')].map(c => +c.dataset.i); }
+    function refreshSel() {
+        const n = selected().length;
+        $('selN').textContent = n;
+        $('pub').disabled = n === 0 || n > TARGET;
+        $('pub').textContent = n === TARGET ? "Publish today's ballot" : "Publish " + n + " (aim for " + TARGET + ")";
+    }
+
+    function dots(n) { n = Math.max(0, Math.min(5, n|0)); return '●'.repeat(n) + '○'.repeat(5-n); }
+
+    function render() {
+        const host = $('cards');
+        if (!candidates.length) { host.innerHTML = '<p class="dim">No candidates returned. Try again, or add a steer above.</p>'; $('bar').hidden = true; return; }
+        // Pre-select a 4-tracker + 6-topical mix, in ranked order.
+        const pre = new Set(); let tr = 0, tp = 0;
+        candidates.forEach((c, i) => { if (c.tracked && tr < 4) { pre.add(i); tr++; } });
+        candidates.forEach((c, i) => { if (!pre.has(i) && !c.tracked && tp < 6) { pre.add(i); tp++; } });
+        candidates.forEach((c, i) => { if (pre.size < TARGET && !pre.has(i)) pre.add(i); });
+
+        host.innerHTML = candidates.map((c, i) =>
+            '<div class="card">' +
+            '<input type="checkbox" data-i="' + i + '"' + (pre.has(i) ? ' checked' : '') + '>' +
+            '<div class="body">' +
+            '<input class="nm" data-i="' + i + '" value="' + esc(c.name || '') + '">' +
+            '<div class="why">' + esc(c.why || '') + '</div>' +
+            '<div class="tags">' +
+            (c.tracked ? '<span class="tag track">◆ tracker</span>' : '') +
+            '<span class="tag kind">' + esc(c.kind || 'topical') + '</span>' +
+            '<span class="tag">' + esc(c.source || '') + '</span>' +
+            '<span class="dots" title="divisiveness">split ' + dots(c.divisiveness) + '</span>' +
+            '<span class="dots" title="recognizability">known ' + dots(c.recognizability) + '</span>' +
+            '</div></div></div>'
+        ).join('');
+
+        host.querySelectorAll('input[type=checkbox]').forEach(c => c.addEventListener('change', refreshSel));
+        host.querySelectorAll('input.nm').forEach(inp => inp.addEventListener('input', () => { candidates[+inp.dataset.i].name = inp.value; }));
+        $('bar').hidden = false;
+        refreshSel();
+    }
+
+    $('gen').addEventListener('click', async () => {
+        $('gen').disabled = true; setMsg('Harvesting market & news signal, then thinking…'); $('status').textContent = '';
+        candidates = []; $('cards').innerHTML = ''; $('bar').hidden = true;
+        try {
+            const r = await fetch('/desk', { method: 'POST', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ watchlist: watchlist(), note: $('note').value.trim() }) });
+            const data = await r.json();
+            if (!r.ok || data.error) { setMsg(data.error || ('Error ' + r.status), 'err'); return; }
+            candidates = (data.candidates || []).filter(c => c && c.name);
+            $('status').textContent = candidates.length + ' candidates · ' + (data.signalCount || 0) + ' live signals';
+            setMsg(candidates.length ? '' : 'No candidates came back — try again.', candidates.length ? '' : 'err');
+            render();
+        } catch (e) { setMsg('Request failed: ' + e.message, 'err'); }
+        finally { $('gen').disabled = false; }
+    });
+
+    $('pub').addEventListener('click', async () => {
+        const idx = selected(); if (!idx.length) return;
+        $('pub').disabled = true; setMsg('Publishing…');
+        try {
+            const items = idx.map(i => candidates[i]).map(c => ({ slug: slugify(c.name), name: c.name.trim(), kind: c.kind || 'topical' }))
+                .filter(it => it.slug);
+            // 1) merge each item into the persistent pool — never clobbers existing vote counts.
+            const batch = db.batch();
+            items.forEach(it => {
+                const ref = db.collection('categories').doc(POOL).collection('items').doc(it.slug);
+                batch.set(ref, { name: it.name, wiki: it.name, kind: it.kind }, { merge: true });
+            });
+            // 2) write today's ballot pointer (ordered slugs).
+            batch.set(db.collection('ballots').doc(todayStr()),
+                { date: todayStr(), slugs: items.map(it => it.slug), title: 'The Morning Desk', publishedAt: Date.now() });
+            await batch.commit();
+            setMsg('Published ' + items.length + " items as today's ballot. It goes live on the Daily on next load.", 'ok');
+        } catch (e) { setMsg('Publish failed: ' + e.message + ' (check Firestore rules allow writes to ballots/ and categories/' + POOL + ')', 'err'); }
+        finally { $('pub').disabled = false; }
+    });
+</script>
+</body>
+</html>

@@ -986,6 +986,21 @@
     function dailyLabel() { const id = dailyCategory(); return (CATEGORIES.find(c => c.id === id) || {}).label || id; }
     // The day's themed deck: one category, a date-seeded subset, the same for everyone today.
     async function fetchDailyDeck() {
+        // Prefer a curated ballot published from the Morning Desk (/desk.html). Its items live in the
+        // persistent `daily_pool` category so recurring trackers carry their votes day-over-day. Any
+        // miss or error falls straight back to the rotating themed category below — never fatal.
+        try {
+            const bsnap = await db.collection('ballots').doc(todayStr()).get();
+            if (bsnap.exists) {
+                const slugs = (bsnap.data().slugs || []).slice(0, DAILY_SIZE);
+                if (slugs.length) {
+                    const docs = await Promise.all(slugs.map(s =>
+                        db.collection('categories').doc('daily_pool').collection('items').doc(s).get()));
+                    const items = docs.filter(d => d.exists).map(d => { const it = normalize(d); it.categoryId = 'daily_pool'; return it; }).filter(i => i.named);
+                    if (items.length) return items;          // curated deck wins, in published order
+                }
+            }
+        } catch (e) { /* fall through to the rotation */ }
         const catId = dailyCategory();
         const snap = await db.collection('categories').doc(catId).collection('items').get();
         const all = snap.docs.map(normalize).filter(i => i.named);
