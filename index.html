@@ -390,8 +390,9 @@
     .view-bar { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 18px; }
     .view-chip { font:inherit; font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--hairline); background:var(--surface); color:var(--ink-soft); cursor:pointer; }
     .view-chip.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
-    /* "My votes" overlay — a switch (not a view) that layers your call onto any lens */
-    .mine-toggle { font:inherit; font-size:.8rem; font-weight:600; padding:6px 13px 6px 11px; border-radius:999px; border:1px dashed var(--ink-soft); background:transparent; color:var(--ink-soft); cursor:pointer; margin-left:auto; display:inline-flex; align-items:center; gap:7px; }
+    /* Personal controls — "My votes" overlays your call on any lens; "Mine only" filters to your judged items */
+    .mine-toggle { font:inherit; font-size:.8rem; font-weight:600; padding:6px 13px 6px 11px; border-radius:999px; border:1px dashed var(--ink-soft); background:transparent; color:var(--ink-soft); cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+    .mine-toggle.lead { margin-left:auto; }                     /* first personal pill pushes the group to the right edge */
     .mine-toggle.on { border-style:solid; border-color:var(--ink); background:var(--ink); color:var(--paper); }
     .mt-dot { display:inline-block; width:10px; height:10px; transform:rotate(45deg); border:2px solid currentColor; background:transparent; }
     .mine-toggle.on .mt-dot { background:var(--paper); border-color:var(--paper); }
@@ -2254,6 +2255,7 @@
     let resultsSort = 'divisive';                  // neutral default: neither pole "wins" a divisiveness sort
     let resultsView = 'spectrum';                  // which lens: spectrum · poles · shape · paper · lane
     let showMine = true;                            // overlay: layer YOUR vote (◆ + gap) on top of whichever lens
+    let mineOnly = false;                           // filter: restrict every lens to items YOU'VE judged
     const SORTS = [['divisive', 'Most divisive'], ['gooey', 'Gooiest'], ['prickly', 'Prickliest'], ['voted', 'Most voted']];
     const SORT_HEAD = { divisive: 'The closest calls', gooey: 'Most gooey to most prickly', prickly: 'Most prickly to most gooey', voted: 'Most judged' };
     // intensity reads (from the additive aggregates; null until enough intensity votes)
@@ -2306,9 +2308,18 @@
         const random = currentCategoryId === RANDOM_ID;
         const daily = currentCategoryId === DAILY_ID;               // a bounded, play-once ballot — not an open standing set
         const mixed = random || daily;                              // cross-category sets show per-item badges
-        const voted = all.filter(i => (i.gooey + i.prickly) > 0);
-        const unvoted = all.filter(i => (i.gooey + i.prickly) === 0);
-        const rows = sortVoted(voted, resultsSort);
+        const cat0 = currentCategoryId;
+        const myLean = i => userLean(i.categoryId || cat0, i.id);   // your call on an item, or null
+        const hasMine = all.some(myLean);                           // did you vote on anything here?
+        const onlyMine = mineOnly && hasMine;                       // "mine only" filter (ignored if you've judged nothing)
+        const set = onlyMine ? all.filter(myLean) : all;            // the working set every lens sees
+        const voted = set.filter(i => (i.gooey + i.prickly) > 0);
+        const unvoted = set.filter(i => (i.gooey + i.prickly) === 0);
+        // "Most divisive" relative to YOU = your sharpest disagreements with the crowd (gap between
+        // your call and theirs), shown only in the personal filter; otherwise it's the crowd's own split.
+        const myGap = i => { const l = myLean(i); return l ? Math.abs(l.pos - stats(i).gp) : -1; };
+        const personalDivisive = onlyMine && resultsSort === 'divisive';
+        const rows = personalDivisive ? voted.slice().sort((a, b) => myGap(b) - myGap(a)) : sortVoted(voted, resultsSort);
         const subs = {
                 divisive: 'The closest calls, where the crowd splits hardest.',
                 gooey: (random ? 'Every list, mixed — ' : '') + 'ranked from most gooey to most prickly.',
@@ -2316,25 +2327,24 @@
                 voted: 'The most-judged so far.'
             };
             // set size + coverage, up front — never buried.
-            // The daily is a bounded ballot: frame it as "today's set", and call the gap CROWD coverage,
-            // never "you haven't done these" — the cold "be the judge" CTA is suppressed below too.
-            const setN = all.length, votedN = voted.length;
+            const setN = all.length, votedN = all.filter(i => (i.gooey + i.prickly) > 0).length;
             const playedToday = daily && loadDailyResults().length >= setN && setN > 0;
             const count = !setN ? ''
-                : daily
-                    ? '<p class="results-count"><b>Today’s Set</b> · No. ' + editionNo() + ' · ' + setN + ' cards' +
-                      (votedN < setN ? ' · <span class="dim">' + votedN + ' with crowd votes so far</span>' : '') + '</p>'
-                    : '<p class="results-count"><b>' + setN + '</b> in this set · <b>' + votedN + '</b> with votes' +
-                      (setN - votedN > 0 ? ' · <span class="dim">' + (setN - votedN) + ' not yet</span>' : '') + '</p>';
+                : onlyMine
+                    ? '<p class="results-count">Showing the <b>' + set.length + '</b> you’ve judged' +
+                      (set.length < all.length ? ' <span class="dim">· of ' + all.length + ' in the set</span>' : '') + '</p>'
+                    : daily
+                        ? '<p class="results-count"><b>Today’s Set</b> · No. ' + editionNo() + ' · ' + setN + ' cards' +
+                          (votedN < setN ? ' · <span class="dim">' + votedN + ' with crowd votes so far</span>' : '') + '</p>'
+                        : '<p class="results-count"><b>' + setN + '</b> in this set · <b>' + votedN + '</b> with votes' +
+                          (setN - votedN > 0 ? ' · <span class="dim">' + (setN - votedN) + ' not yet</span>' : '') + '</p>';
+            const headTxt = personalDivisive ? 'Where you broke from the crowd' : SORT_HEAD[resultsSort];
+            const subTxt = personalDivisive ? 'Your sharpest disagreements — your call against theirs.' : subs[resultsSort];
             const recapLink = playedToday ? '<button class="recap-link" id="seeRecap">See your ballot recap →</button>' : '';
-            resultsList.innerHTML = '<p class="results-head">' + SORT_HEAD[resultsSort] + '</p>' +
-                '<p class="results-sub">' + subs[resultsSort] + ' Tap a row to read the why.</p>' + count + recapLink;
+            resultsList.innerHTML = '<p class="results-head">' + headTxt + '</p>' +
+                '<p class="results-sub">' + subTxt + ' Tap a row to read the why.</p>' + count + recapLink;
             const sr = document.getElementById('seeRecap');
             if (sr) sr.onclick = () => { showView('vote'); loadDaily(); };   // reconnect results → the ballot you played
-
-            // view toggle: different lenses on the same set
-            const cat0 = currentCategoryId;
-            const hasMine = all.some(i => userLean(i.categoryId || cat0, i.id));   // did you vote on anything here?
             const viewBar = document.createElement('div');
             viewBar.className = 'view-bar';
             [['spectrum', 'Spectrum'], ['poles', 'Poles'], ['shape', 'Shape'], ['paper', 'Paper'], ['lane', 'Map']].forEach(([v, label]) => {
@@ -2344,13 +2354,20 @@
                 b.onclick = () => { if (v !== resultsView) { resultsView = v; paintResults(all, highlight); } };
                 viewBar.appendChild(b);
             });
-            if (hasMine) {   // the personal layer rides on top of any lens — a switch, not a separate view
+            if (hasMine) {   // personal controls: overlay your marker, and/or filter to just your votes
                 const t = document.createElement('button');
-                t.className = 'mine-toggle' + (showMine ? ' on' : '');
+                t.className = 'mine-toggle lead' + (showMine ? ' on' : '');
                 t.innerHTML = '<span class="mt-dot"></span>My votes';
                 t.title = 'Layer where your votes sit against the crowd';
                 t.onclick = () => { showMine = !showMine; paintResults(all, highlight); };
                 viewBar.appendChild(t);
+
+                const f = document.createElement('button');
+                f.className = 'mine-toggle filt' + (onlyMine ? ' on' : '');
+                f.textContent = 'Mine only';
+                f.title = 'Show only the items you have judged';
+                f.onclick = () => { mineOnly = !mineOnly; if (mineOnly) showMine = true; paintResults(all, highlight); };
+                viewBar.appendChild(f);
             }
             resultsList.appendChild(viewBar);
 
@@ -2368,7 +2385,7 @@
                 else if (resultsView === 'lane')  w.innerHTML = renderLane(voted, showMine);
                 resultsList.appendChild(w);
                 if (resultsView === 'paper') renderPaper(voted, showMine);   // async — appends rows + lazy quotes itself
-                if (unvoted.length && !daily) appendColdCta(unvoted.length);
+                if (unvoted.length && !daily && !onlyMine) appendColdCta(unvoted.length);
                 return;
             }
 
@@ -2392,7 +2409,8 @@
             if (!rows.length) {
                 const e = document.createElement('p');
                 e.className = 'results-sub';
-                e.textContent = resultsSort === 'divisive' ? 'Nothing contested enough yet — keep voting.' : 'No votes here yet. Be the first to judge.';
+                e.textContent = onlyMine ? 'Nothing to show — turn off “Mine only”, or judge a few.'
+                    : resultsSort === 'divisive' ? 'Nothing contested enough yet — keep voting.' : 'No votes here yet. Be the first to judge.';
                 resultsList.appendChild(e);
             }
             // Reasons are lazy: fetch a row's "why" only when it scrolls into view, so
@@ -2411,7 +2429,7 @@
                 const target = resultsList.querySelector('.row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(highlight) : highlight) + '"]');
                 if (target) { if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.classList.add('flash'); }
             }
-            if (unvoted.length && !daily) appendColdCta(unvoted.length);
+            if (unvoted.length && !daily && !onlyMine) appendColdCta(unvoted.length);
     }
     function appendColdCta(n) {     // cold start becomes an invitation, not an empty scoreboard
         const cta = document.createElement('button');
