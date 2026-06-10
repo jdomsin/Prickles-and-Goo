@@ -290,6 +290,31 @@
     .cold-cta { display:block; width:100%; text-align:left; margin-top:18px; font:inherit; font-size:.92rem; color:var(--ink); background:var(--surface-2); border:1px dashed var(--hairline); border-radius:14px; padding:14px 16px; cursor:pointer; transition:border-color .2s; }
     .cold-cta:hover { border-color:var(--gooey); }
     .cold-cta b { font-variant-numeric:tabular-nums; }
+    /* daily texture check-in (You) */
+    .checkin { border:1px solid var(--hairline); border-radius:16px; padding:16px 16px 18px; margin:0 0 22px; background:var(--surface-2); }
+    .ci-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:12px; }
+    .ci-q { font-family:var(--serif); font-size:1.3rem; }
+    .ci-streak { font-size:.82rem; color:var(--ink-soft); white-space:nowrap; }
+    .ci-slider { -webkit-appearance:none; appearance:none; width:100%; height:10px; border-radius:999px; outline:none; margin:4px 0 2px;
+        background:linear-gradient(90deg, var(--prickly), color-mix(in srgb,var(--prickly) 40%,var(--gooey)), var(--gooey)); }
+    .ci-slider::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:var(--surface); border:3px solid var(--c,var(--ink)); box-shadow:var(--shadow-lift); cursor:grab; }
+    .ci-slider::-moz-range-thumb { width:24px; height:24px; border-radius:50%; background:var(--surface); border:3px solid var(--c,var(--ink)); cursor:grab; }
+    .ci-axis { display:flex; justify-content:space-between; font-size:.72rem; margin:4px 0 12px; }
+    .ci-axis .p { color:var(--prickly); font-weight:700; } .ci-axis .g { color:var(--gooey); font-weight:700; }
+    .ci-axis .ci-live { font-weight:700; font-variant-numeric:tabular-nums; }
+    .ci-note { width:100%; font:inherit; font-size:.92rem; padding:9px 12px; border:1px solid var(--hairline); border-radius:10px; background:var(--surface); color:var(--ink); margin-bottom:12px; }
+    .ci-save { width:100%; font:inherit; font-weight:600; background:var(--ink); color:var(--paper); border:0; border-radius:999px; padding:12px; cursor:pointer; }
+    .ci-done { font-size:1rem; line-height:1.5; }
+    .ci-done .ci-pos { font-family:var(--serif); font-weight:700; font-size:1.15rem; }
+    .ci-noteshown { font-family:var(--serif); font-style:italic; color:var(--ink-soft); }
+    .ci-edit { font:inherit; font-size:.82rem; color:var(--gooey); background:none; border:0; cursor:pointer; padding:0 0 0 4px; }
+    .ci-edit:hover { text-decoration:underline; }
+    .ci-spark { display:flex; gap:3px; margin-top:16px; }
+    .ci-day { flex:1; height:24px; border-radius:5px; background:var(--prickly); }
+    .ci-day.empty { background:var(--hairline); opacity:.5; }
+    .ci-day.today { box-shadow:0 0 0 2px var(--ink); }
+    .ci-drift { margin-top:11px; font-size:.92rem; color:var(--ink-soft); }
+    .ci-drift b { color:var(--ink); }
     /* taste profile (You) */
     .taste-hero { text-align:center; margin:6px 0 18px; }
     .taste-badge { font-size:2.6rem; line-height:1; margin-bottom:4px; }
@@ -2593,6 +2618,60 @@
     }
 
     /* ===== 11c. TASTE PROFILE (local, no account) ===== */
+    /* ---- Daily texture check-in: a once-a-day ritual that builds a streak and, because each entry
+       is dated, an honest drift over time. Entirely local — no upload, no moderation. ---- */
+    const CHECKIN_KEY = 'pg-checkins';
+    function ciAll() { try { return JSON.parse(localStorage.getItem(CHECKIN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+    function ciDateKey(off) { const d = new Date(); d.setDate(d.getDate() - off); return d.toISOString().slice(0, 10); }
+    function ciStreak(data) {
+        let start = data[ciDateKey(0)] ? 0 : (data[ciDateKey(1)] ? 1 : -1);   // alive if logged today or yesterday
+        if (start < 0) return 0;
+        let n = 0; for (let i = start; data[ciDateKey(i)]; i++) n++; return n;
+    }
+    function ciRangeAvg(data, from, to) { let s = 0, c = 0; for (let i = from; i <= to; i++) { const e = data[ciDateKey(i)]; if (e) { s += e.pos; c++; } } return c ? { avg: Math.round(s / c), n: c } : null; }
+    function ciColor(pos) { return 'color-mix(in srgb, var(--gooey) ' + Math.round(pos) + '%, var(--prickly))'; }
+    function mountCheckin(editing) {
+        const body = document.getElementById('taste-body');
+        if (!body) return;
+        const data = ciAll(), today = ciDateKey(0), mine = data[today];
+        const streak = ciStreak(data);
+        const sec = document.createElement('section');
+        sec.className = 'checkin';
+        // 14-day stripe, oldest → newest
+        let spark = '';
+        for (let off = 13; off >= 0; off--) { const e = data[ciDateKey(off)]; spark += '<span class="ci-day' + (off === 0 ? ' today' : '') + (e ? '' : ' empty') + '"' + (e ? ' style="background:' + ciColor(e.pos) + '"' : '') + ' title="' + ciDateKey(off) + (e ? ' · ' + e.pos + '% gooey' : '') + '"></span>'; }
+        // drift: this week vs the week before
+        const tw = ciRangeAvg(data, 0, 6), pw = ciRangeAvg(data, 7, 13);
+        let drift = '';
+        if (tw && pw && tw.n >= 2 && pw.n >= 2) {
+            const d = tw.avg - pw.avg, mag = Math.abs(d);
+            drift = mag < 3 ? '<div class="ci-drift">Steady — about as ' + (tw.avg >= 50 ? 'gooey' : 'prickly') + ' as last week.</div>'
+                : '<div class="ci-drift">You’ve run <b>' + mag + '% ' + (d > 0 ? 'gooier' : 'pricklier') + '</b> than the week before.</div>';
+        }
+        const head = '<div class="ci-head"><span class="ci-q">How did today feel?</span>' + (streak ? '<span class="ci-streak">🔥 ' + streak + '-day streak</span>' : '') + '</div>';
+        let inner;
+        if (mine && !editing) {
+            inner = '<div class="ci-done"><span class="ci-pos" style="color:' + ciColor(mine.pos) + '">' + mine.pos + '% gooey</span> logged' +
+                (mine.note ? ' <span class="ci-noteshown">“' + escapeHtml(mine.note) + '”</span>' : '') +
+                ' <button class="ci-edit" type="button">edit</button></div>';
+        } else {
+            const pos = mine ? mine.pos : 50;
+            inner = '<input class="ci-slider" type="range" min="0" max="100" value="' + pos + '">' +
+                '<div class="ci-axis"><span class="p">Prickly</span><span class="ci-live">' + pos + '% gooey</span><span class="g">Gooey</span></div>' +
+                '<input class="ci-note" type="text" maxlength="90" placeholder="one line on why (optional)" value="' + (mine ? escapeHtml(mine.note || '') : '') + '">' +
+                '<button class="ci-save" type="button">Log today</button>';
+        }
+        sec.innerHTML = head + inner + '<div class="ci-spark">' + spark + '</div>' + drift;
+        body.insertBefore(sec, body.firstChild);
+        const ed = sec.querySelector('.ci-edit'); if (ed) ed.onclick = () => { sec.remove(); mountCheckin(true); };
+        const sl = sec.querySelector('.ci-slider'), live = sec.querySelector('.ci-live'), save = sec.querySelector('.ci-save');
+        if (sl) { sl.oninput = () => { live.textContent = sl.value + '% gooey'; live.style.color = ciColor(+sl.value); sl.style.setProperty('--c', ciColor(+sl.value)); }; sl.oninput(); }
+        if (save) save.onclick = () => {
+            const d = ciAll(); d[today] = { pos: +sl.value, note: sec.querySelector('.ci-note').value.trim(), ts: Date.now() };
+            try { localStorage.setItem(CHECKIN_KEY, JSON.stringify(d)); } catch (e) {}
+            sec.remove(); mountCheckin(false);
+        };
+    }
     async function loadTaste() {
         const body = document.getElementById('taste-body');
         body.innerHTML = Array.from({ length: 3 }, () => '<div class="sk-row"><div class="sk-line sk-name"></div><div class="sk-line sk-bar"></div></div>').join('');
@@ -2606,7 +2685,7 @@
             const voted = lsGet('pg-voted-' + c.id);
             Object.keys(voted).forEach(id => { const v = voted[id]; if (v !== 'gooey' && v !== 'prickly') return; total++; byId[c.id].t++; if (v === 'gooey') { gooey++; byId[c.id].g++; } });
         });
-        if (!total) { body.innerHTML = '<p class="results-sub">Vote on a few things and your taste takes shape here — how gooey you run, where you lean soft, and where you go against the grain.</p>'; return; }
+        if (!total) { body.innerHTML = '<p class="results-sub">Vote on a few things and your taste takes shape here — how gooey you run, where you lean soft, and where you go against the grain.</p>'; mountCheckin(); return; }
         try {                                          // best-effort crowd comparison
             const all = await fetchAllItems();
             const weeklyPlayed = WEEKLY.filter(t => hasVotes(t.id));   // pull their items too, for totals + comparison
@@ -2624,6 +2703,7 @@
             });
         } catch (e) { /* local-only fallback */ }
         renderTaste({ total, gooey, per });
+        mountCheckin();                                 // the daily ritual sits above your vote-based taste
     }
     /* A name beats a number: map a gooey-lean into a shareable archetype. */
     function archetypeFor(pct) {
