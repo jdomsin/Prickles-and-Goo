@@ -1421,7 +1421,7 @@
             '<p class="mg-kicker">Before you judge the world</p>' +
             '<h2 class="mg-q">How are you arriving today?</h2>' +
             '<input class="ci-slider" id="mgSlider" type="range" min="0" max="100" value="50">' +
-            '<div class="ci-axis"><span class="p">Extra prickly</span><span class="g">Super gooey</span></div>' +
+            '<div class="ci-axis"><span class="p">Diamond-sharp</span><span class="g">Super gooey</span></div>' +
             '<div class="ci-read" id="mgLive"></div>' +
             '<button class="btn btn-primary mg-go" id="mgGo">Log &amp; start →</button>' +
             '<button class="mg-skip" id="mgSkip">Skip for now</button>' +
@@ -2682,9 +2682,11 @@
     // Conversational texture ramp: 0..100 (prickly→gooey) → a phrase, plus the percent oriented
     // to whichever side you lean ("69% prickly" rather than a flat "31% gooey").
     function texturePhrase(g) {
+        // The prickly pole is aspirational, not a failing — brilliance/precision (shine like a diamond);
+        // the gooey pole is warmth. The "% prickly / % gooey" readout still anchors the side.
         g = Math.round(g);
-        return g <= 9 ? 'Extra prickly' : g <= 24 ? 'Very prickly' : g <= 38 ? 'Pretty prickly' : g <= 47 ? 'A touch prickly'
-             : g <= 52 ? 'Right on the fence' : g <= 61 ? 'A touch gooey' : g <= 75 ? 'Pretty gooey' : g <= 90 ? 'Very gooey' : 'Super gooey';
+        return g <= 9 ? 'Diamond-sharp' : g <= 24 ? 'Crystal clear' : g <= 38 ? 'Crisp & precise' : g <= 47 ? 'A bright edge'
+             : g <= 52 ? 'Perfectly poised' : g <= 61 ? 'A touch gooey' : g <= 75 ? 'Pretty gooey' : g <= 90 ? 'Warm & soft' : 'Super gooey';
     }
     function textureReadout(g) {
         g = Math.round(g);
@@ -2719,7 +2721,7 @@
         } else {
             const pos = mine ? mine.pos : 50;
             inner = '<input class="ci-slider" type="range" min="0" max="100" value="' + pos + '">' +
-                '<div class="ci-axis"><span class="p">Extra prickly</span><span class="g">Super gooey</span></div>' +
+                '<div class="ci-axis"><span class="p">Diamond-sharp</span><span class="g">Super gooey</span></div>' +
                 '<div class="ci-read"></div>' +
                 '<input class="ci-note" type="text" maxlength="90" placeholder="one line on why (optional)" value="' + (mine ? escapeHtml(mine.note || '') : '') + '">' +
                 '<button class="ci-save" type="button">Log today</button>';
