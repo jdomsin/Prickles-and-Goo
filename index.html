@@ -1102,6 +1102,21 @@
         if (predictPos >= predictDeck.length) { showPredictDone(); return; }
         renderCard(predictDeck[predictPos]);           // same swipe card as voting — you just read the crowd instead
     }
+    // Lifetime calibration — your read accumulates across every round, forever. A "read" is a
+    // guess within READ_TOL of the crowd; the running hit-rate is your "you read the room X%" identity.
+    const READ_TOL = 10;
+    const pInt = k => parseInt(localStorage.getItem(k) || '0', 10) || 0;
+    function predictStats() {
+        const n = pInt('pg-predict-n'), hits = pInt('pg-predict-hits'), errsum = pInt('pg-predict-errsum');
+        return { n, hits, errsum, pct: n ? Math.round(hits / n * 100) : 0, avgMiss: n ? Math.round(errsum / n) : 0 };
+    }
+    function recordPrediction(delta) {
+        try {
+            localStorage.setItem('pg-predict-n', pInt('pg-predict-n') + 1);
+            localStorage.setItem('pg-predict-hits', pInt('pg-predict-hits') + (delta <= READ_TOL ? 1 : 0));
+            localStorage.setItem('pg-predict-errsum', pInt('pg-predict-errsum') + delta);
+        } catch (e) {}
+    }
     // Your swipe IS the guess: direction = which way you think the crowd leaned,
     // strength = how far. Signed -100..100 maps to a gooey-% read.
     function scorePredict(item, verdict, signed) {
@@ -1112,8 +1127,9 @@
         const delta = Math.abs(guess - actual);
         const pts = delta <= 3 ? 100 : delta <= 7 ? 75 : delta <= 12 ? 50 : delta <= 20 ? 25 : Math.max(0, 12 - (delta - 20));
         predictScore += pts;
-        if (delta <= 10) predictStreak++; else predictStreak = 0;
+        if (delta <= READ_TOL) predictStreak++; else predictStreak = 0;
         if (predictStreak > predictBest) { predictBest = predictStreak; try { localStorage.setItem('pg-predict-best', predictBest); } catch (e) {} }
+        recordPrediction(delta);                            // feeds the lifetime "read the room" stat
         predictPos++; renderPassMeter();
         showPredictReveal(item, guess, actual, delta, pts);
     }
@@ -1140,10 +1156,15 @@
         setSide('none', 0); arena.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'result recap';
+        const cs = predictStats();
         wrap.innerHTML = '<p class="kicker">Predict the crowd</p><h3>Round over.</h3>' +
-            '<p class="recap-line">Score <b>' + predictScore + '</b> · best streak <b>' + predictBest + '</b>.</p>';
+            '<p class="recap-line">Score <b>' + predictScore + '</b> · best streak <b>' + predictBest + '</b>.</p>' +
+            (cs.n >= 5
+                ? '<p class="recap-line">You read the room <b>' + cs.pct + '%</b> of the time <span class="dim">· ' + cs.n + ' calls · avg miss ' + cs.avgMiss + ' pts</span>.</p>'
+                : '<p class="recap-line dim">' + (5 - cs.n) + ' more call' + ((5 - cs.n) === 1 ? '' : 's') + ' unlocks your “read the room” rating.</p>');
         const nw = document.createElement('div'); nw.className = 'next-wrap swipe-buttons';
         const again = document.createElement('button'); again.className = 'btn btn-primary'; again.textContent = 'Play again'; again.onclick = loadPredict;
+        if (cs.n >= 5) { const prof = document.createElement('button'); prof.className = 'btn btn-ghost'; prof.textContent = 'My profile →'; prof.onclick = () => { showView('you'); loadTaste(); }; nw.appendChild(prof); }
         const free = document.createElement('button'); free.className = 'btn btn-ghost'; free.textContent = 'Free play →'; free.onclick = () => loadCategory('tech_companies');
         nw.append(again, free); wrap.appendChild(nw);
         arena.appendChild(wrap);
@@ -2599,6 +2620,9 @@
             if (avg > 0.12) html += '<p class="taste-line">You see goo where the crowd sees prickle in <b>' + escapeHtml(contrarian.label) + '</b>.</p>';
             else if (avg < -0.12) html += '<p class="taste-line">You run pricklier than the crowd on <b>' + escapeHtml(contrarian.label) + '</b>.</p>';
         }
+        const cs = predictStats();
+        if (cs.n >= 5) html += '<p class="taste-line">You read the room <b>' + cs.pct + '%</b> of the time <span class="dim">· ' + cs.n + ' call' + (cs.n === 1 ? '' : 's') + ', avg miss ' + cs.avgMiss + ' pts</span>.</p>';
+        else html += '<p class="taste-line dim">How well do you read the crowd? <a href="#" id="goPredict">Play Predict →</a></p>';
         html += '<div class="taste-cats">';
         ranked.forEach(p => {
             const cp = Math.round(p.g / p.t * 100);
@@ -2615,6 +2639,8 @@
                 untouched.map(p => escapeHtml(p.label) + ' <span class="n">(' + p.itemsTotal + ')</span>').join(' · ') + '</p>';
         }
         body.innerHTML = html;
+        const gp = document.getElementById('goPredict');
+        if (gp) gp.onclick = (e) => { e.preventDefault(); showView('vote'); loadPredict(); };
         let outlier = '';
         if (contrarian && Math.abs(contrarian.diverg / contrarian.compared) > 0.12) outlier = 'You buck the crowd on ' + contrarian.label + '.';
         else if (prickliest && prickliest !== gooiest) outlier = 'Sharpest on ' + prickliest.label + '.';
