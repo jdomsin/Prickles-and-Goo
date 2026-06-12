@@ -1,0 +1,9 @@
+{
+  "name": "prickles-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Service-account CLI for seeding categories and publishing the daily ballot.",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

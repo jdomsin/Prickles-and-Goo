@@ -1,39 +1,17 @@
 rules_version = '2';
 
 // Production rules for Prickles & Goo.
-// Reads are public. Writes are split into two tiers:
-//
-//  PUBLIC (anonymous) — exactly two shapes:
-//   1. A single valid vote: an item update that bumps `shown` by 1 and exactly
-//      one of gooey/prickly/skipped by 1, leaving everything else (incl. `name`)
-//      untouched.
-//   2. A commentary reason: create {text (1–140), votes==1, createdAt==now} in
-//      items/{id}/reasons_gooey|prickly, or agree by bumping only `votes` by 1.
-//
-//  ADMIN (you, signed in with Google as the address in isAdmin()) — everything else:
-//   • create/rename items + category docs  → this is SEEDING. No more rule-swap:
-//     sign in on /seed.html and run it.
-//   • write today's curated ballot          → /desk.html "Morning Desk".
-//
-// Everything else — anonymous item creation, value tampering, decrements,
-// deletes — is denied.
-//
-// LIMITATION: without App Check these rules can't rate-limit an anonymous user
-// repeatedly casting +1 votes. They close the data-corruption hole, not
-// ballot-stuffing. Add App Check for that next level.
+// Reads are public. The ONLY writes the public can make are:
+//   1. A single valid vote (item update bumping shown + exactly one of
+//      gooey/prickly/skipped by 1, nothing else).
+//   2. A commentary reason (create {text,votes==1,createdAt==now} or +1 a vote).
+// Everything else — creating/renaming items, publishing ballots — is denied to
+// the public. Those admin jobs run through the service-account CLI (admin/),
+// which has full privileges and bypasses these rules entirely. No in-app auth,
+// no admin allowlist, no rule-swapping.
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ── the admin gate ──
-    // No identity in code: admins are listed by Firebase UID in the `admins`
-    // collection, which you manage in the Firestore console. To grant yourself
-    // access, create a doc at admins/<your-uid> (your UID is in Authentication →
-    // Users). To revoke, delete it. Nothing here reveals who the admin is.
-    function isAdmin() {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
 
     function isValidReason() {
       let r = request.resource.data;
@@ -53,8 +31,6 @@ service cloud.firestore {
       let r = request.resource.data;
       let o = resource.data;
       let changed = r.diff(o).affectedKeys();
-      // Use .get() on BOTH sides so a freshly-seeded item (only {name}, no vote
-      // fields yet) isn't rejected on its first vote when fields are absent.
       let dG  = r.get('gooey', 0)   - o.get('gooey', 0);
       let dP  = r.get('prickly', 0) - o.get('prickly', 0);
       let dSk = r.get('skipped', 0) - o.get('skipped', 0);
@@ -63,11 +39,9 @@ service cloud.firestore {
       let dSq  = r.get('iSumSq', 0) - o.get('iSumSq', 0);
       return changed.hasOnly(['shown', 'gooey', 'prickly', 'skipped', 'iSum', 'iVotes', 'iSumSq'])
         && r.get('shown', 0) == o.get('shown', 0) + 1
-        // exactly one of gooey/prickly/skipped bumped by 1, the others untouched
         && ( (dG == 1 && dP == 0 && dSk == 0) ||
              (dP == 1 && dG == 0 && dSk == 0) ||
              (dSk == 1 && dG == 0 && dP == 0) )
-        // intensity: either none (legacy / skip) OR one bounded, sign-consistent vote.
         && ( (dCnt == 0 && dSum == 0 && dSq == 0) ||
              (dCnt == 1 && dSq == dSum * dSum &&
                 ( (dG == 1 && dSum > 0 && dSum <= 100) ||
@@ -76,14 +50,13 @@ service cloud.firestore {
 
     match /categories/{category} {
       allow read: if true;
-      allow write: if isAdmin();              // category docs — managed by the admin (seeding)
+      allow write: if false;                 // category docs: CLI only
 
       match /items/{item} {
         allow read: if true;
-        allow create, delete: if isAdmin();   // seeding adds items; nobody else creates/deletes
-        allow update: if isSingleVote() || isAdmin();   // public votes, or admin renames/re-seeds
+        allow create, delete: if false;       // seeding is CLI only
+        allow update: if isSingleVote();       // public can only cast a vote
 
-        // Commentary: written reasons + agree (upvote). One match per verdict pool.
         match /reasons_gooey/{reason} {
           allow read: if true;
           allow create: if isValidReason();
@@ -99,17 +72,9 @@ service cloud.firestore {
       }
     }
 
-    // Curated daily ballots, published from the Morning Desk. Public reads (the
-    // app loads today's), admin-only writes.
+    // Curated daily ballots: public reads (the app loads today's); only the CLI writes.
     match /ballots/{date} {
       allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Admin allowlist. A signed-in user may read only their OWN doc (to learn
-    // whether they're an admin); the list is managed only in the console.
-    match /admins/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
     }
   }
