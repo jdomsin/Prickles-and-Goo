@@ -1456,28 +1456,27 @@
     function buildCardMedia(holder, item) { buildMedia(holder, item, IMAGE_KIND[item.categoryId || currentCategoryId], ''); }
 
     let moodGateDone = false;                            // show the "how are you arriving?" gate at most once per page-load
+    let moodMode = false, moodProceed = null;            // the gate is a real swipe card — its lean becomes today's check-in
     function hasCheckedInToday() { return !!ciAll()[ciDateKey(0)]; }
     function showMoodGate(proceed) {
+        moodMode = true; moodProceed = proceed;
         setSide('none', 0);
-        arena.innerHTML =
-            '<div class="mood-gate">' +
-            '<p class="mg-kicker">Before you judge the world</p>' +
-            '<h2 class="mg-q">How are you arriving today?</h2>' +
-            '<input class="ci-slider" id="mgSlider" type="range" min="0" max="100" value="50">' +
-            '<div class="ci-axis"><span class="p">Diamond-sharp</span><span class="g">Super gooey</span></div>' +
-            '<div class="ci-read" id="mgLive"></div>' +
-            '<button class="btn btn-primary mg-go" id="mgGo">Log &amp; start →</button>' +
-            '<button class="mg-skip" id="mgSkip">Skip for now</button>' +
-            '</div>';
-        const sl = document.getElementById('mgSlider'), live = document.getElementById('mgLive');
-        sl.oninput = () => { live.innerHTML = textureHtml(+sl.value); sl.style.setProperty('--c', ciColor(+sl.value)); };
-        sl.oninput();
-        document.getElementById('mgGo').onclick = () => {
-            const d = ciAll(); d[ciDateKey(0)] = { pos: +sl.value, note: '', ts: Date.now() };
-            try { localStorage.setItem(CHECKIN_KEY, JSON.stringify(d)); } catch (e) {}
-            proceed();
-        };
-        document.getElementById('mgSkip').onclick = () => proceed();
+        // A full swipe card (not a slider): the first interaction teaches the gesture and logs your check-in.
+        const item = { name: 'You, today', id: '__mood', categoryId: '__mood', shown: 0, gooey: 0, prickly: 0, skipped: 0, iVotes: 0, iSum: 0, iSumSq: 0 };
+        currentItem = item;
+        renderCard(item);
+        voteKicker.textContent = 'Before you judge the world';
+        const meta = arena.querySelector('.meta'); if (meta) meta.textContent = 'How are you arriving? Swipe yourself — harder is stronger. Flick up to skip.';
+    }
+    function moodDone(verdict, signed) {
+        moodMode = false;
+        const go = moodProceed || nextCard; moodProceed = null;
+        if (verdict === 'skip') { go(); return; }        // flicked up → skip the check-in, just begin
+        const pos = typeof signed === 'number'
+            ? Math.max(0, Math.min(100, Math.round(50 + signed / 2)))   // swipe lean → 0..100 position
+            : (verdict === 'gooey' ? 72 : 28);                          // keyboard/button: side only
+        try { const d = ciAll(); d[ciDateKey(0)] = { pos, note: '', ts: Date.now() }; localStorage.setItem(CHECKIN_KEY, JSON.stringify(d)); } catch (e) {}
+        go();
     }
     function nextCard() {
         setSide('none', 0);
@@ -1702,7 +1701,7 @@
         else setSide('none', 0);
         const offX = verdict === 'gooey' ? (innerWidth + 240) : verdict === 'prickly' ? -(innerWidth + 240) : 0;
         const offY = verdict === 'skip' ? (dir === 'down' ? innerHeight + 120 : -(innerHeight + 120)) : -40;
-        const commit = () => onboarding ? onboardDone(verdict) : predictMode ? scorePredict(item, verdict, signed) : commitVote(item, verdict, categoryId, signed);
+        const commit = () => moodMode ? moodDone(verdict, signed) : onboarding ? onboardDone(verdict) : predictMode ? scorePredict(item, verdict, signed) : commitVote(item, verdict, categoryId, signed);
         const exit = (rot, sc) => 'translate(' + offX + 'px,' + offY + 'px) rotate(' + rot + 'deg)' + (sc ? ' scale(' + sc + ')' : '');
 
         // Form mirrors content: prickly SNAPS, gooey STRETCHES. (Reduced-motion / skip get the plain glide.)
