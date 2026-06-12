@@ -19,19 +19,32 @@
     #log { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:22px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; line-height:1.6; white-space:pre-wrap; max-height:340px; overflow:auto; }
     .ok { color:var(--teal); } .err { color:var(--claret); }
 </style>
+<style>
+    #gate { position:fixed; inset:0; background:var(--paper); display:flex; align-items:center; justify-content:center; padding:24px; z-index:100; text-align:center; }
+    .wrap { display:none; } body.authed .wrap { display:block; } body.authed #gate { display:none; }
+    #signin { margin-top:14px; }
+</style>
 </head>
 <body>
+<div id="gate">
+    <div>
+        <h1>Database Seeder</h1>
+        <p id="gate-msg" style="color:var(--soft)">Admin only. Sign in to seed.</p>
+        <button id="signin">Sign in with Google</button>
+    </div>
+</div>
 <div class="wrap">
     <h1>Database Seeder</h1>
-    <p class="lead">One-time setup. Writes the category lists into Firestore. Non-destructive: it only sets each item's <code>name</code> and its <code>wiki</code> page title (for card imagery), using merge — existing vote counts and reasons are never touched. Safe to run more than once.</p>
+    <p class="lead">Writes the category lists into Firestore. Non-destructive: it only sets each item's <code>name</code> and its <code>wiki</code> page title (for card imagery), using merge — existing vote counts and reasons are never touched. Safe to run more than once. Signed in as <b id="who"></b>.</p>
     <div class="cats" id="cats"></div>
-    <div class="warn">This writes to the live <strong>prickles-or-goo</strong> database. Run it once, then you can ignore this page.</div>
+    <div class="warn">This writes to the live <strong>prickles-or-goo</strong> database.</div>
     <button id="seedBtn">Seed database</button>
     <div id="log" hidden></div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
@@ -43,6 +56,21 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
+    const ADMIN_EMAIL = "jdomins1@gmail.com";   // must match firestore.rules isAdmin()
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    document.getElementById("signin").onclick = () =>
+        auth.signInWithPopup(provider).catch(e => { document.getElementById("gate-msg").textContent = e.message; });
+    auth.onAuthStateChanged(u => {
+        const ok = u && u.email === ADMIN_EMAIL && u.emailVerified;
+        document.body.classList.toggle("authed", !!ok);
+        if (ok) { const w = document.getElementById("who"); if (w) w.textContent = u.email; }
+        else {
+            document.getElementById("gate-msg").textContent = u ? ("Not authorized: " + u.email) : "Admin only. Sign in to seed.";
+            document.getElementById("signin").textContent = u ? "Try another account" : "Sign in with Google";
+        }
+    });
 
     /* ---- Category data ---- */
     const PRESIDENTS = [

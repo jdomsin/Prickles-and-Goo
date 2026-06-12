@@ -91,6 +91,13 @@ function parseCandidates(text) {
 
 export default async (request) => {
     if (request.method !== "POST") return new Response("POST only", { status: 405 });
+    // Admin gate: this endpoint spends real Claude money, so a shared secret is required.
+    // Set ADMIN_TOKEN in the Netlify env; /desk.html sends it as x-admin-token. If ADMIN_TOKEN
+    // isn't configured, the endpoint stays closed (fail-safe) rather than open.
+    const admin = env("ADMIN_TOKEN");
+    if (!admin || request.headers.get("x-admin-token") !== admin) {
+        return Response.json({ error: "Not authorized." }, { status: 401 });
+    }
     const key = env("ANTHROPIC_API_KEY");
     if (!key) return Response.json({ error: "ANTHROPIC_API_KEY is not set in the Netlify environment." }, { status: 500 });
 

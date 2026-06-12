@@ -1,27 +1,38 @@
 rules_version = '2';
 
 // Production rules for Prickles & Goo.
-// Reads are public. Allowed writes are tightly shaped:
-//  1. A single valid vote: an item update that bumps `shown` by 1 and exactly
-//     one of gooey/prickly/skipped by 1, leaving everything else (incl. `name`)
-//     untouched.
-//  2. A commentary reason: create a doc in items/{id}/reasons_gooey|prickly with
-//     exactly {text (1–140 chars), votes==1, createdAt==now}; or agree with an
-//     existing reason by bumping only its `votes` by 1.
-// Everything else — arbitrary writes, value tampering, decrements, item/category
-// creation or deletion — is denied.
+// Reads are public. Writes are split into two tiers:
 //
-// SEEDING NOTE: seed.html writes item/category `name` (and `wiki`) fields, which
-// these rules DENY. To add items: publish firestore.seeding.rules, run seed.html,
-// then re-publish THIS file. Existing items must already exist for votes to work —
-// votes are updates, not creates.
+//  PUBLIC (anonymous) — exactly two shapes:
+//   1. A single valid vote: an item update that bumps `shown` by 1 and exactly
+//      one of gooey/prickly/skipped by 1, leaving everything else (incl. `name`)
+//      untouched.
+//   2. A commentary reason: create {text (1–140), votes==1, createdAt==now} in
+//      items/{id}/reasons_gooey|prickly, or agree by bumping only `votes` by 1.
 //
-// LIMITATION: without authentication / Firebase App Check, these rules cannot
-// rate-limit an anonymous user repeatedly casting +1 votes. They close the
-// data-corruption hole, not ballot-stuffing. Add App Check for that next level.
+//  ADMIN (you, signed in with Google as the address in isAdmin()) — everything else:
+//   • create/rename items + category docs  → this is SEEDING. No more rule-swap:
+//     sign in on /seed.html and run it.
+//   • write today's curated ballot          → /desk.html "Morning Desk".
+//
+// Everything else — anonymous item creation, value tampering, decrements,
+// deletes — is denied.
+//
+// LIMITATION: without App Check these rules can't rate-limit an anonymous user
+// repeatedly casting +1 votes. They close the data-corruption hole, not
+// ballot-stuffing. Add App Check for that next level.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── the admin gate ──
+    // Only this Google account can seed items or publish ballots. To change it,
+    // edit the address here AND re-publish these rules in the Firebase Console.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'jdomins1@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
 
     function isValidReason() {
       let r = request.resource.data;
@@ -56,7 +67,6 @@ service cloud.firestore {
              (dP == 1 && dG == 0 && dSk == 0) ||
              (dSk == 1 && dG == 0 && dP == 0) )
         // intensity: either none (legacy / skip) OR one bounded, sign-consistent vote.
-        // dSq == dSum*dSum keeps the variance field honest; sign must match the verdict.
         && ( (dCnt == 0 && dSum == 0 && dSq == 0) ||
              (dCnt == 1 && dSq == dSum * dSum &&
                 ( (dG == 1 && dSum > 0 && dSum <= 100) ||
@@ -65,12 +75,12 @@ service cloud.firestore {
 
     match /categories/{category} {
       allow read: if true;
-      allow write: if false;                 // category docs are managed via seeding only
+      allow write: if isAdmin();              // category docs — managed by the admin (seeding)
 
       match /items/{item} {
         allow read: if true;
-        allow create, delete: if false;
-        allow update: if isSingleVote();
+        allow create, delete: if isAdmin();   // seeding adds items; nobody else creates/deletes
+        allow update: if isSingleVote() || isAdmin();   // public votes, or admin renames/re-seeds
 
         // Commentary: written reasons + agree (upvote). One match per verdict pool.
         match /reasons_gooey/{reason} {
@@ -86,6 +96,13 @@ service cloud.firestore {
           allow delete: if false;
         }
       }
+    }
+
+    // Curated daily ballots, published from the Morning Desk. Public reads (the
+    // app loads today's), admin-only writes.
+    match /ballots/{date} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

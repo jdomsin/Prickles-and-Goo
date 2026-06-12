@@ -38,6 +38,15 @@
     .dots { font-size:.7rem; color:var(--soft); white-space:nowrap; }
     .dim { color:var(--soft); opacity:.7; }
     .bar { position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--line); padding:12px 18px; display:flex; gap:14px; align-items:center; justify-content:center; }
+    /* admin sign-in gate */
+    #gate { position:fixed; inset:0; background:var(--paper); display:flex; align-items:center; justify-content:center; padding:24px; z-index:100; }
+    .gate-box { max-width:380px; text-align:center; }
+    .gate-box .kicker { font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--prickly); margin:0; }
+    .gate-box h1 { margin:6px 0 10px; }
+    #gate-msg { color:var(--soft); margin-bottom:20px; }
+    .wrap { display:none; }                     /* tool stays hidden until an admin is signed in */
+    body.authed .wrap { display:block; }
+    body.authed #gate { display:none; }
 </style>
 </head>
 <body>
@@ -66,8 +75,18 @@
     <button id="pub" disabled>Publish today's ballot</button>
 </div>
 
+<div id="gate">
+    <div class="gate-box">
+        <p class="kicker">Prickles &amp; Goo · Editor</p>
+        <h1>The Morning Desk</h1>
+        <p id="gate-msg">Admin only. Sign in to continue.</p>
+        <button id="signin">Sign in with Google</button>
+    </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyDDmZ-MCtJMyuZKvQU1nWO02_Yw3zN01_g",
@@ -79,8 +98,24 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
+    const ADMIN_EMAIL = "jdomins1@gmail.com";  // only this Google account gets in (matches firestore.rules isAdmin)
     const POOL = "daily_pool";                 // curated items live here so trackers accumulate votes across days
     const TARGET = 10;
+
+    // ── admin sign-in gate ──
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    document.getElementById("signin").onclick = () =>
+        auth.signInWithPopup(provider).catch(e => { document.getElementById("gate-msg").textContent = e.message; });
+    auth.onAuthStateChanged(u => {
+        const ok = u && u.email === ADMIN_EMAIL && u.emailVerified;
+        document.body.classList.toggle("authed", !!ok);
+        if (!ok) {
+            document.getElementById("gate-msg").textContent = u ? ("Not authorized: " + u.email) : "Admin only. Sign in to continue.";
+            document.getElementById("signin").textContent = u ? "Try another account" : "Sign in with Google";
+        }
+    });
 
     const $ = id => document.getElementById(id);
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -138,9 +173,12 @@
     $('gen').addEventListener('click', async () => {
         $('gen').disabled = true; setMsg('Harvesting market & news signal, then thinking…'); $('status').textContent = '';
         candidates = []; $('cards').innerHTML = ''; $('bar').hidden = true;
+        let tok = localStorage.getItem('pg-admin-token');
+        if (!tok) { tok = (prompt('Enter the Desk admin token (ADMIN_TOKEN from Netlify):') || '').trim(); if (tok) localStorage.setItem('pg-admin-token', tok); }
         try {
-            const r = await fetch('/desk', { method: 'POST', headers: { 'content-type': 'application/json' },
+            const r = await fetch('/desk', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': tok },
                 body: JSON.stringify({ watchlist: watchlist(), note: $('note').value.trim() }) });
+            if (r.status === 401) { localStorage.removeItem('pg-admin-token'); setMsg('Admin token rejected — hit Generate again to re-enter it.', 'err'); return; }
             const data = await r.json();
             if (!r.ok || data.error) { setMsg(data.error || ('Error ' + r.status), 'err'); return; }
             candidates = (data.candidates || []).filter(c => c && c.name);
