@@ -50,9 +50,3 @@
 [[edge_functions]]
   path = "/og"
   function = "og-image"
-
-# desk — the Morning Desk generator (POST: harvest + Claude → candidate cards).
-# Needs ANTHROPIC_API_KEY in the Netlify environment. Curated on /desk.html.
-[[edge_functions]]
-  path = "/desk"
-  function = "desk"

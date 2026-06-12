@@ -26,12 +26,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── the admin gate ──
-    // Only this Google account can seed items or publish ballots. To change it,
-    // edit the address here AND re-publish these rules in the Firebase Console.
+    // No identity in code: admins are listed by Firebase UID in the `admins`
+    // collection, which you manage in the Firestore console. To grant yourself
+    // access, create a doc at admins/<your-uid> (your UID is in Authentication →
+    // Users). To revoke, delete it. Nothing here reveals who the admin is.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == 'jdomins1@gmail.com'
-        && request.auth.token.email_verified == true;
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
     function isValidReason() {
@@ -103,6 +104,13 @@ service cloud.firestore {
     match /ballots/{date} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Admin allowlist. A signed-in user may read only their OWN doc (to learn
+    // whether they're an admin); the list is managed only in the console.
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
     }
   }
 }

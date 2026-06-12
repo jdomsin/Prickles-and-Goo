@@ -57,17 +57,17 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    const ADMIN_EMAIL = "jdomins1@gmail.com";   // must match firestore.rules isAdmin()
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     document.getElementById("signin").onclick = () =>
         auth.signInWithPopup(provider).catch(e => { document.getElementById("gate-msg").textContent = e.message; });
-    auth.onAuthStateChanged(u => {
-        const ok = u && u.email === ADMIN_EMAIL && u.emailVerified;
-        document.body.classList.toggle("authed", !!ok);
+    auth.onAuthStateChanged(async u => {
+        let ok = false;
+        if (u) { try { ok = (await db.collection("admins").doc(u.uid).get()).exists; } catch (e) {} }
+        document.body.classList.toggle("authed", ok);
         if (ok) { const w = document.getElementById("who"); if (w) w.textContent = u.email; }
         else {
-            document.getElementById("gate-msg").textContent = u ? ("Not authorized: " + u.email) : "Admin only. Sign in to seed.";
+            document.getElementById("gate-msg").textContent = u ? ("Signed in as " + u.email + " — not on the admin list.") : "Admin only. Sign in to seed.";
             document.getElementById("signin").textContent = u ? "Try another account" : "Sign in with Google";
         }
     });
