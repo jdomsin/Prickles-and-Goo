@@ -60,7 +60,8 @@
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     document.getElementById("signin").onclick = () =>
-        auth.signInWithPopup(provider).catch(e => { document.getElementById("gate-msg").textContent = e.message; });
+        auth.signInWithRedirect(provider).catch(e => { document.getElementById("gate-msg").textContent = e.message; });
+    auth.getRedirectResult().catch(e => { document.getElementById("gate-msg").textContent = e.message; });
     auth.onAuthStateChanged(async u => {
         let ok = false;
         if (u) { try { ok = (await db.collection("admins").doc(u.uid).get()).exists; } catch (e) {} }
